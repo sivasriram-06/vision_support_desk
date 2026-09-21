@@ -138,6 +138,7 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
             Direction: DIRECTION.IN,
             Channel: CHANNEL.EMAIL,
             Content: normalized.bodyText,
+            Content_Html: normalized.bodyHtml,
             Author_Contact_Id: contact.Contact_Id,
             Is_Public: "Y",
             To_Address: normalized.to.map((a) => a.email).join(", ") || null,

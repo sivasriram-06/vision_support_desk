@@ -13,7 +13,7 @@ const TICKET_COLUMNS = [
 ];
 
 const TICKET_CONVERSATION_COLUMNS = [
-    "Conversation_Id", "Ticket_Id", "Direction", "Channel", "Content",
+    "Conversation_Id", "Ticket_Id", "Direction", "Channel", "Content", "Content_Html",
     "Author_Contact_Id", "Author_Agent_Id", "Is_Public", "Is_Draft", "Is_Forward",
     "To_Address", "Cc_Address", "Sent_Time", "Created_By", "Modified_By",
     "Modified_Time", "Org_Id"

@@ -1,3 +1,5 @@
+const sanitizeEmailHtml = require("../../utils/sanitize-email-html");
+
 const getHeader = (headers, name) => {
     const header = (headers || []).find((h) => h.name.toLowerCase() === name.toLowerCase());
     return header ? header.value : null;
@@ -29,34 +31,30 @@ const decodeBase64Url = (data) => {
 
 const stripHtml = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-/** Walks the (possibly multipart/nested) Gmail payload for a text body. */
-const extractBody = (payload) => {
+/**
+ * Walks the (possibly multipart/nested) Gmail payload and returns BOTH the
+ * text/plain and text/html bodies when present - NOT just whichever comes
+ * first. A real-world email's plain-text alternative is often a stripped-
+ * down summary that drops things only present in the HTML version (a
+ * signature image, formatting, etc.) - see the "testing attachment" email
+ * from Prabhash, where the signature only exists in text/html.
+ */
+const extractBodyParts = (payload, acc = { text: null, html: null }) => {
     if (!payload) {
-        return "";
+        return acc;
     }
-    if (payload.mimeType === "text/plain" && payload.body?.data) {
-        return decodeBase64Url(payload.body.data);
+    if (payload.mimeType === "text/plain" && payload.body?.data && !acc.text) {
+        acc.text = decodeBase64Url(payload.body.data);
+    }
+    if (payload.mimeType === "text/html" && payload.body?.data && !acc.html) {
+        acc.html = decodeBase64Url(payload.body.data);
     }
     if (payload.parts) {
-        const plainPart = payload.parts.find((part) => part.mimeType === "text/plain");
-        if (plainPart?.body?.data) {
-            return decodeBase64Url(plainPart.body.data);
-        }
-        const htmlPart = payload.parts.find((part) => part.mimeType === "text/html");
-        if (htmlPart?.body?.data) {
-            return stripHtml(decodeBase64Url(htmlPart.body.data));
-        }
         for (const part of payload.parts) {
-            const nested = extractBody(part);
-            if (nested) {
-                return nested;
-            }
+            extractBodyParts(part, acc);
         }
     }
-    if (payload.body?.data) {
-        return decodeBase64Url(payload.body.data);
-    }
-    return "";
+    return acc;
 };
 
 /**
@@ -96,6 +94,7 @@ const collectAttachmentParts = (payload, acc = []) => {
 const normalizeMessage = (rawMessage) => {
     const headers = rawMessage.payload?.headers || [];
     const [from] = parseAddressHeader(getHeader(headers, "From"));
+    const { text, html } = extractBodyParts(rawMessage.payload);
 
     return {
         gmailMessageId: rawMessage.id,
@@ -108,7 +107,14 @@ const normalizeMessage = (rawMessage) => {
         to: parseAddressHeader(getHeader(headers, "To")),
         cc: parseAddressHeader(getHeader(headers, "Cc")),
         sentTime: new Date(Number(rawMessage.internalDate)).toISOString(),
-        bodyText: extractBody(rawMessage.payload).trim(),
+        // Plain text for search/preview/plain display. Falls back to a
+        // stripped version of the HTML when no text/plain part exists at
+        // all (rare, but some clients only send HTML).
+        bodyText: (text ?? (html ? stripHtml(html) : "")).trim(),
+        // Full-fidelity, sanitized HTML for rendering in the UI exactly as
+        // the sender formatted it (signatures, images, tables, etc.) - null
+        // when the message had no HTML part.
+        bodyHtml: html ? sanitizeEmailHtml(html) : null,
         attachments: collectAttachmentParts(rawMessage.payload)
     };
 };
