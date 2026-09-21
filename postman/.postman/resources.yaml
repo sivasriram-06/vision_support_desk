@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: 4d2460f3-f865-4e86-8bcc-10ca0b506337
+
+localResources:
+  collections:
+    - ../Vision-Support-Desk.postman_collection.json

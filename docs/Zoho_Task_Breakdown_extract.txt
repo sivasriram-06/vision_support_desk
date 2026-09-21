@@ -1,0 +1,20 @@
+=== SHEET: Sheet1 (dims A1:H19) ===
+Phase	Sub Task	Start Date	End Date				
+ Phase 1 — Ticket Management & Organization	Project setup, Google Cloud/Gmail API client creation, OAuth configuration and Node.js connection	2026-09-22 00:00:00	2026-09-22 00:00:00				
+	Gmail ingestion engine, load email data from tasks@sunoida.com into SQLite, basic ticket creation and ticket property mapping	2026-09-23 00:00:00	2026-09-23 00:00:00				
+	Agent Queue + Team Queue APIs and UI, including agent/team assignment	2026-09-24 00:00:00	2026-09-24 00:00:00				
+	All Cases: ticket list API/UI, search, filters, sorting, pagination, status/priority/tag/assignee/team display	2026-09-24 00:00:00	2026-09-24 00:00:00				
+	Ticket Detail: complete ticket properties, status/priority/assignee/team/department, tags and custom fields	2026-09-25 00:00:00	2026-09-25 00:00:00				
+	Conversations, threads, comments, email reply flow and attachments	2026-09-28 00:00:00	2026-09-28 00:00:00				
+	Contacts + Accounts: database, APIs, UI and ticket/customer mapping	2026-09-28 00:00:00	2026-09-28 00:00:00				
+	Agents + Departments + Teams: configuration UI, APIs, membership and assignment mapping	2026-09-29 00:00:00	2026-09-29 00:00:00				
+	Ticket actions and relationships: assignment, reassignment, status changes, tags, followers, history and resolution	2026-09-29 00:00:00	2026-09-29 00:00:00				
+	Phase 1 integration testing: Gmail → Ticket → Assignment → Conversation → UI, plus bug fixing	2026-09-30 00:00:00	2026-09-30 00:00:00				
+Phase 2 — Reporting, Configuration & Business Operations	Reports: report data model, APIs and basic report UI	2026-10-01 00:00:00	2026-10-01 00:00:00				
+	Configuration: layouts, custom fields, views, filters, business hours and SLA configuration	2026-10-01 00:00:00	2026-10-01 00:00:00				
+	Automation: rules, conditions, actions, ticket triggers and automation UI	2026-10-02 00:00:00	2026-10-02 00:00:00				
+	Channels + Email engine enhancement: inbound/outbound routing, replies, threading, retry and delivery status	2026-10-02 00:00:00	2026-10-02 00:00:00				
+	Activities: Tasks, Calls and Events APIs + UI + ticket/contact/account mapping	2026-10-04 00:00:00	2026-10-04 00:00:00				
+	Products + Contracts: database, APIs, UI and ticket/account mapping	2026-10-04 00:00:00	2026-10-04 00:00:00				
+	Remaining settings: roles/profiles, permissions, notifications, skills and organization configuration	2026-10-05 00:00:00	2026-10-05 00:00:00				
+	Cross-module integration, API/UI regression testing and bug fixing	2026-10-05 00:00:00	2026-10-05 00:00:00				

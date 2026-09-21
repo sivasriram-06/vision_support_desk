@@ -1,0 +1,571 @@
+ZOHO DESK — UI, MODULE &amp; API REFERENCE
+1. Scope and Design Rules
+This document is the module-wise UI reference for the Zoho Desk. It uses the supplied public API reference, captured internal UI/API reference, and existing table configuration as the source baseline. Advanced Analytics is intentionally excluded.
+UI is organized by module and sub-module; every screen has an API contract and primary database mapping.
+The Zoho Desk uses its own versioned REST API and database; Zoho internal supportapi paths are treated as behavioral evidence, not as the Zoho Desk backend.
+Every request is tenant-scoped from the authenticated session; Org_Id is never trusted from the client.
+Write endpoints require CSRF protection and should use optimistic concurrency for mutable resources.
+Dashboard widgets execute validated query definitions; clients never submit arbitrary SQL.
+2. Agent Login — Verified Zoho Methodology
+Zoho's agent model uses the agent's official email address as the login identity. Agents are invited to Zoho Desk and use the associated Zoho account; enterprise directory/SSO options can also be used. Zoho's official documentation describes Active Directory SSO through Zoho Directory Sync for agents. The captured Desk UI then operates with a web session: the internal supportapi requests use session-cookie authentication plus x-zcsrf-token.
+Zoho Desk implementation decision:
+Do not add Password or Password_Hash to HD_AGENT_MASTER.
+HD_AGENT_MASTER stores the Desk agent identity, role, profile and organizational membership.
+HD_AGENT_AUTH stores the external identity-provider mapping (provider + stable subject + login email).
+HD_AGENT_SESSION stores server-side session state and CSRF binding.
+HD_AUTH_LOGIN_EVENT stores security audit events.
+The browser receives an HttpOnly/Secure session cookie; state-changing requests also send a CSRF token/header.
+Source verification: Zoho official agent-management documentation states that the official email address is used to log in; Zoho also documents Active Directory SSO for agents. The supplied internal capture confirms the authenticated Desk UI uses session cookie + x-zcsrf-token.
+Official references: https://help.zoho.com/portal/en/kb/desk/user-management-and-security/agents-and-teams/articles/add-manage-desk-agents ; https://help.zoho.com/portal/en/kb/desk/user-management-and-security/data-security/articles/configuring-active-directory-sso-for-zoho-desk-agents
+Module 01. Login &amp; Security
+Authenticate an agent through an external identity layer, map the authenticated identity to the agent master, create a secure application session, and return the authorized agent context.
+Sub-modules
+Login / identity-provider handoff
+Authentication callback
+Current agent (/me)
+Logout
+Session and CSRF
+
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Login
+POST /api/v1/auth/login
+Start IdP authentication
+HD_AGENT_AUTH; HD_AUTH_LOGIN_EVENT
+Zoho Desk design based on Zoho agent identity model
+Callback
+GET /api/v1/auth/callback
+Validate code/state and create session
+HD_AGENT_AUTH; HD_AGENT_SESSION; HD_AUTH_LOGIN_EVENT
+Production design
+Current Agent
+GET /api/v1/auth/me
+Return agent + role/profile/departments
+HD_AGENT_MASTER; HD_ROLE_MASTER; HD_PROFILE_MASTER
+Production design
+Logout
+POST /api/v1/auth/logout
+Revoke session
+HD_AGENT_SESSION; HD_AUTH_LOGIN_EVENT
+Production design
+Production rules
+If a specific enterprise IdP is chosen, its exact OIDC/SAML configuration must be added to the deployment configuration.
+Zoho's proprietary login page itself is not cloned; the security behavior is reproduced using standards-based identity federation.
+Open / implementation notes
+HD_AGENT_MASTER
+HD_AGENT_AUTH
+HD_AGENT_SESSION
+HD_AUTH_LOGIN_EVENT
+HD_ROLE_MASTER
+HD_PROFILE_MASTER
+HD_AGENT_DEPARTMENT_MAP
+Database mapping
+Email remains the agent login identity.
+No plaintext password is stored in the agent table.
+Session is HttpOnly/Secure and state-changing calls require CSRF.
+Authorization is derived from role/profile/department membership.
+Module 02. Analytics
+Provide dashboard discovery, dashboard metadata, component configuration, widget data execution, dashboard sharing and reports. Advanced Analytics is excluded.
+Sub-modules
+Dashboard list
+Dashboard detail
+Dashboard components
+Widget data
+Dashboard folders
+Dashboard templates
+Component templates
+Reports
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Dashboard list
+GET /api/v1/dashboards
+Visible dashboards + permissions
+HD_DASHBOARD_MASTER; HD_DASHBOARD_FOLDER; HD_DASHBOARD_ACCESS_MAP
+Zoho dashboard metadata verified; Zoho Desk access map is production extension
+Dashboard detail
+GET /api/v1/dashboards/{id}
+Shell + components
+HD_DASHBOARD_MASTER; HD_DASHBOARD_COMPONENT
+Zoho metadata behavior verified
+Widget data
+GET /api/v1/dashboards/{id}/components/{componentId}/data
+Execute controlled component query
+HD_DASHBOARD_COMPONENT + source module tables
+Required Zoho Desk endpoint; source component getData remains incomplete
+Add component
+POST /api/v1/dashboards/{id}/components
+Create widget
+HD_COMPONENT_TEMPLATE_MASTER; HD_DASHBOARD_COMPONENT
+Production Zoho Desk design
+Update component
+PATCH /api/v1/dashboards/{id}/components/{componentId}
+Query/layout/visibility update
+HD_DASHBOARD_COMPONENT
+Production Zoho Desk design
+Refresh
+POST /api/v1/dashboards/{id}/refresh
+Refresh widgets
+HD_DASHBOARD_COMPONENT + source module tables
+Production Zoho Desk design
+Reports
+GET /api/v1/reports; POST /api/v1/reports/query
+List and execute controlled reports
+HD_REPORT_MASTER; HD_REPORT_FOLDER
+Zoho Desk design; source UI evidence is incomplete
+Production rules
+The supplied internal reference explicitly leaves the generic dashboard component data source unresolved. Therefore the Zoho Desk endpoint is a production design decision, not a claim that the exact Zoho internal endpoint has been fully documented.
+Advanced Analytics is excluded by request.
+Open / implementation notes
+HD_DASHBOARD_TEMPLATE_CATEGORY
+HD_DASHBOARD_TEMPLATE_MASTER
+HD_COMPONENT_TEMPLATE_MASTER
+HD_DASHBOARD_MASTER
+HD_DASHBOARD_FOLDER
+HD_DASHBOARD_COMPONENT
+HD_DASHBOARD_ACCESS_MAP
+HD_REPORT_FOLDER
+HD_REPORT_MASTER
+Database mapping
+Dashboard shell fields such as name, folder, favorite, default, editable and customizable are verified in the supplied internal capture.
+System-generated dashboards can be non-editable but customizable in the captured data.
+Widget query definitions must be validated against an allow-listed field/aggregation registry.
+Use cache TTL and refresh timestamps for production dashboard performance.
+Module 03. Tickets
+Core support workflow: list tickets, agent/team queues, ticket detail, communication, audit history, SLA/handling metrics and ticket actions.
+Sub-modules
+All Cases
+Agent Queue
+Team Queue
+Ticket Detail
+Conversations
+Threads
+Comments
+History
+Resolution
+Metrics
+Attachments
+Approvals
+Followers
+Tags
+Time Entries
+Create/Edit/Search
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+All Cases
+GET /api/v1/tickets
+Paginated ticket list with fields/filter/sort
+HD_TICKET_MASTER + related masters
+Strong source coverage
+Create
+POST /api/v1/tickets
+Create ticket
+HD_TICKET_MASTER
+Public API supports write with WRITE scopes; Zoho Desk design
+Detail
+GET /api/v1/tickets/{id}
+Full ticket
+HD_TICKET_MASTER + child tables
+Strong source coverage
+Update
+PATCH /api/v1/tickets/{id}
+Modify ticket + audit
+HD_TICKET_MASTER; HD_TICKET_HISTORY
+Zoho Desk production design
+Conversations
+GET/POST /api/v1/tickets/{id}/conversations
+Customer/internal message feed
+HD_TICKET_CONVERSATION; HD_TICKET_THREAD
+Strong source coverage
+Internal comments
+GET/POST /api/v1/tickets/{id}/comments
+Internal notes
+HD_TICKET_COMMENT
+Strong source coverage
+History
+GET /api/v1/tickets/{id}/history
+Field-change audit trail
+HD_TICKET_HISTORY
+Strong source coverage
+Metrics
+GET /api/v1/tickets/{id}/metrics
+SLA/handling metrics
+HD_TICKET_METRICS
+Strong source coverage
+Queues
+GET /api/v1/tickets/queues/agent; /team
+Agent/team queue
+HD_TICKET_MASTER; HD_AGENT_MASTER; HD_TEAM_MASTER
+Internal UI behavior verified
+Production rules
+Non-empty filter criteria syntax was not fully captured in the supplied internal document.
+Ticket create/edit/reply UI action details should be validated during implementation testing.
+Open / implementation notes
+HD_TICKET_MASTER
+HD_TICKET_CONVERSATION
+HD_TICKET_THREAD
+HD_TICKET_COMMENT
+HD_TICKET_HISTORY
+HD_TICKET_RESOLUTION
+HD_TICKET_METRICS
+HD_TICKET_ATTACHMENT
+HD_TICKET_APPROVAL
+HD_TICKET_FOLLOWER
+HD_TICKET_TAG_MAP
+HD_TICKET_TIME_ENTRY
+HD_TICKET_CUSTOM_FIELD_VALUE
+HD_TICKET_SCHEDULED_REPLY
+Database mapping
+Treat status and statusType separately: status is the tenant-specific label while statusType is the broader system bucket.
+Counters such as commentCount and threadCount are derived values and should not be trusted as independently authoritative master data.
+Queue endpoints should treat 204 No Content as an empty slot.
+All ticket mutations create history records and enforce authorization.
+Module 04. Contacts &amp; Accounts
+Manage customer/requester identities and company/account records used by ticket workflows.
+Sub-modules
+Contacts
+Contact detail
+Accounts
+Account detail
+Customer happiness
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Contacts
+GET /api/v1/contacts
+Directory/search/pagination
+HD_CONTACT_MASTER; HD_CUSTOMER_HAPPINESS
+Source UI/API captured
+Contact detail
+GET /api/v1/contacts/{id}
+Contact record
+HD_CONTACT_MASTER; HD_CUSTOMER_HAPPINESS
+Source coverage
+Accounts
+GET /api/v1/accounts
+Company directory
+HD_ACCOUNT_MASTER
+Public API coverage
+Account detail
+GET /api/v1/accounts/{id}
+Company record
+HD_ACCOUNT_MASTER; HD_CONTACT_ACCOUNT_MAP
+Zoho Desk design
+Production rules
+Captured contacts in the supplied tenant mostly had accountId/account null, so the populated contact-account response shape remains less verified.
+Open / implementation notes
+HD_CONTACT_MASTER
+HD_ACCOUNT_MASTER
+HD_CUSTOMER_HAPPINESS
+HD_CONTACT_ACCOUNT_MAP
+Database mapping
+Contact list supports view selection, sorting, pagination, rows-per-page and filters.
+Customer happiness is modeled separately.
+Module 05. Agents &amp; Organization
+Manage agent directory, departments, teams, roles, profiles and skills that drive authorization and assignment.
+Sub-modules
+Agents
+Departments
+Teams
+Roles
+Profiles
+Skills
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Agents
+GET /api/v1/agents
+Agent directory
+HD_AGENT_MASTER
+Public API verified
+Departments
+GET /api/v1/departments
+Department queues
+HD_DEPARTMENT_MASTER
+Public API verified
+Teams
+GET /api/v1/teams
+Teams
+HD_TEAM_MASTER; HD_TEAM_MEMBER_MAP
+Public API verified
+Roles
+GET /api/v1/roles
+Role hierarchy
+HD_ROLE_MASTER
+Public API verified
+Profiles
+GET /api/v1/profiles
+Permission matrix
+HD_PROFILE_MASTER
+Public API verified
+Skills
+GET /api/v1/skills
+Routing skills
+HD_SKILL_MASTER; HD_AGENT_SKILL_MAP
+Requires department context
+Production rules
+Exact permission matrix enforcement should be completed when the profile/role UI is implemented.
+Open / implementation notes
+HD_AGENT_MASTER
+HD_AGENT_DEPARTMENT_MAP
+HD_ROLE_MASTER
+HD_PROFILE_MASTER
+HD_DEPARTMENT_MASTER
+HD_TEAM_MASTER
+HD_TEAM_MEMBER_MAP
+HD_SKILL_MASTER
+HD_AGENT_SKILL_MAP
+Database mapping
+Keep agent identity separate from authentication secrets.
+Department and team membership are authorization inputs, not just display metadata.
+Module 06. Automation &amp; Configuration
+Centralize saved views, filters, macros, SLA/business-hours, assignment/escalation rules, blueprints, custom fields and layouts.
+Sub-modules
+Views
+Saved Filters
+Macros
+Business Hours
+SLA Policies
+Assignment Rules
+Escalation Rules
+Blueprints
+Custom Fields
+Layouts
+Channels
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Views
+GET /api/v1/views
+Saved list views
+HD_VIEW_MASTER; HD_VIEW_STAR_MAP
+Requires module parameter in source API
+Custom fields
+GET /api/v1/custom-fields
+Field definitions
+HD_CUSTOM_FIELD_DEFINITION
+Source endpoint is organizationFields
+Layouts
+GET /api/v1/layouts
+Ticket form configuration
+HD_LAYOUT_MASTER
+Source endpoint verified
+Business hours
+GET /api/v1/business-hours
+Working-time policy
+HD_BUSINESS_HOURS_MASTER
+Public API coverage
+Macros
+GET /api/v1/macros
+Saved agent actions
+HD_MACRO_MASTER
+Department parameter required in source
+SLA
+GET /api/v1/slas
+SLA policy
+HD_SLA_POLICY_MASTER
+Edition-dependent in source
+Production rules
+Some Zoho configuration endpoints are edition-dependent and were not universally available in the supplied tenant.
+Open / implementation notes
+HD_MACRO_MASTER
+HD_BUSINESS_HOURS_MASTER
+HD_SLA_POLICY_MASTER
+HD_VIEW_MASTER
+HD_VIEW_STAR_MAP
+HD_SAVED_FILTER
+HD_ASSIGNMENT_RULE_MASTER
+HD_ESCALATION_RULE_MASTER
+HD_BLUEPRINT_MASTER
+HD_CUSTOM_FIELD_DEFINITION
+HD_LAYOUT_MASTER
+HD_CHANNEL_MASTER
+HD_MAIL_REPLY_ADDRESS
+Database mapping
+Custom field names are authoritative only from field-definition metadata.
+Separate 403 scope mismatch from 404 feature-not-available behavior.
+Module 07. Channels &amp; Communication
+Represent support channels, mail reply addresses, feed updates, notifications and collaboration.
+Sub-modules
+Channels
+Mail Reply Address
+Feed
+Notifications
+Internal Chat
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Channels
+GET /api/v1/channels
+Configured support channels
+HD_CHANNEL_MASTER
+Public API coverage
+Mail reply
+GET /api/v1/mail-reply-address?departmentId=...
+Department reply address
+HD_MAIL_REPLY_ADDRESS
+Department required
+Feed
+GET /api/v1/feed
+Agent feed
+HD_FEED_POST
+Internal UI reference captured for Feed
+Notifications
+GET /api/v1/notifications
+Agent/system notifications
+HD_NOTIFICATION_MASTER
+Zoho Desk contract
+Chat
+GET /api/v1/chat/threads
+Internal collaboration
+HD_CHAT_THREAD
+Zoho Desk contract
+Production rules
+Notification and internal-chat UI/API behavior is less completely captured than tickets; mark these as implementation verification items.
+Open / implementation notes
+HD_CHANNEL_MASTER
+HD_MAIL_REPLY_ADDRESS
+HD_FEED_POST
+HD_NOTIFICATION_MASTER
+HD_CHAT_THREAD
+Database mapping
+Keep channel configuration separate from ticket channel values.
+Notification records should be user-scoped and read/unread state should be explicit.
+Module 08. Products &amp; Contracts
+Support product catalog and customer support-contract records used for ticket categorization and SLA context.
+Sub-modules
+Products
+Contracts
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Products
+GET /api/v1/products
+Product catalog
+HD_PRODUCT_MASTER
+Public API exists; supplied tenant was empty
+Contracts
+GET /api/v1/contracts
+Support agreements
+HD_CONTRACT_MASTER
+Public API exists; supplied tenant was empty
+Production rules
+The supplied tenant had no product/contract records, so populated UI examples need later validation.
+Open / implementation notes
+HD_PRODUCT_MASTER
+HD_CONTRACT_MASTER
+Database mapping
+Ticket productId is a lookup into product data where populated.
+Module 09. Activities
+Agent work items and scheduled activities associated with support operations.
+Sub-modules
+Tasks
+Events
+Calls
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Tasks
+GET /api/v1/tasks
+Agent to-dos
+HD_TASK_MASTER
+Public API exists
+Events
+GET /api/v1/events
+Calendar events
+HD_EVENT_MASTER
+Public API exists
+Calls
+GET /api/v1/calls
+Telephony call logs
+HD_CALL_LOG_MASTER
+Scope-dependent in source tenant
+Production rules
+Calls require telephony integration and additional permission/scope in the source environment.
+Open / implementation notes
+HD_TASK_MASTER
+HD_EVENT_MASTER
+HD_CALL_LOG_MASTER
+Database mapping
+Activities should support optional ticket linkage and agent ownership.
+Module 10. System &amp; Organization Settings
+Tenant-level identity, module registry and tag vocabulary.
+Sub-modules
+Organization
+Module registry
+Tags
+UI → API → DB
+Sub-module
+API
+Purpose
+Primary tables
+Evidence/status
+Organization
+GET /api/v1/organization
+Current tenant profile
+HD_ORGANIZATION_MASTER
+Public API verified
+Modules
+GET /api/v1/modules
+Enabled module registry
+HD_MODULE_MASTER
+Zoho Desk contract
+Tags
+GET /api/v1/tags
+Organization tag vocabulary
+HD_TAG_MASTER
+Edition-dependent in source
+Production rules
+Some source-level organization configuration endpoints are edition-dependent.
+Open / implementation notes
+HD_ORGANIZATION_MASTER
+HD_MODULE_MASTER
+HD_TAG_MASTER
+Database mapping
+Org_Id is the root tenant boundary for all data.
+11. Global API Response Contracts
+List response:
+{"data":[...],"paging":{"limit":50,"nextCursor":"...","hasMore":true}}
+Single-resource response:
+{"data":{...}}
+Error response:
+{"error":{"code":"TICKET_NOT_FOUND","message":"Ticket was not found","details":{},"traceId":"..."}}
+All write endpoints should return the updated resource or a deterministic operation result and should emit an audit/history record where the action changes business state.
+12. Implementation Priority
+Phase 1: Login, identity mapping, session, CSRF, /me and authorization.
+Phase 2: Tickets — All Cases, Agent Queue, Team Queue, Ticket Detail and conversations.
+Phase 3: Contacts, Accounts, Agents, Departments and Teams.
+Phase 4: Analytics dashboard shell + component query/data execution + access control.
+Phase 5: Reports, configuration and automation.
+Phase 6: Channels, activities, products/contracts and remaining settings.
+13. Source Notes
+External verification used for agent authentication: Zoho Desk official documentation for adding/managing agents and Active Directory SSO for agents. The supplied internal UI reference is the source for the session-cookie + x-zcsrf-token behavior.

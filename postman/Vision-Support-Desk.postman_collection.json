@@ -1,0 +1,442 @@
+{
+  "info": {
+    "_postman_id": "3f7a2b6e-6c1d-4e3a-9d0a-1f9b8a0c2b5e",
+    "name": "Vision Support Desk API",
+    "description": "REST API for Vision Support Desk (tickets, conversations, contacts, accounts, agents, departments, teams, Gmail ingestion).\n\nBase path: `/api/v1`. Server default: `http://localhost:5000`.\n\n### Response contract\n- List endpoints: `{ \"data\": [...], \"paging\": { \"limit\", \"page\", \"total\", \"hasMore\", \"nextCursor\" } }`\n- Single-resource endpoints: `{ \"data\": {...} }`\n- Errors: `{ \"error\": { \"code\", \"message\", \"details\", \"traceId\" } }`\n\n### Auth\nNo authentication is wired into any route yet (Login & Security module / `/api/v1/auth/*` is not implemented). Every write currently attributes to a system actor server-side. `auth.middleware.js` / `authorize.middleware.js` are ready for when JWT auth lands, expecting a `Bearer` token.\n\n### Suggested flow to try this collection\n1. Run **Departments → List Departments** and **Agents → List Agents** to copy a real `departmentId` / `agentId` (seeded by `npm run seed`).\n2. Run **Contacts → Create Contact** and save the returned `Contact_Id` into the `contactId` collection variable.\n3. Run **Tickets → Create Ticket** using those ids; save the returned `Ticket_Id` into the `ticketId` variable.\n4. Exercise Conversations/Comments/History/Queues using that `ticketId`.\n5. For Gmail, follow `docs/development/gmail-console-setup.md` before calling the Gmail folder's requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string", "description": "Vision Support Desk API origin" },
+    { "key": "departmentId", "value": "", "type": "string", "description": "HD_DEPARTMENT_MASTER.Department_Id - copy from List Departments" },
+    { "key": "teamId", "value": "", "type": "string", "description": "HD_TEAM_MASTER.Team_Id - copy from List Teams" },
+    { "key": "agentId", "value": "", "type": "string", "description": "HD_AGENT_MASTER.Agent_Id - copy from List Agents" },
+    { "key": "contactId", "value": "", "type": "string", "description": "HD_CONTACT_MASTER.Contact_Id - copy from Create/List Contacts" },
+    { "key": "accountId", "value": "", "type": "string", "description": "HD_ACCOUNT_MASTER.Account_Id - copy from List Accounts" },
+    { "key": "ticketId", "value": "", "type": "string", "description": "HD_TICKET_MASTER.Ticket_Id - copy from Create/List Tickets" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+            "description": "Liveness probe. Not versioned under /api/v1 - used by process managers/load balancers.\n\n**Response 200**\n```json\n{ \"data\": { \"status\": \"ok\", \"timestamp\": \"2026-09-21T11:42:07.301Z\" } }\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "description": "Core ticket workflow: All Cases, Agent/Team queues, ticket detail, properties, history, resolution, metrics. Backed by HD_TICKET_MASTER + child tables.",
+      "item": [
+        {
+          "name": "List Tickets (All Cases)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets?page=1&limit=25&statusType=Open&sortBy=Created_Time&sortOrder=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets"],
+              "query": [
+                { "key": "page", "value": "1", "description": "1-based page number (default 1)" },
+                { "key": "limit", "value": "25", "description": "Page size, max 100 (default 50)" },
+                { "key": "status", "value": "", "description": "Exact tenant-configured status label, e.g. \"Open\"", "disabled": true },
+                { "key": "statusType", "value": "Open", "description": "One of: Open, On Hold, Closed" },
+                { "key": "priority", "value": "", "description": "One of: P1, P2, P3, P4", "disabled": true },
+                { "key": "departmentId", "value": "", "description": "Filter by HD_DEPARTMENT_MASTER.Department_Id", "disabled": true },
+                { "key": "teamId", "value": "", "description": "Filter by HD_TEAM_MASTER.Team_Id", "disabled": true },
+                { "key": "assigneeId", "value": "", "description": "Filter by HD_AGENT_MASTER.Agent_Id", "disabled": true },
+                { "key": "contactId", "value": "", "description": "Filter by HD_CONTACT_MASTER.Contact_Id", "disabled": true },
+                { "key": "search", "value": "", "description": "Matches Subject or Ticket_Number (LIKE)", "disabled": true },
+                { "key": "sortBy", "value": "Created_Time", "description": "One of: Created_Time, Modified_Time, Due_Date, Priority, Status, Subject" },
+                { "key": "sortOrder", "value": "desc", "description": "asc | desc (default desc)" }
+              ]
+            },
+            "description": "All Cases: paginated, filterable, searchable, sortable ticket list.\n\n**Response 200**\n```json\n{ \"data\": [ { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Subject\": \"...\", ... } ], \"paging\": { \"limit\": 25, \"page\": 1, \"total\": 1, \"hasMore\": false, \"nextCursor\": null } }\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Ticket",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Cannot access dashboard\",\n  \"description\": \"Getting a 500 error when I open the dashboard\",\n  \"channel\": \"Web Form\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"contactId\": \"{{contactId}}\",\n  \"accountId\": null,\n  \"teamId\": null,\n  \"assigneeId\": null,\n  \"priority\": \"P3\",\n  \"statusType\": \"Open\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets"] },
+            "description": "Creates a ticket, its CREATED history row, and an empty metrics row in one transaction.\n\n**Required:** `subject`, `channel` (Email | Web Form | Social | Chat | Phone), `departmentId`, `contactId`.\n**Optional:** `description`, `teamId`, `accountId`, `assigneeId`, `status`, `statusType` (Open | On Hold | Closed, default Open), `priority` (P1-P4).\n\n**Response 201** → `{ \"data\": { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Status\": \"Open\", ... } }`\n\n**Errors:** `VALIDATION_ERROR` (400), `DEPARTMENT_NOT_FOUND` (400), `CONTACT_NOT_FOUND` (400)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}"] },
+            "description": "Full ticket record (HD_TICKET_MASTER row).\n\n**Errors:** `TICKET_NOT_FOUND` (404)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ticket",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"P2\",\n  \"assigneeId\": \"{{agentId}}\",\n  \"status\": \"In Progress\",\n  \"statusType\": \"Open\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}"] },
+            "description": "Partial update. Any of: `subject`, `description`, `status`, `statusType`, `priority`, `departmentId`, `teamId`, `assigneeId`, `category`, `subCategory`, `classification` (at least one required).\n\nWrites one HD_TICKET_HISTORY row per changed field (STATUS_CHANGE / PRIORITY_CHANGE / REASSIGNED / FIELD_CHANGE), all in one transaction.\n\n**Errors:** `VALIDATION_ERROR` (400 - empty body), `TICKET_NOT_FOUND` (404)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/history", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "history"] },
+            "description": "Field-change audit trail (HD_TICKET_HISTORY), oldest first. Every ticket mutation writes here: CREATED, STATUS_CHANGE, PRIORITY_CHANGE, REASSIGNED, CONVERSATION_ADDED, COMMENT_ADDED, FIELD_CHANGE."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket Resolution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/resolution", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "resolution"] },
+            "description": "Most recent HD_TICKET_RESOLUTION row, or `\"data\": null` if the ticket has no resolution note yet."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/metrics", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "metrics"] },
+            "description": "SLA/handling metrics (HD_TICKET_METRICS): First_Response_Time_Mins, Resolution_Time_Mins, Reopen_Count, Reassign_Count, Response_Count, Handled_By_Agent_Ids."
+          },
+          "response": []
+        },
+        {
+          "name": "List Ticket Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "conversations"] },
+            "description": "Unified message feed for the ticket (HD_TICKET_CONVERSATION), oldest first - inbound customer email and outbound agent replies together, ordered by Sent_Time."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Reply (Conversation)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Thanks for reporting - looking into it now.\",\n  \"channel\": \"Email\",\n  \"isPublic\": true,\n  \"toAddress\": \"customer@example.com\",\n  \"ccAddress\": \"\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "conversations"] },
+            "description": "Agent reply, customer-visible by default (`isPublic: false` for an internal-only conversation entry). Increments HD_TICKET_MASTER.Thread_Count and writes a CONVERSATION_ADDED history row, in one transaction.\n\n**Required:** `content`. **Optional:** `channel` (default \"Email\"), `isPublic` (default true), `toAddress`, `ccAddress`.\n\n**Errors:** `VALIDATION_ERROR` (400), `TICKET_NOT_FOUND` (404)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Ticket Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "comments"] },
+            "description": "Internal-only notes on the ticket (HD_TICKET_COMMENT), never visible to the customer, ordered by Commented_Time."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Internal Comment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Looks like a permissions bug on the dashboard route.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "comments"] },
+            "description": "Adds an internal note. Increments HD_TICKET_MASTER.Comment_Count and writes a COMMENT_ADDED history row.\n\n**Required:** `content`.\n\n**Errors:** `VALIDATION_ERROR` (400), `TICKET_NOT_FOUND` (404)."
+          },
+          "response": []
+        },
+        {
+          "name": "Agent Queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/agent/{{agentId}}?page=1&limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets", "queues", "agent", "{{agentId}}"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "25" }
+              ]
+            },
+            "description": "Tickets currently assigned to one agent (Assignee_Id = agentId). Accepts the same filter/sort query params as List Tickets."
+          },
+          "response": []
+        },
+        {
+          "name": "Team Queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/team/{{teamId}}?unassignedOnly=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets", "queues", "team", "{{teamId}}"],
+              "query": [
+                { "key": "unassignedOnly", "value": "true", "description": "\"true\" to only show tickets with no Assignee_Id yet" }
+              ]
+            },
+            "description": "Tickets assigned to a team (Team_Id = teamId), optionally filtered to unassigned-only via `unassignedOnly=true`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Contacts",
+      "description": "Customer/requester directory (HD_CONTACT_MASTER).",
+      "item": [
+        {
+          "name": "List Contacts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contacts?page=1&limit=25&search=ravi",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "contacts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "25" },
+                { "key": "search", "value": "ravi", "description": "Matches Email, First_Name or Last_Name (LIKE)", "disabled": true }
+              ]
+            },
+            "description": "Paginated contact directory/search."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Contact",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ravi\",\n  \"lastName\": \"Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"\",\n  \"accountId\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/contacts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "contacts"] },
+            "description": "Creates a contact directly. (The Gmail ingestion engine also creates contacts automatically from the sender's From header, reusing an existing one by email when it matches.)\n\n**Required:** `lastName`. **Optional:** `firstName`, `email`, `phone`, `accountId`.\n\n**Response 201** → `{ \"data\": { \"Contact_Id\": \"...\", ... } }`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Contact By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/contacts/{{contactId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "contacts", "{{contactId}}"] },
+            "description": "**Errors:** `CONTACT_NOT_FOUND` (404)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "description": "Customer company/organization records (HD_ACCOUNT_MASTER). Read-only via API today - created by the Contacts/Accounts module UI, not yet exposed as a write endpoint.",
+      "item": [
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts?page=1&limit=25&search=acme",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "25" },
+                { "key": "search", "value": "acme", "description": "Matches Account_Name (LIKE)", "disabled": true }
+              ]
+            },
+            "description": "Paginated company/account directory/search."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Account By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounts", "{{accountId}}"] },
+            "description": "**Errors:** `ACCOUNT_NOT_FOUND` (404)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "description": "Support agent directory (HD_AGENT_MASTER). Read-only via API today - agents are provisioned via seed/future admin tooling, not a public create endpoint.",
+      "item": [
+        {
+          "name": "List Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents?departmentId={{departmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents"],
+              "query": [
+                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to agents whose Primary_Department_Id matches", "disabled": true }
+              ]
+            },
+            "description": "Agent directory, optionally filtered by primary department. No pagination envelope (returns a plain array in `data`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/{{agentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "{{agentId}}"] },
+            "description": "**Errors:** `AGENT_NOT_FOUND` (404)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Departments",
+      "description": "Support departments / top-level queues (HD_DEPARTMENT_MASTER). Read-only via API today.",
+      "item": [
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/departments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "departments"] },
+            "description": "All departments for the tenant. No pagination envelope (returns a plain array in `data`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Department By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/departments/{{departmentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "departments", "{{departmentId}}"] },
+            "description": "**Errors:** `DEPARTMENT_NOT_FOUND` (404)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "description": "Teams below department level (HD_TEAM_MASTER). Read-only via API today.",
+      "item": [
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/teams?departmentId={{departmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "teams"],
+              "query": [
+                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to teams within one department", "disabled": true }
+              ]
+            },
+            "description": "All teams, optionally filtered by department. No pagination envelope (returns a plain array in `data`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Team By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/teams/{{teamId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "teams", "{{teamId}}"] },
+            "description": "**Errors:** `TEAM_NOT_FOUND` (404)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Gmail Integration",
+      "description": "OAuth setup + ingestion engine for the mailbox configured as GMAIL_MAILBOX in server/.env. Full walkthrough: docs/development/gmail-console-setup.md.",
+      "item": [
+        {
+          "name": "1. Get Auth URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/gmail/auth-url", "host": ["{{baseUrl}}"], "path": ["api", "v1", "gmail", "auth-url"] },
+            "description": "Step 1 of the one-time Gmail OAuth setup. Returns a Google consent URL built from GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI. Open the returned `url` in a browser and sign in as the GMAIL_MAILBOX address.\n\n**Response 200** → `{ \"data\": { \"url\": \"https://accounts.google.com/o/oauth2/v2/auth?...\" } }`\n\n**Errors:** `GMAIL_NOT_CONFIGURED` (500) if GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI are missing from `.env`."
+          },
+          "response": []
+        },
+        {
+          "name": "2. OAuth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gmail/oauth2callback?code=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "gmail", "oauth2callback"],
+              "query": [
+                { "key": "code", "value": "", "description": "Authorization code Google appends when it redirects here - you normally reach this via the browser, not by calling it manually from Postman" }
+              ]
+            },
+            "description": "Step 2 - Google redirects your browser here automatically after consent (GOOGLE_REDIRECT_URI must exactly match what's registered in Google Cloud Console). Exchanges `code` for tokens and returns the refresh token **once**.\n\n**Response 200**\n```json\n{ \"data\": { \"message\": \"Save refresh_token to GOOGLE_REFRESH_TOKEN in server/.env, then restart the server.\", \"refresh_token\": \"1//...\", \"access_token_expiry\": 1234567890, \"scope\": \"https://www.googleapis.com/auth/gmail.readonly\" } }\n```\nCopy `refresh_token` into `server/.env` as `GOOGLE_REFRESH_TOKEN`, then restart the server. This is a one-time step."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Run Sync",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/gmail/sync", "host": ["{{baseUrl}}"], "path": ["api", "v1", "gmail", "sync"] },
+            "description": "Manually triggers one ingestion pass (fetch → normalize → idempotency check → contact match/create → ticket match/create → conversation + thread) for GMAIL_MAILBOX. No scheduler is wired up yet - this is a manual trigger until a cron job exists.\n\nOptional body: `{ \"mailbox\": \"other@sunoida.com\" }` to override GMAIL_MAILBOX for one call.\n\n**Response 200**\n```json\n{ \"data\": { \"fetched\": 3, \"ingested\": 3, \"skipped\": 0, \"ticketsCreated\": 2, \"errors\": [] } }\n```\n\n**Errors:** `GMAIL_NOT_CONFIGURED` (500) if GOOGLE_REFRESH_TOKEN isn't set yet (complete steps 1-2 first); `MAIL_REPLY_ADDRESS_NOT_FOUND` (500) if `npm run seed` hasn't been run for the current GMAIL_MAILBOX."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
