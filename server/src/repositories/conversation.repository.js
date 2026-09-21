@@ -13,11 +13,24 @@ const conversationBase = createRepository({
     columns: TICKET_CONVERSATION_COLUMNS
 });
 
+/**
+ * Joins in the ACTUAL author of each message (contact for inbound, agent
+ * for outbound) rather than leaving callers to assume every inbound message
+ * in a thread came from the ticket's single primary Contact_Id - a thread
+ * can (and often does) have multiple different people replying.
+ */
 const findByTicketId = (ticketId) => {
     const db = getDB();
-    return db.prepare(
-        `SELECT * FROM ${DB_TABLES.TICKET_CONVERSATION} WHERE Ticket_Id = ? AND Is_Deleted = 'N' ORDER BY Sent_Time ASC`
-    ).all(ticketId);
+    return db.prepare(`
+        SELECT conv.*,
+            c.First_Name AS Author_Contact_First_Name, c.Last_Name AS Author_Contact_Last_Name, c.Email AS Author_Contact_Email,
+            a.First_Name AS Author_Agent_First_Name, a.Last_Name AS Author_Agent_Last_Name
+        FROM ${DB_TABLES.TICKET_CONVERSATION} conv
+        LEFT JOIN ${DB_TABLES.CONTACT} c ON c.Contact_Id = conv.Author_Contact_Id
+        LEFT JOIN ${DB_TABLES.AGENT} a ON a.Agent_Id = conv.Author_Agent_Id
+        WHERE conv.Ticket_Id = ? AND conv.Is_Deleted = 'N'
+        ORDER BY conv.Sent_Time ASC
+    `).all(ticketId);
 };
 
 const threadBase = createRepository({
@@ -48,9 +61,13 @@ const commentBase = createRepository({
 
 const findCommentsByTicketId = (ticketId) => {
     const db = getDB();
-    return db.prepare(
-        `SELECT * FROM ${DB_TABLES.TICKET_COMMENT} WHERE Ticket_Id = ? AND Is_Deleted = 'N' ORDER BY Commented_Time ASC`
-    ).all(ticketId);
+    return db.prepare(`
+        SELECT cm.*, a.First_Name AS Commenter_First_Name, a.Last_Name AS Commenter_Last_Name
+        FROM ${DB_TABLES.TICKET_COMMENT} cm
+        LEFT JOIN ${DB_TABLES.AGENT} a ON a.Agent_Id = cm.Commenter_Agent_Id
+        WHERE cm.Ticket_Id = ? AND cm.Is_Deleted = 'N'
+        ORDER BY cm.Commented_Time ASC
+    `).all(ticketId);
 };
 
 module.exports = {

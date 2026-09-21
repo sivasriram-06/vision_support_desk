@@ -18,11 +18,51 @@ const ERROR_CODES = require("../../constants/error-codes");
 const HTTP_STATUS = require("../../constants/http-status");
 const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT } = require("../../constants/ticket.constants");
 
-const FETCH_MAX_RESULTS = 20;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const listRecentMessageIds = async (gmail, query) => {
-    const res = await gmail.users.messages.list({ userId: "me", q: query, maxResults: FETCH_MAX_RESULTS });
-    return res.data.messages || [];
+// Gap between each message's full-fetch (+ any attachment downloads) within
+// one sync run, so a big backfill spreads its Gmail API calls out instead of
+// bursting them and tripping the per-minute quota (see runSync's early-exit
+// below for what happens if it trips anyway).
+const PER_MESSAGE_DELAY_MS = 350;
+
+const isQuotaExceededError = (error) => error?.code === 403 && error?.errors?.[0]?.reason === "rateLimitExceeded";
+
+const PAGE_SIZE = 50;
+// Safety cap so a mailbox with years of history backfills over a few sync
+// ticks instead of one run trying to walk the entire mailbox at once.
+const MAX_PAGES_PER_SYNC = 20;
+
+/**
+ * Walks Gmail's message list (newest-first) page by page instead of only
+ * ever reading the first page. Without this, ingestion could only ever see
+ * the newest PAGE_SIZE messages matching the query - anything older than
+ * that window would be permanently invisible, no matter how many sync ticks
+ * ran, since every tick re-requested the same "first page".
+ * Stops early once an entire page comes back with nothing new (we've
+ * caught up to already-ingested history), so steady-state ticks stay cheap.
+ */
+const listMessageIdsToProcess = async (gmail, query) => {
+    const ids = [];
+    let pageToken;
+
+    for (let page = 0; page < MAX_PAGES_PER_SYNC; page += 1) {
+        const res = await gmail.users.messages.list({ userId: "me", q: query, maxResults: PAGE_SIZE, pageToken });
+        const pageMessages = res.data.messages || [];
+        if (pageMessages.length === 0) {
+            break;
+        }
+
+        ids.push(...pageMessages.map((m) => m.id));
+
+        const hasNewOnThisPage = pageMessages.some((m) => !gmailIngestedMessageRepository.findByGmailMessageId(m.id));
+        if (!hasNewOnThisPage || !res.data.nextPageToken) {
+            break;
+        }
+        pageToken = res.data.nextPageToken;
+    }
+
+    return ids;
 };
 
 const getFullMessage = async (gmail, id) => {
@@ -210,10 +250,16 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
     const gmail = gmailClient.getGmailClient();
     const systemAgent = organizationService.getSystemAgent();
 
-    const messages = await listRecentMessageIds(gmail, `to:${mailbox}`);
-    const results = { fetched: messages.length, ingested: 0, skipped: 0, ticketsCreated: 0, attachmentsSaved: 0, errors: [] };
+    // listMessageIdsToProcess returns newest-first (Gmail's default list
+    // order). Ingesting in THAT order was the bug: a reply would be seen
+    // before the original message it replies to, so no matching thread
+    // existed yet and the reply span up its own separate ticket instead of
+    // attaching to the parent. Reversing to oldest-first guarantees a
+    // message's parent is always ingested before it, within a run.
+    const messageIds = (await listMessageIdsToProcess(gmail, `to:${mailbox}`)).reverse();
+    const results = { fetched: messageIds.length, ingested: 0, skipped: 0, ticketsCreated: 0, attachmentsSaved: 0, errors: [] };
 
-    for (const { id } of messages) {
+    for (const id of messageIds) {
         try {
             // Cheap local check first - no Gmail API call - so a message
             // we've already processed costs nothing on repeat ticks. This
@@ -247,7 +293,22 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
             } else {
                 results.skipped += 1;
             }
+
+            // Throttle: only after an actual API-consuming fetch, not after
+            // a cheap skip, so idle ticks stay instant.
+            await sleep(PER_MESSAGE_DELAY_MS);
         } catch (error) {
+            if (isQuotaExceededError(error)) {
+                // Every remaining message would fail the same way right now -
+                // stop burning through the list and let the next sync tick
+                // (or the next backfill page) pick up where this left off,
+                // once Gmail's per-minute quota window resets.
+                logger.warn(
+                    `Gmail sync stopped early: quota exceeded after ${results.ingested} ingested ` +
+                    `(${messageIds.length - results.ingested - results.skipped} message(s) remaining this run).`
+                );
+                break;
+            }
             logger.error(`Gmail ingestion failed for message ${id}:`, error);
             results.errors.push({ messageId: id, message: error.message });
         }
