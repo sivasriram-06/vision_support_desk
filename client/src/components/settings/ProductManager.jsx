@@ -4,6 +4,7 @@ import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
+import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getProducts, createProduct, updateProduct, deleteProduct } from '../../utils/api.js'
 
 /** CRUD list for the Product catalog (Ticket.Product_Id -> HD_PRODUCT_MASTER). */
@@ -14,6 +15,9 @@ export default function ProductManager() {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [rowError, setRowError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, products: prev.products }))
@@ -61,13 +65,17 @@ export default function ProductManager() {
     }
   }
 
-  const handleDelete = async (id) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteProduct(id)
+      await deleteProduct(pendingDelete.Product_Id)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete product.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete product.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -145,7 +153,7 @@ export default function ProductManager() {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(item.Product_Id)}
+                    onClick={() => setPendingDelete(item)}
                     title="Delete"
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                   >
@@ -157,6 +165,19 @@ export default function ProductManager() {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete product"
+        message={<>Delete <strong>{pendingDelete?.Product_Name}</strong>? Tickets already using it keep the name, but it won't be offered going forward.</>}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

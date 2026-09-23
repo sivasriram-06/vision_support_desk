@@ -4,6 +4,7 @@ import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
+import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../../utils/api.js'
 
 /** Add/edit/delete departments. Used inside the "Manage Departments" modal on the Teams page. */
@@ -14,6 +15,9 @@ export default function DepartmentManager({ onChanged }) {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [rowError, setRowError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, departments: prev.departments }))
@@ -63,14 +67,18 @@ export default function DepartmentManager({ onChanged }) {
     }
   }
 
-  const handleDelete = async (id) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteDepartment(id)
+      await deleteDepartment(pendingDelete.Department_Id)
+      setPendingDelete(null)
       load()
       onChanged?.()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete department.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete department.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -146,7 +154,7 @@ export default function DepartmentManager({ onChanged }) {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(item.Department_Id)}
+                    onClick={() => setPendingDelete(item)}
                     title={item.Is_Default === 'Y' ? 'The default department cannot be deleted' : 'Delete'}
                     disabled={item.Is_Default === 'Y'}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted cursor-pointer"
@@ -159,6 +167,19 @@ export default function DepartmentManager({ onChanged }) {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete department"
+        message={<>Delete <strong>{pendingDelete?.Department_Name}</strong>? Teams and tickets already using it keep it on record, but it won't be selectable going forward.</>}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

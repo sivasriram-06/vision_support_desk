@@ -9,6 +9,7 @@ import Avatar from '../components/ui/Avatar.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import SkeletonRows from '../components/ui/SkeletonRows.jsx'
+import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
 import { ApiError, getAgents, createAgent, updateAgent, deleteAgent, getDepartments } from '../utils/api.js'
 
 const COLUMNS = [
@@ -30,6 +31,9 @@ export default function AgentsPage() {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(null)
   const [rowError, setRowError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, agents: prev.agents }))
@@ -93,13 +97,17 @@ export default function AgentsPage() {
     }
   }
 
-  const handleDelete = async (agentId) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteAgent(agentId)
+      await deleteAgent(pendingDelete.Agent_Id)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete agent.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete agent.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -266,7 +274,7 @@ export default function AgentsPage() {
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                onClick={() => handleDelete(agent.Agent_Id)}
+                                onClick={() => setPendingDelete(agent)}
                                 title="Delete"
                                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                               >
@@ -287,6 +295,24 @@ export default function AgentsPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete agent"
+        message={
+          <>
+            Delete <strong>{[pendingDelete?.First_Name, pendingDelete?.Last_Name].filter(Boolean).join(' ')}</strong>?
+            Tickets already assigned to them keep the record, but they won't be assignable going forward.
+          </>
+        }
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

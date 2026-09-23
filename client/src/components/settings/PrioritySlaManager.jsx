@@ -5,6 +5,7 @@ import Button from '../ui/Button.jsx'
 import Modal from '../ui/Modal.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
+import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { getPriorityStyle } from '../../utils/ticketMeta.js'
 import {
   ApiError,
@@ -31,7 +32,9 @@ export default function PrioritySlaManager() {
   const [dialog, setDialog] = useState(null) // { mode: 'add' | 'edit', priority?, priorityInput, hoursInput }
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
-  const [deletingPriority, setDeletingPriority] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, rows: prev.rows }))
@@ -87,15 +90,17 @@ export default function PrioritySlaManager() {
     }
   }
 
-  const handleDelete = async (priority) => {
-    setDeletingPriority(priority)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deletePrioritySlaConfig(priority)
+      await deletePrioritySlaConfig(pendingDelete.Priority)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setState((prev) => ({ ...prev, error: err instanceof ApiError ? err.message : 'Failed to delete priority.' }))
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete priority.')
     } finally {
-      setDeletingPriority(null)
+      setDeleting(false)
     }
   }
 
@@ -147,10 +152,9 @@ export default function PrioritySlaManager() {
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => handleDelete(row.Priority)}
+                  onClick={() => setPendingDelete(row)}
                   title="Delete"
-                  disabled={deletingPriority === row.Priority}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -200,6 +204,19 @@ export default function PrioritySlaManager() {
           </div>
         </Modal>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete priority"
+        message={<>Delete <strong>{pendingDelete?.Priority}</strong>? Tickets already using it keep the value, but it won't be offered going forward.</>}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

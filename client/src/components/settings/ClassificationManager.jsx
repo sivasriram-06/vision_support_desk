@@ -4,6 +4,7 @@ import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
+import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getPicklistValues, createPicklistValue, updatePicklistValue, deletePicklistValue } from '../../utils/api.js'
 
 /**
@@ -21,6 +22,9 @@ export default function ClassificationManager() {
   const [addingCategoryFor, setAddingCategoryFor] = useState(null)
   const [editing, setEditing] = useState(null) // { kind: 'classification' | 'category', id, value }
   const [rowError, setRowError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null) // { kind: 'classification' | 'category', item }
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
@@ -102,13 +106,17 @@ export default function ClassificationManager() {
     }
   }
 
-  const handleDelete = async (item) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deletePicklistValue(item.Picklist_Value_Id)
+      await deletePicklistValue(pendingDelete.item.Picklist_Value_Id)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -211,7 +219,7 @@ export default function ClassificationManager() {
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(item)}
+                        onClick={() => setPendingDelete({ kind: 'classification', item })}
                         title="Delete"
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                       >
@@ -263,7 +271,7 @@ export default function ClassificationManager() {
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
-                              onClick={() => handleDelete(child)}
+                              onClick={() => setPendingDelete({ kind: 'category', item: child })}
                               title="Delete"
                               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                             >
@@ -298,6 +306,32 @@ export default function ClassificationManager() {
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={pendingDelete?.kind === 'classification' ? 'Delete classification' : 'Delete sub-classification'}
+        message={
+          pendingDelete?.kind === 'classification' ? (
+            <>
+              Delete <strong>{pendingDelete.item.Value}</strong>? Its {categoriesFor(pendingDelete.item.Value).length}{' '}
+              sub-classification(s) will be deleted with it. Tickets already using any of these keep the value, but
+              none will be offered going forward.
+            </>
+          ) : (
+            <>
+              Delete <strong>{pendingDelete?.item.Value}</strong>? Tickets already using it keep the value, but it
+              won't be offered going forward.
+            </>
+          )
+        }
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

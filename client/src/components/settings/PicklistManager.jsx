@@ -4,6 +4,7 @@ import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
+import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getPicklistValues, createPicklistValue, updatePicklistValue, deletePicklistValue } from '../../utils/api.js'
 
 /** CRUD list for one picklist field (Classification / Category / Sub Category). */
@@ -14,6 +15,9 @@ export default function PicklistManager({ field, label }) {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [rowError, setRowError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, values: prev.values }))
@@ -64,13 +68,17 @@ export default function PicklistManager({ field, label }) {
     }
   }
 
-  const handleDelete = async (id) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deletePicklistValue(id)
+      await deletePicklistValue(pendingDelete.Picklist_Value_Id)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete value.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete value.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -150,7 +158,7 @@ export default function PicklistManager({ field, label }) {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(item.Picklist_Value_Id)}
+                    onClick={() => setPendingDelete(item)}
                     title="Delete"
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                   >
@@ -162,6 +170,19 @@ export default function PicklistManager({ field, label }) {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete ${label.toLowerCase()} value`}
+        message={<>Delete <strong>{pendingDelete?.Value}</strong>? Tickets already using it keep the value, but it won't be offered going forward.</>}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

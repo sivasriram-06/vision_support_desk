@@ -8,6 +8,7 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import SkeletonRows from '../components/ui/SkeletonRows.jsx'
 import Modal from '../components/ui/Modal.jsx'
+import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
 import DepartmentManager from '../components/settings/DepartmentManager.jsx'
 import { ApiError, getTeams, createTeam, updateTeam, deleteTeam, getDepartments } from '../utils/api.js'
 
@@ -28,6 +29,9 @@ export default function TeamsPage() {
   const [editValue, setEditValue] = useState('')
   const [rowError, setRowError] = useState(null)
   const [showDepartmentModal, setShowDepartmentModal] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = () => {
     setState((prev) => ({ loading: true, error: null, teams: prev.teams }))
@@ -89,13 +93,17 @@ export default function TeamsPage() {
     }
   }
 
-  const handleDelete = async (teamId) => {
-    setRowError(null)
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteTeam(teamId)
+      await deleteTeam(pendingDelete.Team_Id)
+      setPendingDelete(null)
       load()
     } catch (err) {
-      setRowError(err instanceof ApiError ? err.message : 'Failed to delete team.')
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete team.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -210,7 +218,7 @@ export default function TeamsPage() {
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(team.Team_Id)}
+                              onClick={() => setPendingDelete(team)}
                               title="Delete"
                               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger cursor-pointer"
                             >
@@ -236,6 +244,19 @@ export default function TeamsPage() {
           <DepartmentManager onChanged={() => { loadDepartments(); load() }} />
         </Modal>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete team"
+        message={<>Delete <strong>{pendingDelete?.Team_Name}</strong>? Tickets already assigned to it keep the team on record, but it won't be selectable going forward.</>}
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }
