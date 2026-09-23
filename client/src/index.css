@@ -1,12 +1,6 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&family=JetBrains+Mono:wght@400..700&display=swap');
 
-/*
-  Design tokens. This is the ONLY place colors/fonts are defined - everything
-  else in the app is built with Tailwind utility classes that reference these
-  (bg-primary, text-navy, border-border, font-mono, ...). Palette matches the
-  Vision Support Desk brand: warm orange primary on a cool slate-navy system.
-*/
+
 @theme {
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
@@ -65,5 +59,13 @@
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 3px;
+  }
+
+  .email-html-body * {
+    box-sizing: content-box;
+  }
+
+  .email-html-body img {
+    display: inline;
   }
 }

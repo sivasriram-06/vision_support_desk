@@ -15,4 +15,15 @@ const insert = ({ gmailMessageId, ticketId, threadId }) => {
     ).run(gmailMessageId, ticketId, threadId);
 };
 
-module.exports = { findByGmailMessageId, insert };
+/** Every message this mailbox has ever ingested - used by deletion-sync to diff against Gmail's current live set. */
+const findAll = () => {
+    const db = getDB();
+    return db.prepare(`SELECT * FROM ${TABLE}`).all();
+};
+
+const deleteByGmailMessageId = (gmailMessageId) => {
+    const db = getDB();
+    db.prepare(`DELETE FROM ${TABLE} WHERE Gmail_Message_Id = ?`).run(gmailMessageId);
+};
+
+module.exports = { findByGmailMessageId, insert, findAll, deleteByGmailMessageId };

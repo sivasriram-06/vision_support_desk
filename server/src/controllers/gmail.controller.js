@@ -1,5 +1,6 @@
 const gmailClient = require("../integrations/gmail/gmail.client");
 const ingestionEngine = require("../integrations/gmail/ingestion.engine");
+const deletionSync = require("../integrations/gmail/deletion-sync");
 const env = require("../config/env");
 const HTTP_STATUS = require("../constants/http-status");
 const { ok } = require("../utils/api-response");
@@ -48,4 +49,15 @@ const sync = async (req, res, next) => {
     }
 };
 
-module.exports = { getAuthUrl, oauthCallback, sync };
+/** Manually triggers a deletion-sync pass (checks for mail removed from Gmail since it was ingested). */
+const syncDeletions = async (req, res, next) => {
+    try {
+        const mailbox = req.body && req.body.mailbox ? req.body.mailbox : env.google.mailbox;
+        const results = await deletionSync.runDeletionSync({ mailbox });
+        ok(res, HTTP_STATUS.OK, results);
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { getAuthUrl, oauthCallback, sync, syncDeletions };

@@ -1,11 +1,5 @@
 import axios from 'axios'
 
-/**
- * Backend response contract: success -> { data, paging? }, error ->
- * { error: { code, message, details, traceId } }. Every exported function
- * below resolves with the unwrapped body (so callers get { data, paging }
- * directly) and rejects with an ApiError on any failure.
- */
 export class ApiError extends Error {
   constructor(message, { status, code, details, traceId } = {}) {
     super(message)
@@ -73,13 +67,41 @@ export const getAccount = (accountId) => unwrap(axiosClient.get(`/api/v1/account
 // Agents
 export const getAgents = (params) => unwrap(axiosClient.get('/api/v1/agents', { params }))
 export const getAgent = (agentId) => unwrap(axiosClient.get(`/api/v1/agents/${agentId}`))
+export const createAgent = (data) => unwrap(axiosClient.post('/api/v1/agents', data))
+export const updateAgent = (agentId, data) => unwrap(axiosClient.patch(`/api/v1/agents/${agentId}`, data))
+export const deleteAgent = (agentId) => unwrap(axiosClient.delete(`/api/v1/agents/${agentId}`))
 
 // Departments
 export const getDepartments = () => unwrap(axiosClient.get('/api/v1/departments'))
 export const getDepartment = (departmentId) => unwrap(axiosClient.get(`/api/v1/departments/${departmentId}`))
+export const createDepartment = (data) => unwrap(axiosClient.post('/api/v1/departments', data))
+export const updateDepartment = (departmentId, data) => unwrap(axiosClient.patch(`/api/v1/departments/${departmentId}`, data))
+export const deleteDepartment = (departmentId) => unwrap(axiosClient.delete(`/api/v1/departments/${departmentId}`))
 
 // Teams
 export const getTeams = (params) => unwrap(axiosClient.get('/api/v1/teams', { params }))
 export const getTeam = (teamId) => unwrap(axiosClient.get(`/api/v1/teams/${teamId}`))
+export const createTeam = (data) => unwrap(axiosClient.post('/api/v1/teams', data))
+export const updateTeam = (teamId, data) => unwrap(axiosClient.patch(`/api/v1/teams/${teamId}`, data))
+export const deleteTeam = (teamId) => unwrap(axiosClient.delete(`/api/v1/teams/${teamId}`))
+
+// Products
+export const getProducts = () => unwrap(axiosClient.get('/api/v1/products'))
+export const getProduct = (productId) => unwrap(axiosClient.get(`/api/v1/products/${productId}`))
+export const createProduct = (data) => unwrap(axiosClient.post('/api/v1/products', data))
+export const updateProduct = (productId, data) => unwrap(axiosClient.patch(`/api/v1/products/${productId}`, data))
+export const deleteProduct = (productId) => unwrap(axiosClient.delete(`/api/v1/products/${productId}`))
+
+// Priority SLA config (hours-to-respond per priority, admin-managed)
+export const getPrioritySlaConfig = () => unwrap(axiosClient.get('/api/v1/priority-sla'))
+export const createPrioritySlaConfig = (priority, slaHours) => unwrap(axiosClient.post('/api/v1/priority-sla', { priority, slaHours }))
+export const upsertPrioritySlaConfig = (priority, slaHours) => unwrap(axiosClient.put(`/api/v1/priority-sla/${encodeURIComponent(priority)}`, { slaHours }))
+export const deletePrioritySlaConfig = (priority) => unwrap(axiosClient.delete(`/api/v1/priority-sla/${encodeURIComponent(priority)}`))
+
+// Picklists (Status / Classification / Category / Sub Category option lists)
+export const getPicklistValues = (field, parentValue) => unwrap(axiosClient.get('/api/v1/picklists', { params: { field, parentValue } }))
+export const createPicklistValue = (data) => unwrap(axiosClient.post('/api/v1/picklists', data))
+export const updatePicklistValue = (picklistValueId, data) => unwrap(axiosClient.patch(`/api/v1/picklists/${picklistValueId}`, data))
+export const deletePicklistValue = (picklistValueId) => unwrap(axiosClient.delete(`/api/v1/picklists/${picklistValueId}`))
 
 export default axiosClient

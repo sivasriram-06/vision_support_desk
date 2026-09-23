@@ -27,14 +27,14 @@ function MessageCard({ message, authorName }) {
           <p className="truncate text-[13px] font-semibold text-ink">{authorName}</p>
           <p className="text-[11.5px] text-muted">{formatDateTime(message.Sent_Time)}</p>
         </div>
-        <span
+        {/* <span
           className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${
             isInbound ? 'bg-sky/10 text-sky-dark' : 'bg-primary/10 text-primary-dark'
           }`}
         >
           {isInbound ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
           {isInbound ? 'Customer' : 'Agent reply'}
-        </span>
+        </span> */}
       </div>
 
       {message.Content_Html ? (
@@ -80,16 +80,7 @@ function CommentCard({ comment }) {
   )
 }
 
-/**
- * Merges conversations + internal comments into one chronological feed, so
- * the full story of a ticket - customer messages, replies, and internal
- * notes - reads in the order it actually happened.
- *
- * Each message's author comes from ITS OWN Author_Contact_Id/Author_Agent_Id
- * (joined server-side), never the ticket's single overall contact - a
- * thread can have several different people replying, and attributing every
- * inbound message to "the" contact would misname whoever actually sent it.
- */
+
 export default function ConversationThread({ conversations, comments, attachmentCountByConversation }) {
   const items = [
     ...conversations.map((c) => ({ type: 'message', time: c.Sent_Time, data: c })),

@@ -63,18 +63,26 @@ const extractBodyParts = (payload, acc = { text: null, html: null }) => {
  * "exact email"). For a large attachment, Gmail only gives back
  * body.attachmentId here and expects a separate attachments.get call for
  * the bytes; for small ones body.data may already be inline.
+ *
+ * contentId is that part's RFC 2045 Content-ID header (angle brackets
+ * stripped), when present - this is how the HTML body's <img src="cid:...">
+ * tags reference a specific part. The ingestion engine uses it to tell an
+ * inline body image apart from a genuine attachment: a cid: match means the
+ * image IS the message content, not something separate to download.
  */
 const collectAttachmentParts = (payload, acc = []) => {
     if (!payload) {
         return acc;
     }
     if (payload.filename && payload.filename.length > 0 && payload.body) {
+        const contentIdHeader = getHeader(payload.headers, "Content-ID");
         acc.push({
             filename: payload.filename,
             mimeType: payload.mimeType || "application/octet-stream",
             attachmentId: payload.body.attachmentId || null,
             inlineData: payload.body.data || null,
-            size: payload.body.size || 0
+            size: payload.body.size || 0,
+            contentId: contentIdHeader ? contentIdHeader.replace(/^<|>$/g, "") : null
         });
     }
     if (payload.parts) {

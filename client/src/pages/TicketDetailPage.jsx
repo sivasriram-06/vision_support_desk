@@ -16,6 +16,7 @@ import {
   getDepartment,
   getTeam,
   getAgent,
+  getProduct,
 } from '../utils/api.js'
 
 const fetchIfPresent = (id, fn) => (id ? fn(id) : Promise.resolve(null))
@@ -25,17 +26,18 @@ export default function TicketDetailPage() {
   const navigate = useNavigate()
 
   const [state, setState] = useState({ loading: true, error: null, data: null })
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
 
     const load = async () => {
-      setState({ loading: true, error: null, data: null })
+      setState((prev) => ({ loading: true, error: null, data: prev.data }))
       try {
         const ticketRes = await getTicket(ticketId)
         const ticket = ticketRes.data
 
-        const [conversationsRes, commentsRes, attachmentsRes, contactRes, accountRes, departmentRes, teamRes, assigneeRes] =
+        const [conversationsRes, commentsRes, attachmentsRes, contactRes, accountRes, departmentRes, teamRes, assigneeRes, productRes] =
           await Promise.all([
             getTicketConversations(ticketId),
             getTicketComments(ticketId),
@@ -45,6 +47,7 @@ export default function TicketDetailPage() {
             fetchIfPresent(ticket.Department_Id, getDepartment),
             fetchIfPresent(ticket.Team_Id, getTeam),
             fetchIfPresent(ticket.Assignee_Id, getAgent),
+            fetchIfPresent(ticket.Product_Id, getProduct),
           ])
 
         if (cancelled) return
@@ -61,6 +64,7 @@ export default function TicketDetailPage() {
             department: departmentRes?.data || null,
             team: teamRes?.data || null,
             assignee: assigneeRes?.data || null,
+            product: productRes?.data || null,
           },
         })
       } catch (err) {
@@ -74,7 +78,7 @@ export default function TicketDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [ticketId])
+  }, [ticketId, refreshKey])
 
   const BackLink = (
     <button
@@ -86,7 +90,7 @@ export default function TicketDetailPage() {
     </button>
   )
 
-  if (state.loading) {
+  if (state.loading && !state.data) {
     return (
       <div className="flex flex-col gap-5">
         {BackLink}
@@ -110,7 +114,7 @@ export default function TicketDetailPage() {
     )
   }
 
-  const { ticket, conversations, comments, attachments, contact, account, department, team, assignee } = state.data
+  const { ticket, conversations, comments, attachments, contact, account, department, team, assignee, product } = state.data
 
   const attachmentCountByConversation = attachments.reduce((acc, file) => {
     if (file.Conversation_Id) acc[file.Conversation_Id] = (acc[file.Conversation_Id] || 0) + 1
@@ -146,6 +150,8 @@ export default function TicketDetailPage() {
           department={department}
           team={team}
           assignee={assignee}
+          product={product}
+          onUpdated={() => setRefreshKey((k) => k + 1)}
         />
       </div>
     </div>

@@ -1,9 +1,37 @@
 const env = require("../config/env");
 const ingestionEngine = require("../integrations/gmail/ingestion.engine");
+const deletionSync = require("../integrations/gmail/deletion-sync");
 const logger = require("../utils/logger");
 
 let intervalHandle = null;
 let isRunning = false;
+let tickCount = 0;
+
+// Deletion-sync has to re-list the WHOLE matching query every run (no
+// early-stop is possible for a diff), so it rides along on the same
+// interval as the main sync but only actually runs every Nth tick instead
+// of every tick - the main sync's incremental, early-stopping walk is cheap
+// enough to run every time; a full re-list isn't worth doing that often.
+const DELETION_SYNC_EVERY_N_TICKS = 20;
+
+const runDeletionSyncTick = async () => {
+    try {
+        const results = await deletionSync.runDeletionSync({ mailbox: env.google.mailbox });
+        if (results.removed > 0 || results.errors.length > 0) {
+            logger.info(
+                `Gmail deletion-sync: checked=${results.checked} removed=${results.removed} ` +
+                `ticketsRemoved=${results.ticketsRemoved} errors=${results.errors.length}`
+            );
+        } else {
+            logger.debug(`Gmail deletion-sync tick: checked=${results.checked}, nothing removed.`);
+        }
+        if (results.errors.length > 0) {
+            logger.error("Gmail deletion-sync errors:", results.errors);
+        }
+    } catch (error) {
+        logger.error("Gmail deletion-sync failed:", error);
+    }
+};
 
 const runOnce = async () => {
     if (isRunning) {
@@ -26,6 +54,11 @@ const runOnce = async () => {
         }
         if (results.errors.length > 0) {
             logger.error("Gmail sync job errors:", results.errors);
+        }
+
+        tickCount += 1;
+        if (tickCount % DELETION_SYNC_EVERY_N_TICKS === 0) {
+            await runDeletionSyncTick();
         }
     } catch (error) {
         logger.error("Gmail sync job failed:", error);

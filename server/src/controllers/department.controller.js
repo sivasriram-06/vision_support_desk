@@ -1,4 +1,5 @@
 const departmentService = require("../services/department.service");
+const getActorAgentId = require("../utils/get-actor");
 const HTTP_STATUS = require("../constants/http-status");
 const { ok } = require("../utils/api-response");
 
@@ -20,4 +21,31 @@ const getDepartmentById = (req, res, next) => {
     }
 };
 
-module.exports = { listDepartments, getDepartmentById };
+const createDepartment = (req, res, next) => {
+    try {
+        const department = departmentService.createDepartment(req.body, getActorAgentId(req));
+        ok(res, HTTP_STATUS.CREATED, department);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const updateDepartment = (req, res, next) => {
+    try {
+        const department = departmentService.updateDepartment(req.params.departmentId, req.body, getActorAgentId(req));
+        ok(res, HTTP_STATUS.OK, department);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const deleteDepartment = (req, res, next) => {
+    try {
+        departmentService.deleteDepartment(req.params.departmentId, getActorAgentId(req));
+        ok(res, HTTP_STATUS.OK, { deleted: true });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { listDepartments, getDepartmentById, createDepartment, updateDepartment, deleteDepartment };

@@ -1,9 +1,6 @@
 import Avatar from '../ui/Avatar.jsx'
 
-/**
- * Sticky frosted top bar with a 3px brand-gradient accent edge, matching the
- * reference's `.ws-bar` workspace identity strip.
- */
+
 export default function Topbar() {
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-white/95 px-5 backdrop-blur-md backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_20px_-14px_rgba(16,24,40,0.55)]">
@@ -14,7 +11,7 @@ export default function Topbar() {
       </div>
       <p className="text-[13.5px] font-extrabold uppercase tracking-wide text-navy">Client Support</p>
       <span className="mx-1 h-4 w-px bg-gradient-to-b from-transparent via-border-strong to-transparent" />
-      <p className="truncate text-[12px] font-semibold text-slate-500">Sunoida Solutions · tasks@sunoida.com</p>
+      <p className="truncate text-[12px] font-semibold text-slate-500">Sunoida Solutions</p>
 
       <div className="ml-auto flex items-center gap-3">
         <Avatar name="Sunoida Agent" size={32} />

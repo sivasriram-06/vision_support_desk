@@ -1,5 +1,9 @@
 const Joi = require("joi");
-const { STATUS_TYPE, PRIORITY, CHANNEL } = require("../constants/ticket.constants");
+const { STATUS_TYPE, CHANNEL } = require("../constants/ticket.constants");
+
+// Priority is an admin-managed list (see HD_PRIORITY_SLA_CONFIG /
+// priority-sla.service.js), not a fixed enum, so it's validated as a plain
+// string here rather than against ticket.constants.js's PRIORITY.
 
 const ticketIdParamSchema = Joi.object({
     ticketId: Joi.string().required()
@@ -16,21 +20,22 @@ const createTicketSchema = Joi.object({
     assigneeId: Joi.string().allow(null),
     status: Joi.string().allow(null),
     statusType: Joi.string().valid(...Object.values(STATUS_TYPE)),
-    priority: Joi.string().valid(...Object.values(PRIORITY)).allow(null)
+    priority: Joi.string().max(30).allow(null)
 });
 
 const updateTicketSchema = Joi.object({
     subject: Joi.string().max(500),
     description: Joi.string().allow("", null),
     status: Joi.string(),
-    statusType: Joi.string().valid(...Object.values(STATUS_TYPE)),
-    priority: Joi.string().valid(...Object.values(PRIORITY)).allow(null),
+    priority: Joi.string().max(30).allow(null),
     departmentId: Joi.string(),
     teamId: Joi.string().allow(null),
     assigneeId: Joi.string().allow(null),
+    productId: Joi.string().allow(null),
     category: Joi.string().allow("", null),
     subCategory: Joi.string().allow("", null),
-    classification: Joi.string().allow("", null)
+    classification: Joi.string().allow("", null),
+    dueDate: Joi.string().isoDate().allow(null)
 }).min(1);
 
 const listTicketsQuerySchema = Joi.object({
@@ -38,7 +43,7 @@ const listTicketsQuerySchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100),
     status: Joi.string(),
     statusType: Joi.string().valid(...Object.values(STATUS_TYPE)),
-    priority: Joi.string().valid(...Object.values(PRIORITY)),
+    priority: Joi.string().max(30),
     departmentId: Joi.string(),
     teamId: Joi.string(),
     assigneeId: Joi.string(),

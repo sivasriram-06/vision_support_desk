@@ -16,4 +16,11 @@ const findByTicketId = (ticketId) => {
     ).all(ticketId);
 };
 
-module.exports = { ...base, findByTicketId };
+const findByConversationId = (conversationId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.TICKET_ATTACHMENT} WHERE Conversation_Id = ? AND Is_Deleted = 'N'`
+    ).all(conversationId);
+};
+
+module.exports = { ...base, findByTicketId, findByConversationId };

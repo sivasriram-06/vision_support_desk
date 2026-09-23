@@ -1,17 +1,3 @@
-/**
- * Splits a sanitized email HTML body into { main, quoted }: the actual
- * reply text, and the quoted "On ... wrote: <original message>" trailer
- * most mail clients (Gmail included) append to every reply. The raw HTML
- * always contains the full quote - Gmail's own "..." collapse is a
- * client-side rendering choice, not part of the stored message - so we
- * replicate the same behavior here instead of dumping the whole quoted
- * thread inline every time (which is redundant: we already show the
- * original message as its own card above).
- *
- * Detection relies on the universal <blockquote> element (every major
- * client wraps quoted content in one), not on class names - our sanitizer
- * strips `class` attributes, so a Gmail-specific selector wouldn't survive.
- */
 export const splitEmailQuote = (html) => {
   if (!html) return { main: html, quoted: null }
 

@@ -21,4 +21,11 @@ const findAll = (orgId, { departmentId } = {}) => {
     ).all(orgId);
 };
 
-module.exports = { ...base, findAll };
+const findByName = (orgId, departmentId, teamName) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.TEAM} WHERE Org_Id = ? AND Department_Id = ? AND Team_Name = ? AND Is_Deleted = 'N'`
+    ).get(orgId, departmentId, teamName);
+};
+
+module.exports = { ...base, findAll, findByName };

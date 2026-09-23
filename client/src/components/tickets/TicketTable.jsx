@@ -10,17 +10,15 @@ import { formatDateTime } from '../../utils/format.js'
 
 const CHANNEL_ICONS = { Email: Mail, 'Web Form': Globe, Chat: MessageSquare, Phone: Phone, Social: Share2 }
 
-// Fixed proportional widths (sum to 100%) so the table always fits the
-// container at 100% - no horizontal scrollbar at any desktop/tablet/2xl
-// size. Content truncates within its own column instead of forcing overflow.
+
 const COLUMNS = [
   { label: 'Ticket', width: '9%' },
   { label: 'Subject', width: '31%' },
   { label: 'Status', width: '11%' },
-  { label: 'Priority', width: '10%' },
+  { label: 'Priority', width: '8%' },
   { label: 'Contact', width: '16%' },
-  { label: 'Assignee', width: '15%' },
-  { label: 'Created', width: '8%' },
+  { label: 'Assignee', width: '12%' },
+  { label: 'Created', width: '12%' },
 ]
 
 function TicketRow({ ticket }) {

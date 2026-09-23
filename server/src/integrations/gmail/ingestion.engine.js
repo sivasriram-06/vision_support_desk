@@ -9,6 +9,7 @@ const gmailIngestedMessageRepository = require("../../repositories/gmail-ingeste
 const attachmentRepository = require("../../repositories/attachment.repository");
 const ticketService = require("../../services/ticket.service");
 const contactService = require("../../services/contact.service");
+const agentService = require("../../services/agent.service");
 const organizationService = require("../../services/organization.service");
 const generateId = require("../../utils/generate-id");
 const { saveAttachmentBuffer } = require("../../utils/file-storage");
@@ -95,10 +96,65 @@ const downloadAttachments = async (gmail, gmailMessageId, attachmentParts) => {
             filename: part.filename,
             mimeType: part.mimeType,
             size: part.size,
+            contentId: part.contentId,
             buffer: Buffer.from(base64Data, "base64")
         });
     }
     return files;
+};
+
+const MAX_REMOTE_IMAGE_BYTES = 5 * 1024 * 1024; // generous for a signature/logo, cheap insurance against a runaway download
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * Gmail signatures (and plenty of other mail clients) often reference a
+ * logo/signature image by a live external URL instead of embedding it -
+ * e.g. Google's own ci3.googleusercontent.com/mail-sig/... CDN. Those URLs
+ * are not a reliable thing to keep re-fetching from outside Gmail's own
+ * viewer: repeated/automated requests to the same asset get rate-limited
+ * (429) even though the URL itself needs no auth, so the image renders as a
+ * broken icon for whichever ticket view didn't win the race. Downloading it
+ * once at ingestion time and embedding it as a data: URI removes that live
+ * dependency entirely - same fix as the cid: inline-image case below, just
+ * for a real external URL instead of an unresolvable cid: reference.
+ * Failures fall back to leaving the original URL in place rather than
+ * throwing - a slow/blocked remote image should never fail ingestion.
+ */
+const embedRemoteImages = async (html) => {
+    if (!html) return html;
+
+    const srcPattern = /<img\b[^>]*\bsrc=["'](https?:\/\/[^"']+)["']/gi;
+    const urls = new Set();
+    let match;
+    while ((match = srcPattern.exec(html)) !== null) {
+        urls.add(match[1]);
+    }
+
+    let resolved = html;
+    for (const url of urls) {
+        const timeoutController = new AbortController();
+        const timeout = setTimeout(() => timeoutController.abort(), REMOTE_IMAGE_FETCH_TIMEOUT_MS);
+        try {
+            const res = await fetch(url, { signal: timeoutController.signal });
+            const contentType = res.headers.get("content-type") || "";
+            if (!res.ok || !contentType.startsWith("image/")) {
+                continue;
+            }
+
+            const buffer = Buffer.from(await res.arrayBuffer());
+            if (buffer.length > MAX_REMOTE_IMAGE_BYTES) {
+                continue;
+            }
+
+            const dataUri = `data:${contentType.split(";")[0]};base64,${buffer.toString("base64")}`;
+            resolved = resolved.split(url).join(dataUri);
+        } catch (error) {
+            logger.warn(`Failed to embed remote image, leaving original URL (${url}): ${error.message}`);
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+    return resolved;
 };
 
 /** Matches a reply to its parent ticket via In-Reply-To / References headers. */
@@ -122,11 +178,20 @@ const findTicketIdForReply = (normalized) => {
  * ticket match/create -> conversation + thread + attachments, all in one
  * DB transaction. Re-processing the same Gmail message is a safe no-op
  * (matches HD_TICKET_THREAD.Message_Id_Header's unique index).
- * `attachmentFiles` must already be downloaded (see downloadAttachments) -
- * this function stays synchronous so it can run inside a better-sqlite3
- * transaction.
+ * `attachmentFiles` must already be downloaded (see downloadAttachments).
+ * This function is async (it embeds remote signature images over the
+ * network before writing), but only the actual DB write below runs inside
+ * a synchronous better-sqlite3 transaction, per "no awaits inside a
+ * db.transaction() callback".
+ *
+ * Handles BOTH directions: a message sent TO the mailbox (a customer's
+ * message - inbound) and a message sent FROM the mailbox (an agent's own
+ * reply, typed directly in Gmail rather than through this app - outbound).
+ * Direction is determined by which side of the message the mailbox address
+ * is on, so a reply an agent sends straight from Gmail still lands in the
+ * right ticket's thread instead of being silently skipped.
  */
-const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFiles = []) => {
+const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachmentFiles = []) => {
     const org = organizationService.getDefaultOrganization();
 
     const alreadyIngested = threadRepository.findThreadByMessageId(normalized.messageIdHeader);
@@ -143,7 +208,49 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
         return { status: "skipped", reason: "message has no From address" };
     }
 
-    const contact = contactService.findOrCreateBySender(normalized.from, systemAgentId);
+    const isOutbound = normalized.from.email.toLowerCase() === mailboxAddress.toLowerCase();
+    const direction = isOutbound ? DIRECTION.OUT : DIRECTION.IN;
+
+    // The "counterpart" is whichever side of the message ISN'T the mailbox -
+    // the customer, always - so ticket/contact matching is symmetric no
+    // matter who actually sent this particular message.
+    const counterpartAddress = isOutbound ? (normalized.to[0] || normalized.cc[0]) : normalized.from;
+    if (!counterpartAddress?.email) {
+        return { status: "skipped", reason: "outbound message has no recipient to match a contact" };
+    }
+    const contact = contactService.findOrCreateBySender(counterpartAddress, systemAgentId);
+
+    // An outbound message's author is the agent who actually sent it. Reuses
+    // an existing HD_AGENT_MASTER row for that From address if one exists,
+    // otherwise creates one from Gmail's own name/email for that address -
+    // never the generic system actor, so whichever mailbox the .env
+    // credentials point to (test today, production later) always shows its
+    // real sender, with no code change needed when the credentials change.
+    const authorAgentId = isOutbound
+        ? agentService.findOrCreateBySender(normalized.from, systemAgentId).Agent_Id
+        : null;
+
+    // A part that's both got a Content-ID AND is actually referenced by
+    // that id in the HTML body (<img src="cid:...">) IS the message content,
+    // not something separate to download - Gmail itself never shows these
+    // in an "Attachments" list either. Embed it as a data: URI directly in
+    // the stored HTML (browsers can't resolve cid: URLs on their own, which
+    // is why these were rendering as broken images) and skip creating an
+    // HD_TICKET_ATTACHMENT row for it entirely. A real attachment (no
+    // Content-ID, or one that's on the message but not referenced inline)
+    // keeps going through the normal attachment-row + download-link path.
+    let resolvedBodyHtml = normalized.bodyHtml;
+    const realAttachmentFiles = [];
+    for (const file of attachmentFiles) {
+        const cidRef = file.contentId ? `cid:${file.contentId}` : null;
+        if (cidRef && resolvedBodyHtml && resolvedBodyHtml.includes(cidRef)) {
+            const dataUri = `data:${file.mimeType};base64,${file.buffer.toString("base64")}`;
+            resolvedBodyHtml = resolvedBodyHtml.split(cidRef).join(dataUri);
+        } else {
+            realAttachmentFiles.push(file);
+        }
+    }
+    resolvedBodyHtml = await embedRemoteImages(resolvedBodyHtml);
 
     const db = getDB();
     const txn = db.transaction(() => {
@@ -175,11 +282,12 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
         conversationRepository.insert({
             Conversation_Id: conversationId,
             Ticket_Id: ticketId,
-            Direction: DIRECTION.IN,
+            Direction: direction,
             Channel: CHANNEL.EMAIL,
             Content: normalized.bodyText,
-            Content_Html: normalized.bodyHtml,
-            Author_Contact_Id: contact.Contact_Id,
+            Content_Html: resolvedBodyHtml,
+            Author_Contact_Id: isOutbound ? null : contact.Contact_Id,
+            Author_Agent_Id: authorAgentId,
             Is_Public: "Y",
             To_Address: normalized.to.map((a) => a.email).join(", ") || null,
             Cc_Address: normalized.cc.map((a) => a.email).join(", ") || null,
@@ -196,14 +304,14 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
             Message_Id_Header: normalized.messageIdHeader,
             In_Reply_To_Header: normalized.inReplyToHeader,
             Channel: "EMAIL",
-            Direction: DIRECTION.IN,
+            Direction: direction,
             Created_By: systemAgentId,
             Org_Id: org.Organization_Id
         });
 
         ticketRepository.incrementCounter(ticketId, "Thread_Count");
 
-        for (const file of attachmentFiles) {
+        for (const file of realAttachmentFiles) {
             const attachmentId = generateId();
             const storagePath = saveAttachmentBuffer({
                 ticketId,
@@ -225,8 +333,8 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
                 Org_Id: org.Organization_Id
             });
         }
-        if (attachmentFiles.length > 0) {
-            ticketRepository.incrementCounter(ticketId, "Attachment_Count", attachmentFiles.length);
+        if (realAttachmentFiles.length > 0) {
+            ticketRepository.incrementCounter(ticketId, "Attachment_Count", realAttachmentFiles.length);
         }
 
         if (!isNewTicket) {
@@ -242,7 +350,7 @@ const ingestMessage = (normalized, systemAgentId, mailboxAddress, attachmentFile
     });
 
     const { ticketId, threadId, isNewTicket } = txn();
-    return { status: "ingested", ticketId, threadId, isNewTicket };
+    return { status: "ingested", ticketId, threadId, isNewTicket, attachmentsSaved: realAttachmentFiles.length };
 };
 
 /** Runs one Gmail sync pass for the configured support mailbox. */
@@ -256,7 +364,11 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
     // existed yet and the reply span up its own separate ticket instead of
     // attaching to the parent. Reversing to oldest-first guarantees a
     // message's parent is always ingested before it, within a run.
-    const messageIds = (await listMessageIdsToProcess(gmail, `to:${mailbox}`)).reverse();
+    // Query covers both directions - `to:` (a customer's message) and
+    // `from:` (an agent's own reply sent straight from Gmail) - so a reply
+    // typed directly in Gmail still shows up in its ticket's thread instead
+    // of being invisible to the app.
+    const messageIds = (await listMessageIdsToProcess(gmail, `{to:${mailbox} from:${mailbox}}`)).reverse();
     const results = { fetched: messageIds.length, ingested: 0, skipped: 0, ticketsCreated: 0, attachmentsSaved: 0, errors: [] };
 
     for (const id of messageIds) {
@@ -274,7 +386,7 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
             const attachmentFiles = normalized.attachments.length > 0
                 ? await downloadAttachments(gmail, normalized.gmailMessageId, normalized.attachments)
                 : [];
-            const outcome = ingestMessage(normalized, systemAgent.Agent_Id, mailbox, attachmentFiles);
+            const outcome = await ingestMessage(normalized, systemAgent.Agent_Id, mailbox, attachmentFiles);
 
             if (outcome.ticketId) {
                 gmailIngestedMessageRepository.insert({
@@ -286,7 +398,7 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
 
             if (outcome.status === "ingested") {
                 results.ingested += 1;
-                results.attachmentsSaved += attachmentFiles.length;
+                results.attachmentsSaved += outcome.attachmentsSaved || 0;
                 if (outcome.isNewTicket) {
                     results.ticketsCreated += 1;
                 }
@@ -317,4 +429,4 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
     return results;
 };
 
-module.exports = { runSync, ingestMessage };
+module.exports = { runSync, ingestMessage, embedRemoteImages };

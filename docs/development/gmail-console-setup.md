@@ -19,7 +19,7 @@ The mailbox is never hard-coded — it's `GMAIL_MAILBOX` in `server/.env`. It's 
 
 1. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
 2. Application type: **Web application**.
-3. Authorized redirect URI: `http://localhost:5000/api/v1/gmail/oauth2callback` (must exactly match `GOOGLE_REDIRECT_URI` in `server/.env` — update both together if the port or host changes, e.g. for a deployed environment).
+3. Authorized redirect URI: `http://localhost:3456/api/v1/gmail/oauth2callback` (must exactly match `GOOGLE_REDIRECT_URI` in `server/.env` — update both together if the port or host changes, e.g. for a deployed environment).
 4. Save. Copy the **Client ID** and **Client Secret**.
 
 ## 4. Configure the backend
@@ -29,7 +29,7 @@ Put the values in `server/.env` (never commit this file):
 ```env
 GOOGLE_CLIENT_ID=<client id from step 3>
 GOOGLE_CLIENT_SECRET=<client secret from step 3>
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/v1/gmail/oauth2callback
+GOOGLE_REDIRECT_URI=http://localhost:3456/api/v1/gmail/oauth2callback
 GMAIL_MAILBOX=<the mailbox you're granting access to, e.g. tasks@sunoida.com>
 ```
 
@@ -39,7 +39,7 @@ Leave `GOOGLE_REFRESH_TOKEN` empty for now — the next step fills it in. Every 
 
 With the server running (`npm run dev` inside `server/`):
 
-1. `GET http://localhost:5000/api/v1/gmail/auth-url` → returns `{ "data": { "url": "..." } }`.
+1. `GET http://localhost:3456/api/v1/gmail/auth-url` → returns `{ "data": { "url": "..." } }`.
 2. Open that URL in a browser, sign in as **whichever address `GMAIL_MAILBOX` is set to** (not necessarily your own personal account), and grant access.
 3. Google redirects to `GOOGLE_REDIRECT_URI` with a `?code=`, which `oauth2callback` automatically exchanges for tokens and returns:
    ```json
@@ -52,7 +52,7 @@ This only needs to happen once — `gmail.client.js` uses the refresh token to m
 ## 6. Run ingestion
 
 ```
-POST http://localhost:5000/api/v1/gmail/sync
+POST http://localhost:3456/api/v1/gmail/sync
 Content-Type: application/json
 
 {}
