@@ -4,11 +4,14 @@
 -- Classification's Value text (e.g. "Problem" -> Application / Process),
 -- and the same Category text may repeat under different Classifications.
 -- NULL for every non-Category row.
+-- Clock_Behaviour (STATUS rows only): what a ticket's resolution clock does
+-- while in that status - NOT_STARTED / RUNNING / PAUSED / STOPPED.
 CREATE TABLE IF NOT EXISTS HD_PICKLIST_VALUE (
     Picklist_Value_Id   TEXT PRIMARY KEY,
     Field               TEXT NOT NULL CHECK (Field IN ('CLASSIFICATION', 'CATEGORY', 'SUB_CATEGORY', 'STATUS')),
     Value               TEXT NOT NULL,
     Parent_Value        TEXT,
+    Clock_Behaviour     TEXT CHECK (Clock_Behaviour IS NULL OR Clock_Behaviour IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),
     Sort_Order          INTEGER NOT NULL DEFAULT 0,
     Created_By          TEXT,
     Created_Time        TEXT NOT NULL DEFAULT (datetime('now')),

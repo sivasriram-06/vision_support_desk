@@ -5,7 +5,8 @@ const departmentRepository = require("../repositories/department.repository");
 const bankRepository = require("../repositories/bank.repository");
 const contactRepository = require("../repositories/contact.repository");
 const organizationService = require("./organization.service");
-const prioritySlaService = require("./priority-sla.service");
+const { computeSlaDueDate } = require("./sla/sla.service");
+const resolutionClock = require("./sla/resolution-clock.service");
 const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
@@ -14,28 +15,6 @@ const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT } = require(".
 const { buildPaging } = require("../utils/pagination");
 
 const nowIso = () => new Date().toISOString();
-
-// SQLite's datetime('now') (and anything we read back from it, like
-// Created_Time) is UTC but formatted as "YYYY-MM-DD HH:MM:SS" - no "T", no
-// "Z". `new Date(...)` on that exact shape is parsed as LOCAL time per the
-// JS spec (only strict ISO 8601 forces UTC), silently shifting every
-// calculation by the server's UTC offset. client/src/utils/format.js has
-// the same fix for the same reason - keep both in sync.
-const parseSqlDateTime = (value) => new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-
-/**
- * SLA clock starts at Created_Time (when the request came in), not at
- * whenever a priority happens to get assigned - a P1 opened yesterday and
- * only triaged just now is still overdue relative to yesterday, not "24h
- * from right now". Returns null (leave Response_Due_Date untouched) when
- * there's no priority or no admin-configured SLA hours for it yet.
- */
-const computeResponseDueDate = (createdTime, priority, orgId) => {
-    if (!priority) return null;
-    const slaHours = prioritySlaService.getSlaHoursForPriority(orgId, priority);
-    if (!slaHours) return null;
-    return new Date(parseSqlDateTime(createdTime).getTime() + slaHours * 60 * 60 * 1000).toISOString();
-};
 
 const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null, newValue = null, actorAgentId, orgId }) => {
     historyRepository.insert({
@@ -111,13 +90,14 @@ const createTicket = (payload, actorAgentId) => {
         const ticketNumber = ticketRepository.findNextTicketNumber(org.Organization_Id);
         const createdTime = nowIso();
         const statusType = payload.statusType || STATUS_TYPE.OPEN;
+        const status = payload.status || DEFAULT_STATUS_BY_TYPE[statusType];
 
         ticketRepository.insert({
             Ticket_Id: ticketId,
             Ticket_Number: ticketNumber,
             Subject: payload.subject,
             Description: payload.description || null,
-            Status: payload.status || DEFAULT_STATUS_BY_TYPE[statusType],
+            Status: status,
             Status_Type: statusType,
             Priority: payload.priority || null,
             Channel: payload.channel,
@@ -126,7 +106,12 @@ const createTicket = (payload, actorAgentId) => {
             Contact_Id: payload.contactId,
             Account_Id: payload.accountId || null,
             Assignee_Id: payload.assigneeId || null,
-            Response_Due_Date: computeResponseDueDate(createdTime, payload.priority, org.Organization_Id),
+            Response_Due_Date: computeSlaDueDate({ createdTime, priority: payload.priority, bankId: payload.bankId, orgId: org.Organization_Id }),
+            // Stored explicitly as ISO-8601 UTC (same instant the SLA was
+            // computed from). The column default, datetime('now'), writes
+            // "YYYY-MM-DD HH:MM:SS" - mixing the two formats breaks text
+            // sorting ("T" > " "), so "Newest first" put new tickets low.
+            Created_Time: createdTime,
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id
         });
@@ -147,6 +132,17 @@ const createTicket = (payload, actorAgentId) => {
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id
         });
+
+        // Start the resolution clock if the ticket is created straight into
+        // a running status (email tickets start "Unassigned" = not started).
+        const clockChanges = resolutionClock.applyStatusChange({
+            ticket: { Ticket_Id: ticketId, Clock_State: "NOT_STARTED" },
+            newStatus: status,
+            bankId: payload.bankId,
+            actorAgentId,
+            orgId: org.Organization_Id
+        });
+        ticketRepository.updateById(ticketId, clockChanges);
 
         return ticketId;
     });
@@ -208,31 +204,18 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         historyEntries.push({ eventName, fieldName: column, oldValue, newValue });
     }
 
-    // Status_Type (the Open/On Hold/Closed bucket) isn't touched here at
-    // all right now - the user is defining the actual SLA/reopen/closed
-    // engine separately later rather than have it guessed at. Status is
-    // just a plain label for now (like Product/Classification); Closed_Time
-    // below stays wired to Status_Type for whenever that engine sets it.
-
-    // Closed_Time has no dedicated payload key - it's derived from the
-    // Status_Type transition itself, set the moment a ticket first becomes
-    // Closed and cleared if it's later reopened, rather than left for the
-    // caller to manage separately.
-    if (changes.Status_Type !== undefined) {
-        if (changes.Status_Type === STATUS_TYPE.CLOSED && existing.Status_Type !== STATUS_TYPE.CLOSED) {
-            changes.Closed_Time = nowIso();
-        } else if (changes.Status_Type !== STATUS_TYPE.CLOSED && existing.Status_Type === STATUS_TYPE.CLOSED) {
-            changes.Closed_Time = null;
-        }
-    }
-
-    // Response_Due_Date has no dedicated payload key either - it's derived
-    // from Priority + the admin's HD_PRIORITY_SLA_CONFIG for that priority,
-    // recalculated from the ticket's original Created_Time every time
-    // Priority changes (including being cleared, which clears the SLA
-    // target too - no priority means no SLA to track).
-    if (changes.Priority !== undefined) {
-        changes.Response_Due_Date = computeResponseDueDate(existing.Created_Time, changes.Priority, org.Organization_Id);
+    // SLA due date (Response_Due_Date) is derived, never sent: priority SLA
+    // hours from Created_Time on the bank's working-day calendar. Recomputed
+    // when priority or bank changes (clearing priority clears the SLA);
+    // status changes never move it - the SLA does not pause.
+    const effectiveBankId = changes.Bank_Id !== undefined ? changes.Bank_Id : existing.Bank_Id;
+    if (changes.Priority !== undefined || changes.Bank_Id !== undefined) {
+        changes.Response_Due_Date = computeSlaDueDate({
+            createdTime: existing.Created_Time,
+            priority: changes.Priority !== undefined ? changes.Priority : existing.Priority,
+            bankId: effectiveBankId,
+            orgId: org.Organization_Id
+        });
     }
 
     if (Object.keys(changes).length === 0) {
@@ -241,6 +224,17 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
 
     const db = getDB();
     const updateTxn = db.transaction(() => {
+        // Status drives the resolution clock (Clock_State, segments,
+        // Resolved_Time) - see services/sla/resolution-clock.service.js.
+        if (changes.Status !== undefined) {
+            Object.assign(changes, resolutionClock.applyStatusChange({
+                ticket: existing,
+                newStatus: changes.Status,
+                bankId: effectiveBankId,
+                actorAgentId,
+                orgId: org.Organization_Id
+            }));
+        }
         changes.Modified_By = actorAgentId;
         ticketRepository.updateById(ticketId, changes);
         for (const entry of historyEntries) {
@@ -270,9 +264,11 @@ const getTicketResolution = (ticketId) => {
     return resolutionRepository.findResolutionByTicketId(ticketId) || null;
 };
 
+/** Stored metrics plus the live resolution clock (an open segment keeps counting). */
 const getTicketMetrics = (ticketId) => {
-    getTicketById(ticketId);
-    return metricsRepository.findMetricsByTicketId(ticketId) || null;
+    const ticket = getTicketById(ticketId);
+    const metrics = metricsRepository.findMetricsByTicketId(ticketId) || null;
+    return { ...(metrics || {}), ...resolutionClock.getResolutionSummary(ticket) };
 };
 
 module.exports = {

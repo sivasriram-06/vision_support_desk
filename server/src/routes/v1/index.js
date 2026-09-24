@@ -16,8 +16,7 @@ const adminRoutes = require("./admin.route");
 
 const router = express.Router();
 
-// Public: sign-in, and gmail (its OAuth callback is hit by Google; the
-// rest of gmail.route.js authenticates per route).
+// Public: sign-in and gmail
 router.use("/auth", authRoutes);
 router.use("/gmail", gmailRoutes);
 

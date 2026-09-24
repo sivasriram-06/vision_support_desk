@@ -1,7 +1,7 @@
 /** Formats an ISO/SQL timestamp string as e.g. "21 Sep, 2:42 PM". Returns "-" for empty input. */
 export const formatDateTime = (value) => {
   if (!value) return '-'
-  const date = new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z')
+  const date = value instanceof Date ? value : new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z')
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleString(undefined, {
     day: 'numeric',

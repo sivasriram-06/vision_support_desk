@@ -1,21 +1,44 @@
 {
-  "_source": "Option lists configured on the Config page (Status, Classification -> Category, Products, Priority SLA). 'Unassigned' is the status every newly ingested email ticket starts in.",
+  "_source": "Option lists configured on the Config page (Status, Classification -> Category, Products, Priority SLA). 'Unassigned' is the status every newly ingested email ticket starts in. Each status's 'clock' is what the resolution clock does in it: NOT_STARTED (work not begun), RUNNING (our side working), PAUSED (waiting on the bank), STOPPED (resolved/closed). The SLA due date never pauses.",
   "statuses": [
-    "Unassigned",
-    "Open",
-    "In Progress - Client",
-    "On Hold - Client",
-    "On Hold - Dependent",
-    "Resolved",
-    "Resolved - Under Observation",
-    "Closed"
+    { "value": "Unassigned", "clock": "NOT_STARTED" },
+    { "value": "Open", "clock": "NOT_STARTED" },
+    { "value": "In Progress", "clock": "RUNNING" },
+    { "value": "In Progress - Client", "clock": "PAUSED" },
+    { "value": "On Hold - Client", "clock": "PAUSED" },
+    { "value": "On Hold - Dependent", "clock": "PAUSED" },
+    { "value": "Resolved", "clock": "STOPPED" },
+    { "value": "Resolved - Under Observation", "clock": "STOPPED" },
+    { "value": "Closed", "clock": "STOPPED" }
   ],
   "classifications": {
-    "Complaint": ["Application", "Support"],
-    "Incident": ["Application", "Enviroment", "Operational", "Performance"],
-    "Issue": ["EOD/EOM", "Ticket Status"],
-    "Problem": ["Application", "Implementation", "People", "Process", "Technology"],
-    "Requirement": ["CR", "Documents", "Support", "Training"]
+    "Complaint": [
+      "Application",
+      "Support"
+    ],
+    "Incident": [
+      "Application",
+      "Enviroment",
+      "Operational",
+      "Performance"
+    ],
+    "Issue": [
+      "EOD/EOM",
+      "Ticket Status"
+    ],
+    "Problem": [
+      "Application",
+      "Implementation",
+      "People",
+      "Process",
+      "Technology"
+    ],
+    "Requirement": [
+      "CR",
+      "Documents",
+      "Support",
+      "Training"
+    ]
   },
   "products": [
     "FATCA / CRS",
@@ -30,8 +53,17 @@
     "Vision SupTech"
   ],
   "prioritySla": [
-    { "priority": "P1", "slaHours": 24 },
-    { "priority": "P2", "slaHours": 72 },
-    { "priority": "P3", "slaHours": 240 }
+    {
+      "priority": "P1",
+      "slaHours": 24
+    },
+    {
+      "priority": "P2",
+      "slaHours": 72
+    },
+    {
+      "priority": "P3",
+      "slaHours": 240
+    }
   ]
 }

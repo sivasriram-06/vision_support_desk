@@ -64,7 +64,8 @@ const DEFAULT_ROLES = [
         name: "Assistant Team Lead",
         sortOrder: 4,
         parentKey: ROLE_KEYS.TEAM_LEAD,
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES]
+        // Team Lead and Assistant Team Lead both pick up new tickets and assign them within the team.
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM]
     },
     { key: ROLE_KEYS.TEAM_MEMBER, name: "Team Member", sortOrder: 5, parentKey: ROLE_KEYS.ASSISTANT_TEAM_LEAD, permissions: MEMBER_PERMISSIONS }
 ];

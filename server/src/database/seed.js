@@ -304,7 +304,10 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
             Country: bank.country || null,
             Module: bank.module || null,
             Support_Level: bank.supportLevel || null,
-            Support_Days: bank.supportDays || null,
+            // SLA calendar: the sheet's support days (MON-FRI when blank; 24x7
+            // counts every day) in the country's time zone.
+            Working_Days: bank.is24x7 ? "MON,TUE,WED,THU,FRI,SAT,SUN" : (bank.workingDays || "MON,TUE,WED,THU,FRI"),
+            Time_Zone: bankSeed.timeZoneByCountry[bank.country] || env.timezone,
             Support_Hours_Local: bank.supportHoursLocal || null,
             Support_Hours_Ist: bank.supportHoursIst || null,
             Is_24x7: bank.is24x7 ? "Y" : "N",
@@ -332,20 +335,22 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
 };
 
 /**
- * Ticket option lists (seed-data/config.json): statuses, classifications
+ * Ticket option lists (seed-data/config.json): statuses (with their
+ * resolution-clock behaviour), classifications
  * with their categories, products and priority SLAs. Each value is created
  * once; values an admin adds, renames or deletes later on the Config page
  * are not touched.
  */
 const seedConfig = (orgId, systemAgentId) => {
     let created = 0;
-    const addPicklist = (field, value, sortOrder, parentValue = null) => {
+    const addPicklist = (field, value, sortOrder, parentValue = null, clockBehaviour = null) => {
         if (picklistRepository.findByValue(orgId, field, value, parentValue)) return;
         picklistRepository.insert({
             Picklist_Value_Id: generateId(),
             Field: field,
             Value: value,
             Parent_Value: parentValue,
+            Clock_Behaviour: clockBehaviour,
             Sort_Order: sortOrder,
             Created_By: systemAgentId,
             Org_Id: orgId
@@ -353,7 +358,7 @@ const seedConfig = (orgId, systemAgentId) => {
         created += 1;
     };
 
-    configSeed.statuses.forEach((status, index) => addPicklist("STATUS", status, index));
+    configSeed.statuses.forEach((status, index) => addPicklist("STATUS", status.value, index, null, status.clock));
     Object.entries(configSeed.classifications).forEach(([classification, categories], index) => {
         addPicklist("CLASSIFICATION", classification, index);
         categories.forEach((category, categoryIndex) => addPicklist("CATEGORY", category, categoryIndex, classification));

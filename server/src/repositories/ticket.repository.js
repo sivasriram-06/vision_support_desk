@@ -11,7 +11,7 @@ const base = createRepository({
 });
 
 const SORTABLE_FIELDS = new Set([
-    "Created_Time", "Modified_Time", "Due_Date", "Priority", "Status", "Subject"
+    "Created_Time", "Modified_Time", "Due_Date", "Response_Due_Date", "Priority", "Status", "Subject"
 ]);
 
 /**
@@ -58,6 +58,17 @@ const findAll = (orgId, query = {}) => {
         where += " AND t.Priority = ?";
         params.push(query.priority);
     }
+    // SLA breached: either still open and past its due date (overdue now),
+    // or resolved/closed after its due date - a breach stays a breach once
+    // the ticket is closed. Response_Due_Date and Resolved_Time are both
+    // ISO-8601 UTC, so string comparison orders correctly.
+    if (query.slaBreached === "true") {
+        where += ` AND t.Response_Due_Date IS NOT NULL AND (
+            (t.Clock_State <> 'STOPPED' AND t.Response_Due_Date < ?)
+            OR (t.Clock_State = 'STOPPED' AND t.Resolved_Time > t.Response_Due_Date)
+        )`;
+        params.push(new Date().toISOString());
+    }
     if (query.departmentId) {
         where += " AND t.Department_Id = ?";
         params.push(query.departmentId);
@@ -84,7 +95,7 @@ const findAll = (orgId, query = {}) => {
     const sortOrder = String(query.sortOrder).toUpperCase() === "ASC" ? "ASC" : "DESC";
 
     const rows = db.prepare(
-        `${LIST_SELECT} WHERE ${where} ORDER BY t.${sortBy} ${sortOrder} LIMIT ? OFFSET ?`
+        `${LIST_SELECT} WHERE ${where} ORDER BY t.${sortBy} IS NULL, t.${sortBy} ${sortOrder} LIMIT ? OFFSET ?`
     ).all(...params, limit, offset);
 
     const total = db.prepare(
@@ -136,4 +147,40 @@ const incrementCounter = (ticketId, column, delta = 1) => {
     ).run(delta, ticketId);
 };
 
-module.exports = { ...base, findAll, findAgentQueue, findBankQueue, findNextTicketNumber, incrementCounter };
+/** Tickets on a bank whose SLA still matters (has a priority, not resolved/closed). */
+const findOpenWithPriorityByBankId = (bankId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT Ticket_Id, Created_Time, Priority FROM ${DB_TABLES.TICKET}
+         WHERE Bank_Id = ? AND Priority IS NOT NULL AND Clock_State <> 'STOPPED' AND Is_Deleted = 'N'`
+    ).all(bankId);
+};
+
+/** Tickets currently in a given Status (text match - Status is a plain picklist label). */
+const findByStatus = (orgId, status) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.TICKET} WHERE Org_Id = ? AND Status = ? AND Is_Deleted = 'N'`
+    ).all(orgId, status);
+};
+
+/** Follows a Status rename on the Config page so tickets keep a status that still exists. */
+const renameStatus = (orgId, oldStatus, newStatus, modifiedBy) => {
+    const db = getDB();
+    db.prepare(
+        `UPDATE ${DB_TABLES.TICKET} SET Status = ?, Modified_By = ?, Modified_Time = datetime('now')
+         WHERE Org_Id = ? AND Status = ? AND Is_Deleted = 'N'`
+    ).run(newStatus, modifiedBy, orgId, oldStatus);
+};
+
+module.exports = {
+    ...base,
+    findAll,
+    findAgentQueue,
+    findBankQueue,
+    findNextTicketNumber,
+    incrementCounter,
+    findOpenWithPriorityByBankId,
+    findByStatus,
+    renameStatus
+};

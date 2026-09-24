@@ -7,13 +7,16 @@ const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
+const { DateTime } = require("luxon");
+const ticketRepository = require("../repositories/ticket.repository");
+const { computeSlaDueDate } = require("./sla/sla.service");
+const { WEEKDAYS } = require("./sla/business-calendar");
 
 // payload key -> HD_BANK_MASTER column, for the plain text/flag fields.
 const DETAIL_FIELDS = {
     country: "Country",
     module: "Module",
     supportLevel: "Support_Level",
-    supportDays: "Support_Days",
     supportHoursLocal: "Support_Hours_Local",
     supportHoursIst: "Support_Hours_Ist",
     remarks: "Remarks"
@@ -70,7 +73,34 @@ const detailChanges = (payload) => {
         if (payload[key] !== undefined) changes[column] = blankToNull(payload[key]);
     }
     if (payload.is24x7 !== undefined) changes.Is_24x7 = payload.is24x7 ? "Y" : "N";
+    // 24x7 cover means every day counts for SLA; otherwise store the picked
+    // days in week order.
+    if (payload.is24x7 === true) {
+        changes.Working_Days = WEEKDAYS.join(",");
+    } else if (payload.workingDays !== undefined) {
+        changes.Working_Days = WEEKDAYS.filter((day) => payload.workingDays.includes(day)).join(",");
+    }
+    if (payload.timeZone !== undefined) {
+        if (!DateTime.local().setZone(payload.timeZone).isValid) {
+            throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, `Unknown time zone "${payload.timeZone}"`);
+        }
+        changes.Time_Zone = payload.timeZone;
+    }
     return changes;
+};
+
+/**
+ * A bank's calendar feeds every SLA due date on its tickets, so when it
+ * changes, open tickets (not resolved/closed) are re-dated on the new
+ * calendar. Resolved tickets keep the SLA they were measured against.
+ */
+const recomputeOpenTicketSlas = (bankId, orgId, actorAgentId) => {
+    for (const ticket of ticketRepository.findOpenWithPriorityByBankId(bankId)) {
+        ticketRepository.updateById(ticket.Ticket_Id, {
+            Response_Due_Date: computeSlaDueDate({ createdTime: ticket.Created_Time, priority: ticket.Priority, bankId, orgId }),
+            Modified_By: actorAgentId
+        });
+    }
 };
 
 const createBank = (payload, actorAgentId) => {
@@ -110,9 +140,11 @@ const updateBank = (bankId, payload, actorAgentId) => {
         changes.Bank_Name = bankName;
     }
 
+    const calendarChanged = ["Working_Days", "Time_Zone", "Is_24x7"].some((column) => changes[column] !== undefined);
     getDB().transaction(() => {
         bankRepository.updateById(bankId, changes);
         applyResources(bankId, payload, actorAgentId, org.Organization_Id);
+        if (calendarChanged) recomputeOpenTicketSlas(bankId, org.Organization_Id, actorAgentId);
     })();
     return getBankById(bankId);
 };

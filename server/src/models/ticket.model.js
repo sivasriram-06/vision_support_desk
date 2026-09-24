@@ -4,12 +4,12 @@ const TICKET_COLUMNS = [
     "Channel_Code", "Language", "Sentiment", "Relationship_Type", "Department_Id",
     "Bank_Id", "Contact_Id", "Account_Id", "Assignee_Id", "Product_Id",
     "Contract_Id", "Layout_Id", "Sla_Policy_Id", "Blueprint_Id", "Due_Date",
-    "Response_Due_Date", "Closed_Time", "Onhold_Time", "Customer_Response_Time",
+    "Response_Due_Date", "Closed_Time", "Clock_State", "Resolution_Started_Time", "Resolved_Time", "Onhold_Time", "Customer_Response_Time",
     "Resolution_Summary", "Is_OverDue", "Is_Response_Overdue", "Is_Escalated",
     "Is_Archived", "Is_Spam", "Is_Trashed", "Thread_Count", "Comment_Count",
     "Follower_Count", "Tag_Count", "Attachment_Count", "Task_Count",
     "Time_Entry_Count", "Approval_Count", "Is_Read", "Is_Following",
-    "Has_Scheduled_Reply", "Created_By", "Modified_By", "Modified_Time", "Org_Id"
+    "Has_Scheduled_Reply", "Created_By", "Created_Time", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
 const TICKET_CONVERSATION_COLUMNS = [
@@ -47,6 +47,11 @@ const TICKET_METRICS_COLUMNS = [
     "Handled_By_Agent_Ids", "Created_By", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
+const TICKET_CLOCK_SEGMENT_COLUMNS = [
+    "Segment_Id", "Ticket_Id", "Started_Time", "Ended_Time", "Status_At_Start",
+    "Status_At_End", "Started_By", "Ended_By", "Created_By", "Modified_By", "Modified_Time", "Org_Id"
+];
+
 const TICKET_ATTACHMENT_COLUMNS = [
     "Attachment_Id", "Ticket_Id", "Conversation_Id", "File_Name", "File_Size_Bytes",
     "Mime_Type", "Storage_Path", "Uploaded_By_Agent_Id", "Uploaded_Time",
@@ -71,6 +76,7 @@ module.exports = {
     TICKET_HISTORY_COLUMNS,
     TICKET_RESOLUTION_COLUMNS,
     TICKET_METRICS_COLUMNS,
+    TICKET_CLOCK_SEGMENT_COLUMNS,
     TICKET_ATTACHMENT_COLUMNS,
     TAG_COLUMNS,
     TICKET_TAG_MAP_COLUMNS

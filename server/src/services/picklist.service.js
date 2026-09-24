@@ -1,11 +1,14 @@
 const { getDB } = require("../config/db");
 const picklistRepository = require("../repositories/picklist.repository");
+const ticketRepository = require("../repositories/ticket.repository");
+const resolutionClock = require("./sla/resolution-clock.service");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 const { PICKLIST_FIELD } = require("../constants/picklist.constants");
+const { CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
 
 const listValues = (field, parentValue) => {
     const org = organizationService.getDefaultOrganization();
@@ -54,6 +57,8 @@ const createValue = (payload, actorAgentId) => {
         Field: payload.field,
         Value: value,
         Parent_Value: parentValue,
+        // A new status doesn't move the resolution clock until an admin says so.
+        Clock_Behaviour: payload.field === PICKLIST_FIELD.STATUS ? (payload.clockBehaviour || CLOCK_BEHAVIOUR.NOT_STARTED) : null,
         Sort_Order: payload.sortOrder ?? 0,
         Created_By: actorAgentId,
         Org_Id: org.Organization_Id
@@ -87,6 +92,12 @@ const updateValue = (picklistValueId, payload, actorAgentId) => {
         if (payload.value !== undefined) changes.Value = nextValue;
         if (payload.parentValue !== undefined) changes.Parent_Value = nextParentValue;
         if (payload.sortOrder !== undefined) changes.Sort_Order = payload.sortOrder;
+        if (payload.clockBehaviour !== undefined) {
+            if (existing.Field !== PICKLIST_FIELD.STATUS) {
+                throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, "Clock behaviour only applies to Status values");
+            }
+            changes.Clock_Behaviour = payload.clockBehaviour;
+        }
         picklistRepository.updateById(picklistValueId, changes);
 
         // Renaming a Classification: every Category whose Parent_Value
@@ -94,6 +105,20 @@ const updateValue = (picklistValueId, payload, actorAgentId) => {
         // text link (same precedent as Priority/Status not being FK ids).
         if (existing.Field === PICKLIST_FIELD.CLASSIFICATION && payload.value !== undefined && nextValue !== existing.Value) {
             picklistRepository.renameParentValue(org.Organization_Id, PICKLIST_FIELD.CATEGORY, existing.Value, nextValue, actorAgentId);
+        }
+
+        if (existing.Field === PICKLIST_FIELD.STATUS) {
+            // Status is stored on tickets as plain text too - a rename
+            // carries every ticket along so none is left on a status that
+            // no longer exists (which would drop it out of filters and the
+            // edit dropdown).
+            if (payload.value !== undefined && nextValue !== existing.Value) {
+                ticketRepository.renameStatus(org.Organization_Id, existing.Value, nextValue, actorAgentId);
+            }
+            // New clock behaviour applies to tickets already in this status.
+            if (payload.clockBehaviour !== undefined && payload.clockBehaviour !== existing.Clock_Behaviour) {
+                resolutionClock.resyncTicketsInStatus({ orgId: org.Organization_Id, status: nextValue, actorAgentId });
+            }
         }
     });
     updateTxn();

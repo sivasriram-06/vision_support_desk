@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import Input from '../ui/Input.jsx'
+import Select from '../ui/Select.jsx'
+import Badge from '../ui/Badge.jsx'
 import Button from '../ui/Button.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getPicklistValues, createPicklistValue, updatePicklistValue, deletePicklistValue } from '../../utils/api.js'
+import { CLOCK_BEHAVIOURS, getClockStyle, getClockLabel } from '../../utils/clockMeta.js'
 
-/** CRUD list for one picklist field (Classification / Category / Sub Category). */
+const CLOCK_OPTIONS = CLOCK_BEHAVIOURS.map((c) => ({ value: c.value, label: `Clock: ${c.label}` }))
+
+/**
+ * CRUD list for one picklist field. For Status, each value also carries its
+ * resolution-clock behaviour (Not started / Running / Paused / Stopped).
+ */
 export default function PicklistManager({ field, label }) {
+  const isStatus = field === 'STATUS'
   const [state, setState] = useState({ loading: true, error: null, values: [] })
   const [newValue, setNewValue] = useState('')
+  const [newClock, setNewClock] = useState('NOT_STARTED')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [editClock, setEditClock] = useState('NOT_STARTED')
   const [rowError, setRowError] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -39,8 +50,9 @@ export default function PicklistManager({ field, label }) {
     setAdding(true)
     setRowError(null)
     try {
-      await createPicklistValue({ field, value })
+      await createPicklistValue(isStatus ? { field, value, clockBehaviour: newClock } : { field, value })
       setNewValue('')
+      setNewClock('NOT_STARTED')
       load()
     } catch (err) {
       setRowError(err instanceof ApiError ? err.message : 'Failed to add value.')
@@ -52,6 +64,7 @@ export default function PicklistManager({ field, label }) {
   const startEdit = (item) => {
     setEditingId(item.Picklist_Value_Id)
     setEditValue(item.Value)
+    setEditClock(item.Clock_Behaviour || 'NOT_STARTED')
     setRowError(null)
   }
 
@@ -60,7 +73,8 @@ export default function PicklistManager({ field, label }) {
     if (!value) return
     setRowError(null)
     try {
-      await updatePicklistValue(id, { value })
+      // Name and (for Status) clock behaviour are saved together from the edit row.
+      await updatePicklistValue(id, isStatus ? { value, clockBehaviour: editClock } : { value })
       setEditingId(null)
       load()
     } catch (err) {
@@ -88,7 +102,27 @@ export default function PicklistManager({ field, label }) {
         <h2 className="text-[15px] font-bold text-ink-strong">{label}</h2>
         <p className="mt-0.5 text-[12.5px] text-muted">
           Values agents can pick for the ticket's {label.toLowerCase()} field.
+          {isStatus && (
+            <>
+              {' '}
+              Each status also sets the <strong className="text-ink">resolution clock</strong>: Running while our side works,
+              Paused while waiting on the bank, Stopped once resolved. The SLA due date never pauses.
+            </>
+          )}
         </p>
+        {isStatus && (
+          <ul className="mt-2 grid grid-cols-1 gap-1 text-[11.5px] text-slate-500 sm:grid-cols-2">
+            {CLOCK_BEHAVIOURS.map((c) => (
+              <li key={c.value} className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${getClockStyle(c.value).dot}`} />
+                <strong className="text-ink">{c.label}</strong> — {c.hint}
+              </li>
+            ))}
+            <li className="sm:col-span-2 text-muted">
+              Changing a status's clock applies to tickets already in it from that moment; renaming a status updates those tickets too.
+            </li>
+          </ul>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -99,6 +133,15 @@ export default function PicklistManager({ field, label }) {
           placeholder={`Add a new ${label.toLowerCase()} value`}
           className="flex-1"
         />
+        {isStatus && (
+          <Select
+            value={newClock}
+            onChange={(e) => setNewClock(e.target.value)}
+            options={CLOCK_OPTIONS}
+            className="w-40 shrink-0"
+            title="What the resolution clock does while a ticket is in this status"
+          />
+        )}
         <Button variant="primary" icon={Plus} onClick={handleAdd} disabled={adding || !newValue.trim()}>
           Add
         </Button>
@@ -132,6 +175,14 @@ export default function PicklistManager({ field, label }) {
                     className="flex-1"
                     autoFocus
                   />
+                  {isStatus && (
+                    <Select
+                      value={editClock}
+                      onChange={(e) => setEditClock(e.target.value)}
+                      options={CLOCK_OPTIONS}
+                      className="w-40 shrink-0"
+                    />
+                  )}
                   <button
                     onClick={() => handleSaveEdit(item.Picklist_Value_Id)}
                     title="Save"
@@ -149,7 +200,19 @@ export default function PicklistManager({ field, label }) {
                 </>
               ) : (
                 <>
-                  <span className="flex-1 truncate text-[13px] font-medium text-ink">{item.Value}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-[13px] font-medium text-ink">
+                    <span className="truncate">{item.Value}</span>
+                  </span>
+                  {isStatus && (
+                    <Badge
+                      dotClass={getClockStyle(item.Clock_Behaviour).dot}
+                      textClass={getClockStyle(item.Clock_Behaviour).text}
+                      bgClass={getClockStyle(item.Clock_Behaviour).bg}
+                      className="shrink-0"
+                    >
+                      {getClockLabel(item.Clock_Behaviour)}
+                    </Badge>
+                  )}
                   <button
                     onClick={() => startEdit(item)}
                     title="Edit"

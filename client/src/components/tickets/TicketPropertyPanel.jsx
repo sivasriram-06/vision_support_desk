@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Check, X } from 'lucide-react'
+import { Pencil, Check, X, Timer, Hourglass } from 'lucide-react'
 import Avatar from '../ui/Avatar.jsx'
 import Badge from '../ui/Badge.jsx'
 import Select from '../ui/Select.jsx'
 import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import {
-  getStatusStyle,
   getPriorityStyle,
   getTicketAgeDays,
   getAgeingBucketLabel,
@@ -14,7 +13,8 @@ import {
 import { formatDateTime } from '../../utils/format.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
-import { getSupportLevelStyle } from '../../utils/bankMeta.js'
+import { getSupportLevelStyle, formatWorkingDays } from '../../utils/bankMeta.js'
+import { getClockStyle, getClockLabel, formatMinutes, getSlaState } from '../../utils/clockMeta.js'
 import {
   ApiError,
   updateTicket,
@@ -24,6 +24,7 @@ import {
   getProducts,
   getPicklistValues,
   getPrioritySlaConfig,
+  getTicketMetrics,
 } from '../../utils/api.js'
 
 const toDatetimeLocalValue = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : '')
@@ -89,7 +90,7 @@ function BankSection({ bank }) {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Works this bank">{bank.Support_Team_Name || '-'}</Field>
-        <Field label="Support days">{bank.Support_Days || '-'}</Field>
+        <Field label="Working days">{formatWorkingDays(bank.Working_Days, bank.Is_24x7 === 'Y')}</Field>
         <Field label="Hours (local)">{bank.Support_Hours_Local || '-'}</Field>
         <Field label="Hours (IST)">{bank.Support_Hours_Ist || '-'}</Field>
         <Field label="Primary resource">
@@ -105,6 +106,104 @@ function BankSection({ bank }) {
 }
 
 const fullNameOf = (a) => [a.First_Name, a.Last_Name].filter(Boolean).join(' ')
+
+const formatInZone = (date, timeZone) =>
+  new Date(date).toLocaleString(undefined, { timeZone, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+
+/**
+ * SLA due date: priority SLA hours from when the ticket came in, on the
+ * bank's working days. Fixed - status changes never move it.
+ */
+function SlaSection({ ticket, bank }) {
+  const sla = getSlaState(ticket)
+  return (
+    <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
+      <div className="flex items-center gap-1.5">
+        <Hourglass className="h-3.5 w-3.5 text-primary" />
+        <SectionHeading>SLA</SectionHeading>
+      </div>
+      {!sla ? (
+        <p className="text-[12.5px] italic text-muted">
+          {ticket.Priority ? 'No SLA hours configured for this priority.' : 'Set a priority to start the SLA.'}
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-ink">
+                Due {formatInZone(sla.due, bank?.Time_Zone || 'Asia/Kolkata')}
+                {bank?.Time_Zone && <span className="font-normal text-muted"> bank time</span>}
+              </p>
+              <p className="text-[11.5px] text-muted">IST {formatInZone(sla.due, 'Asia/Kolkata')}</p>
+            </div>
+            {sla.stopped ? (
+              <Badge textClass={sla.overdue ? 'text-danger' : 'text-success-dark'} bgClass={sla.overdue ? 'bg-danger/10' : 'bg-success/10'}>
+                {sla.overdue ? `Breached by ${formatMinutes(sla.minutes)}` : 'Met'}
+              </Badge>
+            ) : (
+              <Badge textClass={sla.overdue ? 'text-danger' : 'text-sky-dark'} bgClass={sla.overdue ? 'bg-danger/10' : 'bg-sky/10'}>
+                {sla.overdue ? `Overdue by ${formatMinutes(sla.minutes)}` : `${formatMinutes(sla.minutes)} left`}
+              </Badge>
+            )}
+          </div>
+          <p className="text-[11px] text-muted">
+            {ticket.Priority} · counted on {bank ? formatWorkingDays(bank.Working_Days, bank.Is_24x7 === 'Y') : 'Mon – Fri'} from when the
+            ticket came in; waiting on the bank does not pause it.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Resolution time: how long our side actually worked the ticket - runs
+ * in "In Progress", pauses while waiting on the bank, stops when resolved.
+ * Refreshed every minute while the clock is running.
+ */
+function ResolutionSection({ ticket }) {
+  const [metrics, setMetrics] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      getTicketMetrics(ticket.Ticket_Id)
+        .then((res) => !cancelled && setMetrics(res.data))
+        .catch(() => {})
+    load()
+    const timer = ticket.Clock_State === 'RUNNING' ? setInterval(load, 60000) : null
+    return () => {
+      cancelled = true
+      if (timer) clearInterval(timer)
+    }
+  }, [ticket.Ticket_Id, ticket.Clock_State, ticket.Modified_Time])
+
+  const clock = getClockStyle(ticket.Clock_State)
+  return (
+    <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
+      <div className="flex items-center gap-1.5">
+        <Timer className="h-3.5 w-3.5 text-primary" />
+        <SectionHeading>Resolution Time</SectionHeading>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-mono text-[18px] font-bold text-ink">
+          {ticket.Clock_State === 'NOT_STARTED' ? '—' : formatMinutes(metrics?.resolutionMinutes ?? 0)}
+        </p>
+        <Badge dotClass={clock.dot} textClass={clock.text} bgClass={clock.bg}>
+          {getClockLabel(ticket.Clock_State)}
+        </Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Work started">{ticket.Resolution_Started_Time ? formatDateTime(ticket.Resolution_Started_Time) : '-'}</Field>
+        <Field label="Resolved">{ticket.Resolved_Time ? formatDateTime(ticket.Resolved_Time) : '-'}</Field>
+        {metrics?.Reopen_Count > 0 && <Field label="Reopened">{metrics.Reopen_Count}×</Field>}
+      </div>
+      {ticket.Clock_State === 'NOT_STARTED' && (
+        <p className="text-[11px] text-muted">Starts when the agent moves the ticket to a running status (e.g. In Progress).</p>
+      )}
+    </div>
+  )
+}
 
 export default function TicketPropertyPanel({ ticket, contact, account, department, bank, assignee, product, onUpdated }) {
   const { can, agent: me } = useAuth()
@@ -257,14 +356,12 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
     return ''
   }
 
-  const status = getStatusStyle(ticket.Status_Type)
+  const status = getClockStyle(ticket.Clock_State)
   const priority = getPriorityStyle(ticket.Priority)
   const contactName = contact ? [contact.First_Name, contact.Last_Name].filter(Boolean).join(' ') : '-'
   const assigneeName = assignee ? [assignee.First_Name, assignee.Last_Name].filter(Boolean).join(' ') : null
   const ageDays = getTicketAgeDays(ticket)
   const ageingBucket = getAgeingBucketLabel(ageDays)
-  const isSlaOverdue =
-    ticket.Response_Due_Date && ticket.Status_Type !== 'Closed' && new Date(ticket.Response_Due_Date) < new Date()
 
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
@@ -417,9 +514,10 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
                 {ticket.Status}
               </Badge>
             </Field>
-            {ticket.Closed_Time && <Field label="Closed time">{formatDateTime(ticket.Closed_Time)}</Field>}
           </div>
 
+          <SlaSection ticket={ticket} bank={bank} />
+          <ResolutionSection ticket={ticket} />
           <BankSection bank={bank} />
 
           <div className="flex flex-col gap-4 border-t border-[#EEF2F8] pt-4">
@@ -446,16 +544,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
                 )}
               </Field>
               <Field label="Channel">{ticket.Channel}</Field>
-              <Field label="Response due (SLA)">
-                {ticket.Response_Due_Date ? (
-                  <span className={isSlaOverdue ? 'font-semibold text-danger' : ''}>
-                    {formatDateTime(ticket.Response_Due_Date)}
-                    {isSlaOverdue && ' · Overdue'}
-                  </span>
-                ) : (
-                  '-'
-                )}
-              </Field>
               <Field label="Ticket age - days">{ageDays === null ? '-' : ageDays}</Field>
               <Field label="Ageing bucket">{ageingBucket || 'None'}</Field>
             </div>

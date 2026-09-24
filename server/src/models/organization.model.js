@@ -17,7 +17,7 @@ const DEPARTMENT_COLUMNS = [
 
 const BANK_COLUMNS = [
     "Bank_Id", "Bank_Name", "Department_Id",
-    "Country", "Module", "Support_Level", "Support_Days", "Support_Hours_Local",
+    "Country", "Module", "Support_Level", "Working_Days", "Time_Zone", "Support_Hours_Local",
     "Support_Hours_Ist", "Is_24x7", "Remarks",
     "Created_By", "Modified_By", "Modified_Time", "Org_Id"
 ];

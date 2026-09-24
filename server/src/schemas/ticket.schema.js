@@ -51,7 +51,8 @@ const listTicketsQuerySchema = Joi.object({
     search: Joi.string(),
     sortBy: Joi.string(),
     sortOrder: Joi.string().valid("asc", "desc", "ASC", "DESC"),
-    unassignedOnly: Joi.string().valid("true", "false")
+    unassignedOnly: Joi.string().valid("true", "false"),
+    slaBreached: Joi.string().valid("true", "false")
 });
 
 module.exports = {

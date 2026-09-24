@@ -5,7 +5,8 @@ import Avatar from '../ui/Avatar.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import SkeletonRows from '../ui/SkeletonRows.jsx'
 import Pagination from '../ui/Pagination.jsx'
-import { getStatusStyle, getPriorityStyle } from '../../utils/ticketMeta.js'
+import { getPriorityStyle } from '../../utils/ticketMeta.js'
+import { getClockStyle, getSlaState, formatMinutes } from '../../utils/clockMeta.js'
 import { formatDateTime } from '../../utils/format.js'
 
 const CHANNEL_ICONS = { Email: Mail, 'Web Form': Globe, Chat: MessageSquare, Phone: Phone, Social: Share2 }
@@ -13,17 +14,19 @@ const CHANNEL_ICONS = { Email: Mail, 'Web Form': Globe, Chat: MessageSquare, Pho
 
 const COLUMNS = [
   { label: 'Ticket', width: '9%' },
-  { label: 'Subject', width: '31%' },
-  { label: 'Status', width: '11%' },
-  { label: 'Priority', width: '8%' },
-  { label: 'Contact', width: '16%' },
-  { label: 'Assignee', width: '12%' },
-  { label: 'Created', width: '12%' },
+  { label: 'Subject', width: '26%' },
+  { label: 'Status', width: '12%' },
+  { label: 'Priority', width: '7%' },
+  { label: 'SLA Due', width: '12%' },
+  { label: 'Contact', width: '13%' },
+  { label: 'Assignee', width: '11%' },
+  { label: 'Created', width: '10%' },
 ]
 
 function TicketRow({ ticket }) {
   const navigate = useNavigate()
-  const status = getStatusStyle(ticket.Status_Type)
+  const status = getClockStyle(ticket.Clock_State)
+  const sla = getSlaState(ticket)
   const priority = getPriorityStyle(ticket.Priority)
   const ChannelIcon = CHANNEL_ICONS[ticket.Channel] || Mail
   const contactName = [ticket.Contact_First_Name, ticket.Contact_Last_Name].filter(Boolean).join(' ') || 'Unknown contact'
@@ -53,6 +56,18 @@ function TicketRow({ ticket }) {
           <Badge textClass={priority.text} bgClass={priority.bg} className={`border ${priority.border}`}>
             {ticket.Priority}
           </Badge>
+        ) : (
+          <span className="text-[12px] text-muted">-</span>
+        )}
+      </td>
+      <td className="overflow-hidden whitespace-nowrap px-3.5 py-3">
+        {sla ? (
+          <div className="min-w-0">
+            <p className={`truncate text-[12.5px] ${sla.overdue ? 'font-semibold text-danger' : 'text-slate-600'}`}>{formatDateTime(ticket.Response_Due_Date)}</p>
+            <p className={`truncate text-[11px] ${sla.overdue ? 'text-danger' : 'text-muted'}`}>
+              {sla.stopped ? (sla.overdue ? 'Breached' : 'Met') : sla.overdue ? `Overdue ${formatMinutes(sla.minutes)}` : `${formatMinutes(sla.minutes)} left`}
+            </p>
+          </div>
         ) : (
           <span className="text-[12px] text-muted">-</span>
         )}

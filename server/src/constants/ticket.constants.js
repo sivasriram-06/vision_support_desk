@@ -14,6 +14,16 @@ const STATUS_TYPE = {
 // (seed-data/config.json).
 const NEW_EMAIL_TICKET_STATUS = "Unassigned";
 
+// What a ticket's resolution clock does while in a given Status (set per
+// status on the Config page, HD_PICKLIST_VALUE.Clock_Behaviour). The SLA
+// due date is not affected - it never pauses.
+const CLOCK_BEHAVIOUR = {
+    NOT_STARTED: "NOT_STARTED", // e.g. Unassigned, Open - work not begun
+    RUNNING: "RUNNING",         // e.g. In Progress - our side working
+    PAUSED: "PAUSED",           // e.g. On Hold - Client - waiting on the bank
+    STOPPED: "STOPPED"          // e.g. Resolved, Closed
+};
+
 const DEFAULT_STATUS_BY_TYPE = {
     [STATUS_TYPE.OPEN]: "Open",
     [STATUS_TYPE.ON_HOLD]: "On Hold",
@@ -53,6 +63,7 @@ module.exports = {
     STATUS_TYPE,
     DEFAULT_STATUS_BY_TYPE,
     NEW_EMAIL_TICKET_STATUS,
+    CLOCK_BEHAVIOUR,
     PRIORITY,
     CHANNEL,
     DIRECTION,

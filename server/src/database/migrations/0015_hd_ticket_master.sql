@@ -1,6 +1,10 @@
 -- HD_TICKET_MASTER: core ticket record.
 -- Bank_Id is the client bank the ticket belongs to (HD_BANK_MASTER).
 -- Priority is free text from the admin-managed HD_PRIORITY_SLA_CONFIG list.
+-- Response_Due_Date is the SLA due date (priority SLA hours on the bank's
+-- working-day calendar, fixed - never paused). Clock_State mirrors the
+-- current Status's clock behaviour; Resolution_Started_Time / Resolved_Time
+-- bound the resolution clock (segments in HD_TICKET_CLOCK_SEGMENT).
 -- Layout_Id, Sla_Policy_Id, Blueprint_Id, Product_Id, Contract_Id are kept as
 -- plain (unconstrained) TEXT columns for now: their owning tables
 -- (HD_LAYOUT_MASTER, HD_SLA_POLICY_MASTER, HD_BLUEPRINT_MASTER,
@@ -35,6 +39,9 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Due_Date                   TEXT,
     Response_Due_Date            TEXT,
     Closed_Time                 TEXT,
+    Clock_State                 TEXT NOT NULL DEFAULT 'NOT_STARTED' CHECK (Clock_State IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),
+    Resolution_Started_Time     TEXT,
+    Resolved_Time               TEXT,
     Onhold_Time                 TEXT,
     Customer_Response_Time       TEXT,
     Resolution_Summary          TEXT,

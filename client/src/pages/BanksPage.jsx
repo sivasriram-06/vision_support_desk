@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
 import DepartmentManager from '../components/settings/DepartmentManager.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../auth/permissions.js'
-import { SUPPORT_LEVELS, getSupportLevelStyle } from '../utils/bankMeta.js'
+import { SUPPORT_LEVELS, getSupportLevelStyle, WEEKDAYS, DEFAULT_WORKING_DAYS, TIME_ZONES, formatWorkingDays } from '../utils/bankMeta.js'
 import { ApiError, getBanks, createBank, updateBank, deleteBank, getDepartments, getAgents, getProducts } from '../utils/api.js'
 
 const NO_TEAM = 'No support team'
@@ -26,7 +26,8 @@ const emptyForm = {
   country: '',
   module: '',
   supportLevel: '',
-  supportDays: '',
+  workingDays: DEFAULT_WORKING_DAYS,
+  timeZone: 'Africa/Nairobi',
   supportHoursLocal: '',
   supportHoursIst: '',
   is24x7: false,
@@ -41,7 +42,8 @@ const formFromBank = (bank) => ({
   country: bank.Country || '',
   module: bank.Module || '',
   supportLevel: bank.Support_Level || '',
-  supportDays: bank.Support_Days || '',
+  workingDays: (bank.Working_Days || DEFAULT_WORKING_DAYS.join(',')).split(','),
+  timeZone: bank.Time_Zone || 'Africa/Nairobi',
   supportHoursLocal: bank.Support_Hours_Local || '',
   supportHoursIst: bank.Support_Hours_Ist || '',
   is24x7: bank.Is_24x7 === 'Y',
@@ -129,6 +131,10 @@ function BankFormModal({ bankId, initial, departments, agents, products, onClose
 
   const handleSave = async () => {
     if (!form.bankName.trim() || !form.departmentId) return
+    if (!form.is24x7 && form.workingDays.length === 0) {
+      setError('Pick at least one working day, or tick 24x7.')
+      return
+    }
     setSaving(true)
     setError(null)
     const payload = { ...form, bankName: form.bankName.trim(), supportLevel: form.supportLevel || null }
@@ -179,9 +185,36 @@ function BankFormModal({ bankId, initial, departments, agents, products, onClose
         </div>
 
         <div className="grid grid-cols-1 gap-3 border-t border-[#EEF2F8] pt-4 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            {field('Working days (SLA and resolution time skip the other days)')}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {WEEKDAYS.map((day) => {
+                const on = form.is24x7 || form.workingDays.includes(day)
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={form.is24x7}
+                    onClick={() =>
+                      set('workingDays', on ? form.workingDays.filter((d) => d !== day) : [...form.workingDays, day])
+                    }
+                    className={`h-8 min-w-[46px] cursor-pointer rounded-lg border px-2 text-[12px] font-bold transition disabled:cursor-not-allowed ${
+                      on ? 'border-primary bg-primary text-white' : 'border-border bg-white text-slate-500 hover:border-primary/50'
+                    }`}
+                  >
+                    {day.charAt(0) + day.slice(1).toLowerCase()}
+                  </button>
+                )
+              })}
+              <label className="ml-2 flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-ink">
+                <input type="checkbox" checked={form.is24x7} onChange={(e) => set('is24x7', e.target.checked)} className="h-4 w-4 accent-primary" />
+                24x7 support (every day counts)
+              </label>
+            </div>
+          </div>
           <div>
-            {field('Support days')}
-            <Input value={form.supportDays} onChange={(e) => set('supportDays', e.target.value)} placeholder="e.g. Mon - Fri" />
+            {field('Bank time zone')}
+            <Select value={form.timeZone} onChange={(e) => set('timeZone', e.target.value)} options={TIME_ZONES} />
           </div>
           <div>
             {field('Support hours (bank local time)')}
@@ -191,10 +224,6 @@ function BankFormModal({ bankId, initial, departments, agents, products, onClose
             {field('Support hours (IST)')}
             <Input value={form.supportHoursIst} onChange={(e) => set('supportHoursIst', e.target.value)} placeholder="e.g. 10.30 AM - 7.30 PM" />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-ink sm:col-span-3">
-            <input type="checkbox" checked={form.is24x7} onChange={(e) => set('is24x7', e.target.checked)} className="h-4 w-4 accent-primary" />
-            24x7 support
-          </label>
           <div className="sm:col-span-3">
             {field('Remarks')}
             <Input value={form.remarks} onChange={(e) => set('remarks', e.target.value)} placeholder="e.g. 24x7 support for Priority 1 tickets" />
@@ -313,7 +342,7 @@ export default function BanksPage() {
     { label: 'Bank', width: '17%' },
     { label: 'Module', width: '9%' },
     { label: 'Level', width: '9%' },
-    { label: 'Support Days', width: '10%' },
+    { label: 'Working Days', width: '10%' },
     { label: 'Hours (Local / IST)', width: '17%' },
     { label: 'Primary Resource', width: '15%' },
     { label: 'Secondary Resource', width: '15%' },
@@ -446,7 +475,7 @@ export default function BanksPage() {
                         <LevelBadge level={bank.Support_Level} />
                       </td>
                       <td className="px-3.5 py-2.5 text-slate-600">
-                        {bank.Support_Days || '—'}
+                        {formatWorkingDays(bank.Working_Days, false)}
                         {bank.Is_24x7 === 'Y' && (
                           <span className="mt-1 flex">
                             <Badge textClass="text-primary-dark" bgClass="bg-primary/10">

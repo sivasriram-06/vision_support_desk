@@ -12,23 +12,23 @@ export const getStatusStyle = (statusType) =>
 // anything else (P5, "Urgent", ...) gets a deterministic color from
 // PRIORITY_PALETTE below, the same approach as getAvatarColor.
 const PRIORITY_STYLES = {
-  P1: { text: 'text-danger', bg: 'bg-danger/10', border: 'border-danger/25' },
-  P2: { text: 'text-warn', bg: 'bg-warn/10', border: 'border-warn/25' },
-  P3: { text: 'text-sky-dark', bg: 'bg-sky/10', border: 'border-sky/25' },
-  P4: { text: 'text-muted', bg: 'bg-muted/10', border: 'border-muted/25' },
+  P1: { text: 'text-danger', dot: 'bg-danger', bg: 'bg-danger/10', border: 'border-danger/25' },
+  P2: { text: 'text-warn', dot: 'bg-warn', bg: 'bg-warn/10', border: 'border-warn/25' },
+  P3: { text: 'text-sky-dark', dot: 'bg-sky', bg: 'bg-sky/10', border: 'border-sky/25' },
+  P4: { text: 'text-muted', dot: 'bg-muted', bg: 'bg-muted/10', border: 'border-muted/25' },
 }
 
 const PRIORITY_PALETTE = [
-  { text: 'text-danger', bg: 'bg-danger/10', border: 'border-danger/25' },
-  { text: 'text-warn', bg: 'bg-warn/10', border: 'border-warn/25' },
-  { text: 'text-sky-dark', bg: 'bg-sky/10', border: 'border-sky/25' },
-  { text: 'text-success-dark', bg: 'bg-success/10', border: 'border-success/25' },
-  { text: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/25' },
-  { text: 'text-muted', bg: 'bg-muted/10', border: 'border-muted/25' },
+  { text: 'text-danger', dot: 'bg-danger', bg: 'bg-danger/10', border: 'border-danger/25' },
+  { text: 'text-warn', dot: 'bg-warn', bg: 'bg-warn/10', border: 'border-warn/25' },
+  { text: 'text-sky-dark', dot: 'bg-sky', bg: 'bg-sky/10', border: 'border-sky/25' },
+  { text: 'text-success-dark', dot: 'bg-success', bg: 'bg-success/10', border: 'border-success/25' },
+  { text: 'text-primary', dot: 'bg-primary', bg: 'bg-primary/10', border: 'border-primary/25' },
+  { text: 'text-muted', dot: 'bg-muted', bg: 'bg-muted/10', border: 'border-muted/25' },
 ]
 
 export const getPriorityStyle = (priority) => {
-  if (!priority) return { text: 'text-muted', bg: 'bg-muted/10', border: 'border-border', label: 'Unset' }
+  if (!priority) return { text: 'text-muted', dot: 'bg-muted', bg: 'bg-muted/10', border: 'border-border', label: 'Unset' }
   if (PRIORITY_STYLES[priority]) return { ...PRIORITY_STYLES[priority], label: priority }
   let hash = 0
   for (let i = 0; i < priority.length; i += 1) hash = (hash * 31 + priority.charCodeAt(i)) >>> 0
