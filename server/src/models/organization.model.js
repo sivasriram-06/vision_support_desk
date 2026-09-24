@@ -15,8 +15,15 @@ const DEPARTMENT_COLUMNS = [
     "Chat_Status", "Created_By", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
-const TEAM_COLUMNS = [
-    "Team_Id", "Team_Name", "Department_Id", "Logo_Path",
+const BANK_COLUMNS = [
+    "Bank_Id", "Bank_Name", "Department_Id",
+    "Country", "Module", "Support_Level", "Support_Days", "Support_Hours_Local",
+    "Support_Hours_Ist", "Is_24x7", "Remarks",
+    "Created_By", "Modified_By", "Modified_Time", "Org_Id"
+];
+
+const BANK_RESOURCE_COLUMNS = [
+    "Bank_Resource_Id", "Bank_Id", "Agent_Id", "Resource_Type",
     "Created_By", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
@@ -33,7 +40,8 @@ const MAIL_REPLY_ADDRESS_COLUMNS = [
 module.exports = {
     ORGANIZATION_COLUMNS,
     DEPARTMENT_COLUMNS,
-    TEAM_COLUMNS,
+    BANK_COLUMNS,
+    BANK_RESOURCE_COLUMNS,
     CHANNEL_COLUMNS,
     MAIL_REPLY_ADDRESS_COLUMNS
 };

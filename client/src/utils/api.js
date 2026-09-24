@@ -11,13 +11,50 @@ export class ApiError extends Error {
   }
 }
 
-const axiosClient = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL })
+const TOKEN_KEY = 'vsd:token'
+
+export const getStoredToken = () => {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export const setStoredToken = (token) => {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    // storage unavailable - the session then lasts only for this page load
+  }
+}
+
+// AuthProvider registers this so any 401 (expired/revoked session) drops
+// the user back to the login screen, wherever the request came from.
+let onUnauthorized = null
+export const setUnauthorizedHandler = (handler) => {
+  onUnauthorized = handler
+}
+
+// withCredentials so the server's httpOnly session cookie is stored/sent -
+// it's what authenticates plain <a href> attachment downloads. API calls
+// themselves authenticate with the Bearer header below.
+const axiosClient = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL, withCredentials: true })
+
+axiosClient.interceptors.request.use((config) => {
+  const token = getStoredToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
 
 axiosClient.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response) {
       const body = err.response.data?.error
+      const isLoginCall = err.config?.url?.endsWith('/auth/login')
+      if (err.response.status === 401 && !isLoginCall && onUnauthorized) onUnauthorized()
       return Promise.reject(
         new ApiError(body?.message || `Request failed (${err.response.status})`, {
           status: err.response.status,
@@ -33,6 +70,25 @@ axiosClient.interceptors.response.use(
 
 const unwrap = (promise) => promise.then((res) => res.data)
 
+// Auth
+export const login = (email, password) => unwrap(axiosClient.post('/api/v1/auth/login', { email, password }))
+export const getMe = () => unwrap(axiosClient.get('/api/v1/auth/me'))
+export const changePassword = (currentPassword, newPassword) =>
+  unwrap(axiosClient.post('/api/v1/auth/change-password', { currentPassword, newPassword }))
+export const logout = () => unwrap(axiosClient.post('/api/v1/auth/logout'))
+
+// Admin controller
+export const getRoles = () => unwrap(axiosClient.get('/api/v1/admin/roles'))
+export const getPermissionCatalog = () => unwrap(axiosClient.get('/api/v1/admin/permissions'))
+export const updateRolePermissions = (roleId, permissions) =>
+  unwrap(axiosClient.put(`/api/v1/admin/roles/${roleId}/permissions`, { permissions }))
+export const getAdminUsers = () => unwrap(axiosClient.get('/api/v1/admin/users'))
+export const setUserPassword = (agentId, password) => unwrap(axiosClient.put(`/api/v1/admin/users/${agentId}/password`, { password }))
+export const revokeUserLogin = (agentId) => unwrap(axiosClient.delete(`/api/v1/admin/users/${agentId}/password`))
+export const getLoginEvents = () => unwrap(axiosClient.get('/api/v1/admin/login-events'))
+export const getMailIntegration = () => unwrap(axiosClient.get('/api/v1/admin/mail-integration'))
+export const getGmailAuthUrl = () => unwrap(axiosClient.get('/api/v1/gmail/auth-url'))
+
 // Tickets
 export const getTickets = (params) => unwrap(axiosClient.get('/api/v1/tickets', { params }))
 export const getTicket = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}`))
@@ -42,7 +98,7 @@ export const getTicketHistory = (ticketId) => unwrap(axiosClient.get(`/api/v1/ti
 export const getTicketResolution = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/resolution`))
 export const getTicketMetrics = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/metrics`))
 export const getAgentQueue = (agentId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/agent/${agentId}`, { params }))
-export const getTeamQueue = (teamId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/team/${teamId}`, { params }))
+export const getBankQueue = (bankId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/bank/${bankId}`, { params }))
 
 // Conversations & comments
 export const getTicketConversations = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/conversations`))
@@ -78,12 +134,12 @@ export const createDepartment = (data) => unwrap(axiosClient.post('/api/v1/depar
 export const updateDepartment = (departmentId, data) => unwrap(axiosClient.patch(`/api/v1/departments/${departmentId}`, data))
 export const deleteDepartment = (departmentId) => unwrap(axiosClient.delete(`/api/v1/departments/${departmentId}`))
 
-// Teams
-export const getTeams = (params) => unwrap(axiosClient.get('/api/v1/teams', { params }))
-export const getTeam = (teamId) => unwrap(axiosClient.get(`/api/v1/teams/${teamId}`))
-export const createTeam = (data) => unwrap(axiosClient.post('/api/v1/teams', data))
-export const updateTeam = (teamId, data) => unwrap(axiosClient.patch(`/api/v1/teams/${teamId}`, data))
-export const deleteTeam = (teamId) => unwrap(axiosClient.delete(`/api/v1/teams/${teamId}`))
+// Banks (support team, level, hours, primary/secondary resources).
+export const getBanks = (params) => unwrap(axiosClient.get('/api/v1/banks', { params }))
+export const getBank = (bankId) => unwrap(axiosClient.get(`/api/v1/banks/${bankId}`))
+export const createBank = (data) => unwrap(axiosClient.post('/api/v1/banks', data))
+export const updateBank = (bankId, data) => unwrap(axiosClient.patch(`/api/v1/banks/${bankId}`, data))
+export const deleteBank = (bankId) => unwrap(axiosClient.delete(`/api/v1/banks/${bankId}`))
 
 // Products
 export const getProducts = () => unwrap(axiosClient.get('/api/v1/products'))

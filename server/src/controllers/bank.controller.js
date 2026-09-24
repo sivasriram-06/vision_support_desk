@@ -1,51 +1,47 @@
-const teamService = require("../services/team.service");
+const bankService = require("../services/bank.service");
 const getActorAgentId = require("../utils/get-actor");
 const HTTP_STATUS = require("../constants/http-status");
 const { ok } = require("../utils/api-response");
 
-const listTeams = (req, res, next) => {
+const listBanks = (req, res, next) => {
     try {
-        const teams = teamService.listTeams(req.query);
-        ok(res, HTTP_STATUS.OK, teams);
+        ok(res, HTTP_STATUS.OK, bankService.listBanks(req.query));
     } catch (error) {
         next(error);
     }
 };
 
-const getTeamById = (req, res, next) => {
+const getBankById = (req, res, next) => {
     try {
-        const team = teamService.getTeamById(req.params.teamId);
-        ok(res, HTTP_STATUS.OK, team);
+        ok(res, HTTP_STATUS.OK, bankService.getBankById(req.params.bankId));
     } catch (error) {
         next(error);
     }
 };
 
-const createTeam = (req, res, next) => {
+const createBank = (req, res, next) => {
     try {
-        const team = teamService.createTeam(req.body, getActorAgentId(req));
-        ok(res, HTTP_STATUS.CREATED, team);
+        ok(res, HTTP_STATUS.CREATED, bankService.createBank(req.body, getActorAgentId(req)));
     } catch (error) {
         next(error);
     }
 };
 
-const updateTeam = (req, res, next) => {
+const updateBank = (req, res, next) => {
     try {
-        const team = teamService.updateTeam(req.params.teamId, req.body, getActorAgentId(req));
-        ok(res, HTTP_STATUS.OK, team);
+        ok(res, HTTP_STATUS.OK, bankService.updateBank(req.params.bankId, req.body, getActorAgentId(req)));
     } catch (error) {
         next(error);
     }
 };
 
-const deleteTeam = (req, res, next) => {
+const deleteBank = (req, res, next) => {
     try {
-        teamService.deleteTeam(req.params.teamId, getActorAgentId(req));
+        bankService.deleteBank(req.params.bankId, getActorAgentId(req));
         ok(res, HTTP_STATUS.OK, { deleted: true });
     } catch (error) {
         next(error);
     }
 };
 
-module.exports = { listTeams, getTeamById, createTeam, updateTeam, deleteTeam };
+module.exports = { listBanks, getBankById, createBank, updateBank, deleteBank };

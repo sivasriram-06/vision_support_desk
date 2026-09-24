@@ -1,4 +1,5 @@
 const ticketService = require("../services/ticket.service");
+const ticketAccessService = require("../services/ticket-access.service");
 const getActorAgentId = require("../utils/get-actor");
 const HTTP_STATUS = require("../constants/http-status");
 const { okList, ok } = require("../utils/api-response");
@@ -21,9 +22,9 @@ const getAgentQueue = (req, res, next) => {
     }
 };
 
-const getTeamQueue = (req, res, next) => {
+const getBankQueue = (req, res, next) => {
     try {
-        const { data, paging } = ticketService.getTeamQueue(req.params.teamId, req.query);
+        const { data, paging } = ticketService.getBankQueue(req.params.bankId, req.query);
         okList(res, HTTP_STATUS.OK, data, paging);
     } catch (error) {
         next(error);
@@ -50,6 +51,8 @@ const createTicket = (req, res, next) => {
 
 const updateTicket = (req, res, next) => {
     try {
+        const existing = ticketService.getTicketById(req.params.ticketId);
+        ticketAccessService.assertCanUpdateTicket(req.agent, existing, req.body);
         const ticket = ticketService.updateTicket(req.params.ticketId, req.body, getActorAgentId(req));
         ok(res, HTTP_STATUS.OK, ticket);
     } catch (error) {
@@ -87,7 +90,7 @@ const getTicketMetrics = (req, res, next) => {
 module.exports = {
     listTickets,
     getAgentQueue,
-    getTeamQueue,
+    getBankQueue,
     getTicketById,
     createTicket,
     updateTicket,

@@ -38,33 +38,10 @@ const runMigrations = () => {
 
         const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
 
-        // SQLite only honors PRAGMA foreign_keys when toggled outside any
-        // transaction (it's a silent no-op mid-transaction) - migrations
-        // that rebuild a table referenced by FKs (drop+recreate to change a
-        // CHECK constraint, since SQLite has no ALTER TABLE ... DROP
-        // CONSTRAINT) mark themselves with a leading "-- fk:off" comment and
-        // manage their own BEGIN/COMMIT so we can disable FK enforcement
-        // around them instead of using the db.transaction() wrapper below.
-        if (sql.trimStart().startsWith("-- fk:off")) {
-            db.pragma("foreign_keys = OFF");
-            try {
-                db.exec(sql);
-                db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(file);
-            } catch (error) {
-                try {
-                    db.exec("ROLLBACK");
-                } catch (_) {
-                    // no transaction was open - nothing to roll back
-                }
-                throw error;
-            } finally {
-                db.pragma("foreign_keys = ON");
-            }
-            logger.info(`Applied migration: ${file}`);
-            appliedCount += 1;
-            continue;
-        }
-
+        // Migrations are plain CREATE TABLE / CREATE INDEX files - one per
+        // table, never ALTER. To change a table in this (test) environment,
+        // edit its CREATE file, delete the SQLite database and re-run
+        // `npm run migrate && npm run seed`.
         const applyMigration = db.transaction(() => {
             db.exec(sql);
             db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(file);

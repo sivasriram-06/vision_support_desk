@@ -6,7 +6,18 @@ const organizationRepository = require("../repositories/organization.repository"
 const departmentRepository = require("../repositories/department.repository");
 const agentRepository = require("../repositories/agent.repository");
 const { channel: channelRepository, mailReplyAddress: mailReplyAddressRepository } = require("../repositories/channel.repository");
+const roleRepository = require("../repositories/role.repository");
+const credentialRepository = require("../repositories/agent-credential.repository");
+const authService = require("../services/auth.service");
 const { SYSTEM_AGENT_EMAIL } = require("../services/organization.service");
+const { DEFAULT_ROLES } = require("../constants/permissions");
+const bankRepository = require("../repositories/bank.repository");
+const picklistRepository = require("../repositories/picklist.repository");
+const productRepository = require("../repositories/product.repository");
+const prioritySlaRepository = require("../repositories/priority-sla.repository");
+const supportOrg = require("./seed-data/support-org.json");
+const bankSeed = require("./seed-data/banks.json");
+const configSeed = require("./seed-data/config.json");
 
 const SUPPORT_MAILBOX = env.google.mailbox;
 
@@ -120,7 +131,253 @@ const seed = () => {
         logger.info(`Seeded mail reply address: ${mailReplyAddress.Email_Address} (${mailReplyAddress.Mail_Reply_Address_Id})`);
     }
 
+    const roleIdByKey = seedRoles(org.Organization_Id, systemAgent.Agent_Id);
+    const teamIdByName = seedSupportTeams(org.Organization_Id, systemAgent.Agent_Id);
+    seedSupportAgents(org.Organization_Id, systemAgent.Agent_Id, roleIdByKey, teamIdByName);
+    seedBanks(org.Organization_Id, systemAgent.Agent_Id, teamIdByName);
+    seedConfig(org.Organization_Id, systemAgent.Agent_Id);
+
     logger.info("Seed complete.");
+};
+
+/**
+ * Built-in roles, keyed by Role_Key. Created with their default permission
+ * set the first time only - an admin's later edits on the Admin page are
+ * never overwritten by re-seeding.
+ */
+const seedRoles = (orgId, systemAgentId) => {
+    const roleIdByKey = {};
+    for (const def of DEFAULT_ROLES) {
+        let role = roleRepository.findByKey(orgId, def.key);
+        if (!role) {
+            const roleId = generateId();
+            roleRepository.insert({
+                Role_Id: roleId,
+                Role_Name: def.name,
+                Role_Key: def.key,
+                Parent_Role_Id: def.parentKey ? roleIdByKey[def.parentKey] : null,
+                Permissions_Json: JSON.stringify(def.permissions),
+                Sort_Order: def.sortOrder,
+                Created_By: systemAgentId,
+                Org_Id: orgId
+            });
+            role = roleRepository.findById(roleId);
+            logger.info(`Seeded role: ${role.Role_Name}`);
+        }
+        roleIdByKey[def.key] = role.Role_Id;
+    }
+    return roleIdByKey;
+};
+
+/**
+ * Support teams (seed-data/support-org.json) are departments; each bank is
+ * worked by one of them. Created once by Sanitized_Name - a later admin
+ * rename in the app is kept.
+ */
+const seedSupportTeams = (orgId, systemAgentId) => {
+    const teamIdByName = {};
+    for (const team of supportOrg.teams) {
+        let department = departmentRepository.findBySanitizedName(orgId, team.sanitizedName);
+        if (!department) {
+            const departmentId = generateId();
+            departmentRepository.insert({
+                Department_Id: departmentId,
+                Department_Name: team.name,
+                Sanitized_Name: team.sanitizedName,
+                Is_Default: "N",
+                Is_Enabled: "Y",
+                Is_Visible_To_Contacts: "N",
+                Creator_Agent_Id: systemAgentId,
+                Created_By: systemAgentId,
+                Org_Id: orgId
+            });
+            department = departmentRepository.findById(departmentId);
+            logger.info(`Seeded support team: ${team.name}`);
+        }
+        teamIdByName[team.name] = department.Department_Id;
+    }
+    return teamIdByName;
+};
+
+/**
+ * The support roster from docs/Vision Support Desk KB.xlsx. Upserts by
+ * email: a new agent is created with its team + role; an existing agent
+ * (e.g. one Gmail ingestion created for a mail sender) gets team + role only while it has no
+ * built-in role yet, so admin changes made in the app survive re-seeding.
+ *
+ * The support mailbox account (GMAIL_MAILBOX) is also made an Admin - in
+ * production that is vision.support@sunoida.com itself.
+ *
+ * Sign-in: when SEED_DEFAULT_PASSWORD is set, every seeded agent without a
+ * credential gets it as a temporary password they must change on first
+ * login. Without it, nobody gets a login from the seed - an admin issues
+ * passwords from the Admin page instead.
+ */
+const seedSupportAgents = (orgId, systemAgentId, roleIdByKey, teamIdByName) => {
+    const defaultPassword = env.seedDefaultPassword;
+    const entries = [...supportOrg.agents];
+    const mailbox = SUPPORT_MAILBOX.trim().toLowerCase();
+    if (!entries.some((entry) => entry.email === mailbox)) {
+        const [localPart] = mailbox.split("@");
+        const [firstName, ...rest] = localPart.split(".");
+        const cap = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+        entries.push({ firstName: cap(firstName), lastName: rest.map(cap).join(" "), email: mailbox, team: null, role: "ADMIN" });
+    }
+
+    let created = 0;
+    let updated = 0;
+    let credentials = 0;
+    for (const entry of entries) {
+        const email = entry.email.trim().toLowerCase();
+        const roleId = roleIdByKey[entry.role];
+        const teamId = entry.team ? teamIdByName[entry.team] : null;
+        if (entry.team && !teamId) {
+            throw new Error(`Seed agent ${email} references unknown team "${entry.team}"`);
+        }
+
+        let agent = agentRepository.findByEmail(orgId, email);
+        if (!agent) {
+            const agentId = generateId();
+            agentRepository.insert({
+                Agent_Id: agentId,
+                Zuid: agentId,
+                First_Name: entry.firstName,
+                Last_Name: entry.lastName || "",
+                Email: email,
+                Status: "Active",
+                Role_Id: roleId,
+                Primary_Department_Id: teamId,
+                Is_Confirmed: "Y",
+                Created_By: systemAgentId,
+                Org_Id: orgId
+            });
+            agent = agentRepository.findById(agentId);
+            created += 1;
+        } else {
+            const currentRole = agent.Role_Id ? roleRepository.findById(agent.Role_Id) : null;
+            if (!currentRole || !currentRole.Role_Key) {
+                agentRepository.updateById(agent.Agent_Id, {
+                    Role_Id: roleId,
+                    Primary_Department_Id: teamId,
+                    Status: "Active",
+                    Modified_By: systemAgentId
+                });
+                updated += 1;
+            }
+        }
+
+        if (defaultPassword && !credentialRepository.findByAgentId(agent.Agent_Id)) {
+            authService.setPassword(agent.Agent_Id, defaultPassword, { mustChange: true, actorAgentId: systemAgentId });
+            credentials += 1;
+        }
+    }
+
+    logger.info(`Seeded support roster: ${created} created, ${updated} assigned team/role, ${credentials} sign-in credential(s) issued.`);
+    if (!defaultPassword) {
+        logger.warn("SEED_DEFAULT_PASSWORD is not set - no sign-in credentials were issued. Set it and re-run the seed, or issue passwords from the Admin page.");
+    }
+};
+
+/**
+ * Banks from docs/Vision Support Desk KB.xlsx (seed-data/banks.json): which
+ * support team works each bank, its support level/hours, and its primary /
+ * secondary resources. Created once by name - a bank already present has
+ * been maintained in the app since and is left alone.
+ */
+const seedBanks = (orgId, systemAgentId, teamIdByName) => {
+    let created = 0;
+    const missingResources = new Set();
+
+    for (const bank of bankSeed.banks) {
+        if (bankRepository.findByName(orgId, bank.name)) continue;
+
+        const departmentId = teamIdByName[bank.team];
+        if (!departmentId) {
+            throw new Error(`Seed bank "${bank.name}" references unknown support team "${bank.team}"`);
+        }
+
+        const bankId = generateId();
+        bankRepository.insert({
+            Bank_Id: bankId,
+            Bank_Name: bank.name,
+            Department_Id: departmentId,
+            Country: bank.country || null,
+            Module: bank.module || null,
+            Support_Level: bank.supportLevel || null,
+            Support_Days: bank.supportDays || null,
+            Support_Hours_Local: bank.supportHoursLocal || null,
+            Support_Hours_Ist: bank.supportHoursIst || null,
+            Is_24x7: bank.is24x7 ? "Y" : "N",
+            Remarks: bank.remarks || null,
+            Created_By: systemAgentId,
+            Org_Id: orgId
+        });
+        created += 1;
+
+        for (const [type, emails] of [["PRIMARY", bank.primary || []], ["SECONDARY", bank.secondary || []]]) {
+            const agentIds = [];
+            for (const email of emails) {
+                const agent = agentRepository.findByEmail(orgId, email);
+                if (agent) agentIds.push(agent.Agent_Id);
+                else missingResources.add(email);
+            }
+            bankRepository.replaceResources(bankId, type, agentIds, { actorAgentId: systemAgentId, orgId });
+        }
+    }
+
+    logger.info(`Seeded banks: ${created} created.`);
+    if (missingResources.size > 0) {
+        logger.warn(`Bank resources not found as agents (skipped): ${[...missingResources].join(", ")}`);
+    }
+};
+
+/**
+ * Ticket option lists (seed-data/config.json): statuses, classifications
+ * with their categories, products and priority SLAs. Each value is created
+ * once; values an admin adds, renames or deletes later on the Config page
+ * are not touched.
+ */
+const seedConfig = (orgId, systemAgentId) => {
+    let created = 0;
+    const addPicklist = (field, value, sortOrder, parentValue = null) => {
+        if (picklistRepository.findByValue(orgId, field, value, parentValue)) return;
+        picklistRepository.insert({
+            Picklist_Value_Id: generateId(),
+            Field: field,
+            Value: value,
+            Parent_Value: parentValue,
+            Sort_Order: sortOrder,
+            Created_By: systemAgentId,
+            Org_Id: orgId
+        });
+        created += 1;
+    };
+
+    configSeed.statuses.forEach((status, index) => addPicklist("STATUS", status, index));
+    Object.entries(configSeed.classifications).forEach(([classification, categories], index) => {
+        addPicklist("CLASSIFICATION", classification, index);
+        categories.forEach((category, categoryIndex) => addPicklist("CATEGORY", category, categoryIndex, classification));
+    });
+
+    for (const productName of configSeed.products) {
+        if (productRepository.findByName(orgId, productName)) continue;
+        productRepository.insert({ Product_Id: generateId(), Product_Name: productName, Created_By: systemAgentId, Org_Id: orgId });
+        created += 1;
+    }
+
+    for (const { priority, slaHours } of configSeed.prioritySla) {
+        if (prioritySlaRepository.findByPriority(orgId, priority)) continue;
+        prioritySlaRepository.insert({
+            Priority_Sla_Config_Id: generateId(),
+            Priority: priority,
+            Sla_Hours: slaHours,
+            Created_By: systemAgentId,
+            Org_Id: orgId
+        });
+        created += 1;
+    }
+
+    logger.info(`Seeded config: ${created} value(s) created.`);
 };
 
 if (require.main === module) {

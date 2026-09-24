@@ -2,13 +2,13 @@
   "info": {
     "_postman_id": "3f7a2b6e-6c1d-4e3a-9d0a-1f9b8a0c2b5e",
     "name": "Vision Support Desk API",
-    "description": "REST API for Vision Support Desk (tickets, conversations, contacts, accounts, agents, departments, teams, Gmail ingestion).\n\nBase path: `/api/v1`. Server default: `http://localhost:3456`.\n\n### Response contract\n- List endpoints: `{ \"data\": [...], \"paging\": { \"limit\", \"page\", \"total\", \"hasMore\", \"nextCursor\" } }`\n- Single-resource endpoints: `{ \"data\": {...} }`\n- Errors: `{ \"error\": { \"code\", \"message\", \"details\", \"traceId\" } }`\n\n### Auth\nNo authentication is wired into any route yet (Login & Security module / `/api/v1/auth/*` is not implemented). Every write currently attributes to a system actor server-side. `auth.middleware.js` / `authorize.middleware.js` are ready for when JWT auth lands, expecting a `Bearer` token.\n\n### Suggested flow to try this collection\n1. Run **Departments → List Departments** and **Agents → List Agents** to copy a real `departmentId` / `agentId` (seeded by `npm run seed`).\n2. Run **Contacts → Create Contact** and save the returned `Contact_Id` into the `contactId` collection variable.\n3. Run **Tickets → Create Ticket** using those ids; save the returned `Ticket_Id` into the `ticketId` variable.\n4. Exercise Conversations/Comments/History/Queues using that `ticketId`.\n5. For Gmail, follow `docs/development/gmail-console-setup.md` before calling the Gmail folder's requests.",
+    "description": "REST API for Vision Support Desk (tickets, conversations, contacts, accounts, agents, departments, banks, Gmail ingestion).\n\nBase path: `/api/v1`. Server default: `http://localhost:3456`.\n\n### Response contract\n- List endpoints: `{ \"data\": [...], \"paging\": { \"limit\", \"page\", \"total\", \"hasMore\", \"nextCursor\" } }`\n- Single-resource endpoints: `{ \"data\": {...} }`\n- Errors: `{ \"error\": { \"code\", \"message\", \"details\", \"traceId\" } }`\n\n### Auth\nNo authentication is wired into any route yet (Login & Security module / `/api/v1/auth/*` is not implemented). Every write currently attributes to a system actor server-side. `auth.middleware.js` / `authorize.middleware.js` are ready for when JWT auth lands, expecting a `Bearer` token.\n\n### Suggested flow to try this collection\n1. Run **Departments → List Departments** and **Agents → List Agents** to copy a real `departmentId` / `agentId` (seeded by `npm run seed`).\n2. Run **Contacts → Create Contact** and save the returned `Contact_Id` into the `contactId` collection variable.\n3. Run **Tickets → Create Ticket** using those ids; save the returned `Ticket_Id` into the `ticketId` variable.\n4. Exercise Conversations/Comments/History/Queues using that `ticketId`.\n5. For Gmail, follow `docs/development/gmail-console-setup.md` before calling the Gmail folder's requests.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3456", "type": "string", "description": "Vision Support Desk API origin" },
     { "key": "departmentId", "value": "", "type": "string", "description": "HD_DEPARTMENT_MASTER.Department_Id - copy from List Departments" },
-    { "key": "teamId", "value": "", "type": "string", "description": "HD_TEAM_MASTER.Team_Id - copy from List Teams" },
+    { "key": "bankId", "value": "", "type": "string", "description": "HD_BANK_MASTER.Bank_Id - copy from List Banks" },
     { "key": "agentId", "value": "", "type": "string", "description": "HD_AGENT_MASTER.Agent_Id - copy from List Agents" },
     { "key": "contactId", "value": "", "type": "string", "description": "HD_CONTACT_MASTER.Contact_Id - copy from Create/List Contacts" },
     { "key": "accountId", "value": "", "type": "string", "description": "HD_ACCOUNT_MASTER.Account_Id - copy from List Accounts" },
@@ -32,7 +32,7 @@
     },
     {
       "name": "Tickets",
-      "description": "Core ticket workflow: All Cases, Agent/Team queues, ticket detail, properties, history, resolution, metrics. Backed by HD_TICKET_MASTER + child tables.",
+      "description": "Core ticket workflow: All Cases, Agent/Bank queues, ticket detail, properties, history, resolution, metrics. Backed by HD_TICKET_MASTER + child tables.",
       "item": [
         {
           "name": "List Tickets (All Cases)",
@@ -50,7 +50,7 @@
                 { "key": "statusType", "value": "Open", "description": "One of: Open, On Hold, Closed" },
                 { "key": "priority", "value": "", "description": "One of: P1, P2, P3, P4", "disabled": true },
                 { "key": "departmentId", "value": "", "description": "Filter by HD_DEPARTMENT_MASTER.Department_Id", "disabled": true },
-                { "key": "teamId", "value": "", "description": "Filter by HD_TEAM_MASTER.Team_Id", "disabled": true },
+                { "key": "bankId", "value": "", "description": "Filter by HD_BANK_MASTER.Bank_Id", "disabled": true },
                 { "key": "assigneeId", "value": "", "description": "Filter by HD_AGENT_MASTER.Agent_Id", "disabled": true },
                 { "key": "contactId", "value": "", "description": "Filter by HD_CONTACT_MASTER.Contact_Id", "disabled": true },
                 { "key": "search", "value": "", "description": "Matches Subject or Ticket_Number (LIKE)", "disabled": true },
@@ -69,10 +69,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"subject\": \"Cannot access dashboard\",\n  \"description\": \"Getting a 500 error when I open the dashboard\",\n  \"channel\": \"Web Form\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"contactId\": \"{{contactId}}\",\n  \"accountId\": null,\n  \"teamId\": null,\n  \"assigneeId\": null,\n  \"priority\": \"P3\",\n  \"statusType\": \"Open\"\n}"
+              "raw": "{\n  \"subject\": \"Cannot access dashboard\",\n  \"description\": \"Getting a 500 error when I open the dashboard\",\n  \"channel\": \"Web Form\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"contactId\": \"{{contactId}}\",\n  \"accountId\": null,\n  \"bankId\": null,\n  \"assigneeId\": null,\n  \"priority\": \"P3\",\n  \"statusType\": \"Open\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/tickets", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets"] },
-            "description": "Creates a ticket, its CREATED history row, and an empty metrics row in one transaction.\n\n**Required:** `subject`, `channel` (Email | Web Form | Social | Chat | Phone), `departmentId`, `contactId`.\n**Optional:** `description`, `teamId`, `accountId`, `assigneeId`, `status`, `statusType` (Open | On Hold | Closed, default Open), `priority` (P1-P4).\n\n**Response 201** → `{ \"data\": { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Status\": \"Open\", ... } }`\n\n**Errors:** `VALIDATION_ERROR` (400), `DEPARTMENT_NOT_FOUND` (400), `CONTACT_NOT_FOUND` (400)."
+            "description": "Creates a ticket, its CREATED history row, and an empty metrics row in one transaction.\n\n**Required:** `subject`, `channel` (Email | Web Form | Social | Chat | Phone), `departmentId`, `contactId`.\n**Optional:** `description`, `bankId`, `accountId`, `assigneeId`, `status`, `statusType` (Open | On Hold | Closed, default Open), `priority` (P1-P4).\n\n**Response 201** → `{ \"data\": { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Status\": \"Open\", ... } }`\n\n**Errors:** `VALIDATION_ERROR` (400), `DEPARTMENT_NOT_FOUND` (400), `CONTACT_NOT_FOUND` (400)."
           },
           "response": []
         },
@@ -96,7 +96,7 @@
               "raw": "{\n  \"priority\": \"P2\",\n  \"assigneeId\": \"{{agentId}}\",\n  \"status\": \"In Progress\",\n  \"statusType\": \"Open\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}"] },
-            "description": "Partial update. Any of: `subject`, `description`, `status`, `statusType`, `priority`, `departmentId`, `teamId`, `assigneeId`, `category`, `subCategory`, `classification` (at least one required).\n\nWrites one HD_TICKET_HISTORY row per changed field (STATUS_CHANGE / PRIORITY_CHANGE / REASSIGNED / FIELD_CHANGE), all in one transaction.\n\n**Errors:** `VALIDATION_ERROR` (400 - empty body), `TICKET_NOT_FOUND` (404)."
+            "description": "Partial update. Any of: `subject`, `description`, `status`, `statusType`, `priority`, `departmentId`, `bankId`, `assigneeId`, `category`, `subCategory`, `classification` (at least one required).\n\nWrites one HD_TICKET_HISTORY row per changed field (STATUS_CHANGE / PRIORITY_CHANGE / REASSIGNED / FIELD_CHANGE), all in one transaction.\n\n**Errors:** `VALIDATION_ERROR` (400 - empty body), `TICKET_NOT_FOUND` (404)."
           },
           "response": []
         },
@@ -197,19 +197,19 @@
           "response": []
         },
         {
-          "name": "Team Queue",
+          "name": "Bank Queue",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tickets/queues/team/{{teamId}}?unassignedOnly=true",
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/bank/{{bankId}}?unassignedOnly=true",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tickets", "queues", "team", "{{teamId}}"],
+              "path": ["api", "v1", "tickets", "queues", "bank", "{{bankId}}"],
               "query": [
                 { "key": "unassignedOnly", "value": "true", "description": "\"true\" to only show tickets with no Assignee_Id yet" }
               ]
             },
-            "description": "Tickets assigned to a team (Team_Id = teamId), optionally filtered to unassigned-only via `unassignedOnly=true`."
+            "description": "Tickets for a bank (Bank_Id = bankId), optionally filtered to unassigned-only via `unassignedOnly=true`."
           },
           "response": []
         }
@@ -359,33 +359,33 @@
       ]
     },
     {
-      "name": "Teams",
-      "description": "Teams below department level (HD_TEAM_MASTER). Read-only via API today.",
+      "name": "Banks",
+      "description": "Client banks (HD_BANK_MASTER): support team, level, hours, primary/secondary resources.",
       "item": [
         {
-          "name": "List Teams",
+          "name": "List Banks",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/teams?departmentId={{departmentId}}",
+              "raw": "{{baseUrl}}/api/v1/banks?departmentId={{departmentId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "teams"],
+              "path": ["api", "v1", "banks"],
               "query": [
-                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to teams within one department", "disabled": true }
+                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to banks worked by one support team (department)", "disabled": true }
               ]
             },
-            "description": "All teams, optionally filtered by department. No pagination envelope (returns a plain array in `data`)."
+            "description": "All banks with their support team and primary/secondary resources, optionally filtered by support team. No pagination envelope (returns a plain array in `data`)."
           },
           "response": []
         },
         {
-          "name": "Get Team By Id",
+          "name": "Get Bank By Id",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/teams/{{teamId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "teams", "{{teamId}}"] },
-            "description": "**Errors:** `TEAM_NOT_FOUND` (404)."
+            "url": { "raw": "{{baseUrl}}/api/v1/banks/{{bankId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "banks", "{{bankId}}"] },
+            "description": "**Errors:** `BANK_NOT_FOUND` (404)."
           },
           "response": []
         }

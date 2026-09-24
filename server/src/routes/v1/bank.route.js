@@ -1,14 +1,16 @@
 const express = require("express");
-const teamController = require("../../controllers/team.controller");
+const requirePermission = require("../../middleware/authorize.middleware");
+const { PERMISSIONS } = require("../../constants/permissions");
+const bankController = require("../../controllers/bank.controller");
 const validate = require("../../middleware/validate.middleware");
-const { teamIdParamSchema, createTeamSchema, updateTeamSchema } = require("../../schemas/team.schema");
+const { bankIdParamSchema, createBankSchema, updateBankSchema } = require("../../schemas/bank.schema");
 
 const router = express.Router();
 
-router.get("/", teamController.listTeams);
-router.post("/", validate(createTeamSchema), teamController.createTeam);
-router.get("/:teamId", validate(teamIdParamSchema, "params"), teamController.getTeamById);
-router.patch("/:teamId", validate(teamIdParamSchema, "params"), validate(updateTeamSchema), teamController.updateTeam);
-router.delete("/:teamId", validate(teamIdParamSchema, "params"), teamController.deleteTeam);
+router.get("/", bankController.listBanks);
+router.post("/", requirePermission(PERMISSIONS.TEAMS_MANAGE), validate(createBankSchema), bankController.createBank);
+router.get("/:bankId", validate(bankIdParamSchema, "params"), bankController.getBankById);
+router.patch("/:bankId", requirePermission(PERMISSIONS.TEAMS_MANAGE), validate(bankIdParamSchema, "params"), validate(updateBankSchema), bankController.updateBank);
+router.delete("/:bankId", requirePermission(PERMISSIONS.TEAMS_MANAGE), validate(bankIdParamSchema, "params"), bankController.deleteBank);
 
 module.exports = router;

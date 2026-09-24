@@ -9,6 +9,11 @@ const STATUS_TYPE = {
     CLOSED: "Closed"
 };
 
+// Status every ticket created from an incoming email starts in, until a
+// team lead picks it up. Must exist in the STATUS picklist
+// (seed-data/config.json).
+const NEW_EMAIL_TICKET_STATUS = "Unassigned";
+
 const DEFAULT_STATUS_BY_TYPE = {
     [STATUS_TYPE.OPEN]: "Open",
     [STATUS_TYPE.ON_HOLD]: "On Hold",
@@ -47,6 +52,7 @@ const TICKET_HISTORY_EVENT = {
 module.exports = {
     STATUS_TYPE,
     DEFAULT_STATUS_BY_TYPE,
+    NEW_EMAIL_TICKET_STATUS,
     PRIORITY,
     CHANNEL,
     DIRECTION,

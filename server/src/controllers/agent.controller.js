@@ -1,5 +1,4 @@
 const agentService = require("../services/agent.service");
-const getActorAgentId = require("../utils/get-actor");
 const HTTP_STATUS = require("../constants/http-status");
 const { ok } = require("../utils/api-response");
 
@@ -14,7 +13,7 @@ const listAgents = (req, res, next) => {
 
 const getAgentById = (req, res, next) => {
     try {
-        const agent = agentService.getAgentById(req.params.agentId);
+        const agent = agentService.getAgentDirectoryById(req.params.agentId);
         ok(res, HTTP_STATUS.OK, agent);
     } catch (error) {
         next(error);
@@ -23,7 +22,7 @@ const getAgentById = (req, res, next) => {
 
 const createAgent = (req, res, next) => {
     try {
-        const agent = agentService.createAgent(req.body, getActorAgentId(req));
+        const agent = agentService.createAgent(req.body, req.agent);
         ok(res, HTTP_STATUS.CREATED, agent);
     } catch (error) {
         next(error);
@@ -32,7 +31,7 @@ const createAgent = (req, res, next) => {
 
 const updateAgent = (req, res, next) => {
     try {
-        const agent = agentService.updateAgent(req.params.agentId, req.body, getActorAgentId(req));
+        const agent = agentService.updateAgent(req.params.agentId, req.body, req.agent);
         ok(res, HTTP_STATUS.OK, agent);
     } catch (error) {
         next(error);
@@ -41,7 +40,7 @@ const updateAgent = (req, res, next) => {
 
 const deleteAgent = (req, res, next) => {
     try {
-        agentService.deleteAgent(req.params.agentId, getActorAgentId(req));
+        agentService.deleteAgent(req.params.agentId, req.agent);
         ok(res, HTTP_STATUS.OK, { deleted: true });
     } catch (error) {
         next(error);

@@ -1,0 +1,37 @@
+{
+  "_source": "Option lists configured on the Config page (Status, Classification -> Category, Products, Priority SLA). 'Unassigned' is the status every newly ingested email ticket starts in.",
+  "statuses": [
+    "Unassigned",
+    "Open",
+    "In Progress - Client",
+    "On Hold - Client",
+    "On Hold - Dependent",
+    "Resolved",
+    "Resolved - Under Observation",
+    "Closed"
+  ],
+  "classifications": {
+    "Complaint": ["Application", "Support"],
+    "Incident": ["Application", "Enviroment", "Operational", "Performance"],
+    "Issue": ["EOD/EOM", "Ticket Status"],
+    "Problem": ["Application", "Implementation", "People", "Process", "Technology"],
+    "Requirement": ["CR", "Documents", "Support", "Training"]
+  },
+  "products": [
+    "FATCA / CRS",
+    "Vision BI",
+    "Vision DQ",
+    "Vision EDW",
+    "Vision ETL",
+    "Vision MDM",
+    "Vision RA",
+    "Vision RegTech",
+    "Vision Studio",
+    "Vision SupTech"
+  ],
+  "prioritySla": [
+    { "priority": "P1", "slaHours": 24 },
+    { "priority": "P2", "slaHours": 72 },
+    { "priority": "P3", "slaHours": 240 }
+  ]
+}

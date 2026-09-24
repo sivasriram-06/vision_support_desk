@@ -7,7 +7,7 @@ import ErrorState from '../ui/ErrorState.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../../utils/api.js'
 
-/** Add/edit/delete departments. Used inside the "Manage Departments" modal on the Teams page. */
+/** Add/edit/delete departments. Used inside the "Manage Support Teams" modal on the Banks page. */
 export default function DepartmentManager({ onChanged }) {
   const [state, setState] = useState({ loading: true, error: null, departments: [] })
   const [newName, setNewName] = useState('')

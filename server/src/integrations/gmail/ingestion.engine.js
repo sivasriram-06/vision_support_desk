@@ -17,7 +17,7 @@ const logger = require("../../utils/logger");
 const ApiError = require("../../utils/api-error");
 const ERROR_CODES = require("../../constants/error-codes");
 const HTTP_STATUS = require("../../constants/http-status");
-const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT } = require("../../constants/ticket.constants");
+const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../../constants/ticket.constants");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -33,6 +33,26 @@ const PAGE_SIZE = 50;
 // Safety cap so a mailbox with years of history backfills over a few sync
 // ticks instead of one run trying to walk the entire mailbox at once.
 const MAX_PAGES_PER_SYNC = 20;
+
+/**
+ * Who actually wrote an inbound message. Relay notices - Google Sheets /
+ * Docs / Drive share mails, "Yogesh Balan (via Google Sheets)" - send
+ * everyone's mail from one shared no-reply From address and carry the real
+ * person only in Reply-To. Matching the contact on that shared From address
+ * glued every such mail onto whoever sent the first one. Only these "(via
+ * ...)" relays are redirected: ordinary automated senders (GitHub, Postman,
+ * newsletters) also set Reply-To, often to a per-message token address, and
+ * must stay on their From address.
+ */
+const VIA_SUFFIX = /\s*\(via [^)]*\)\s*$/i;
+
+const resolveRequester = (normalized, mailboxAddress) => {
+    const from = normalized.from;
+    const replyTo = normalized.replyTo && normalized.replyTo[0];
+    if (!from.name || !VIA_SUFFIX.test(from.name)) return from;
+    if (!replyTo || !replyTo.email || replyTo.email === from.email || replyTo.email === mailboxAddress.toLowerCase()) return from;
+    return { email: replyTo.email, name: replyTo.name || from.name.replace(VIA_SUFFIX, "").trim() || null };
+};
 
 /**
  * Walks Gmail's message list (newest-first) page by page instead of only
@@ -214,7 +234,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
     // The "counterpart" is whichever side of the message ISN'T the mailbox -
     // the customer, always - so ticket/contact matching is symmetric no
     // matter who actually sent this particular message.
-    const counterpartAddress = isOutbound ? (normalized.to[0] || normalized.cc[0]) : normalized.from;
+    const counterpartAddress = isOutbound ? (normalized.to[0] || normalized.cc[0]) : resolveRequester(normalized, mailboxAddress);
     if (!counterpartAddress?.email) {
         return { status: "skipped", reason: "outbound message has no recipient to match a contact" };
     }
@@ -271,6 +291,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
                 subject: normalized.subject,
                 description: normalized.bodyText,
                 channel: CHANNEL.EMAIL,
+                status: NEW_EMAIL_TICKET_STATUS,
                 departmentId: mailReplyAddress.Department_Id,
                 contactId: contact.Contact_Id
             }, systemAgentId);

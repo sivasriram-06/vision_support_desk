@@ -8,11 +8,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "migrate": "node src/database/migrate.js",
-    "seed": "node src/database/seed.js",
-    "import:zoho-reference": "node src/database/import-zoho-reference-data.js",
-    "remap:team-departments": "node src/database/remap-teams-to-bank-departments.js"
+    "seed": "node src/database/seed.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.10.0",
     "compression": "^1.7.5",
     "cookie-parser": "^1.4.7",

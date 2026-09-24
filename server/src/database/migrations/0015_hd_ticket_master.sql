@@ -1,9 +1,11 @@
 -- HD_TICKET_MASTER: core ticket record.
+-- Bank_Id is the client bank the ticket belongs to (HD_BANK_MASTER).
+-- Priority is free text from the admin-managed HD_PRIORITY_SLA_CONFIG list.
 -- Layout_Id, Sla_Policy_Id, Blueprint_Id, Product_Id, Contract_Id are kept as
 -- plain (unconstrained) TEXT columns for now: their owning tables
 -- (HD_LAYOUT_MASTER, HD_SLA_POLICY_MASTER, HD_BLUEPRINT_MASTER,
--- HD_PRODUCT_MASTER, HD_CONTRACT_MASTER) are Phase 2 scope and not yet
--- created - see README "don't scaffold all 66 tables in one pass".
+-- HD_CONTRACT_MASTER) are Phase 2 scope and not yet created, and
+-- HD_PRODUCT_MASTER is created later in the migration order.
 CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Ticket_Id                  TEXT PRIMARY KEY,
     Ticket_Number              TEXT NOT NULL,
@@ -11,7 +13,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Description                TEXT,
     Status                     TEXT NOT NULL,
     Status_Type                TEXT NOT NULL CHECK (Status_Type IN ('Open', 'On Hold', 'Closed')),
-    Priority                   TEXT CHECK (Priority IN ('P1', 'P2', 'P3', 'P4')),
+    Priority                   TEXT,
     Classification              TEXT,
     Category                   TEXT,
     Sub_Category                TEXT,
@@ -21,7 +23,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Sentiment                  TEXT CHECK (Sentiment IN ('Positive', 'Negative', 'Neutral')),
     Relationship_Type           TEXT,
     Department_Id              TEXT NOT NULL REFERENCES HD_DEPARTMENT_MASTER (Department_Id),
-    Team_Id                    TEXT REFERENCES HD_TEAM_MASTER (Team_Id),
+    Bank_Id                    TEXT REFERENCES HD_BANK_MASTER (Bank_Id),
     Contact_Id                 TEXT NOT NULL REFERENCES HD_CONTACT_MASTER (Contact_Id),
     Account_Id                 TEXT REFERENCES HD_ACCOUNT_MASTER (Account_Id),
     Assignee_Id                TEXT REFERENCES HD_AGENT_MASTER (Agent_Id),
@@ -63,7 +65,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ticket_number_org ON HD_TICKET_MASTER (Org_Id, Ticket_Number);
 CREATE INDEX IF NOT EXISTS idx_ticket_department ON HD_TICKET_MASTER (Department_Id);
-CREATE INDEX IF NOT EXISTS idx_ticket_team ON HD_TICKET_MASTER (Team_Id);
+CREATE INDEX IF NOT EXISTS idx_ticket_bank ON HD_TICKET_MASTER (Bank_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_assignee ON HD_TICKET_MASTER (Assignee_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_contact ON HD_TICKET_MASTER (Contact_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_status_type ON HD_TICKET_MASTER (Status_Type);

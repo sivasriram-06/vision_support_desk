@@ -14,7 +14,7 @@ import {
   getContact,
   getAccount,
   getDepartment,
-  getTeam,
+  getBank,
   getAgent,
   getProduct,
 } from '../utils/api.js'
@@ -37,7 +37,7 @@ export default function TicketDetailPage() {
         const ticketRes = await getTicket(ticketId)
         const ticket = ticketRes.data
 
-        const [conversationsRes, commentsRes, attachmentsRes, contactRes, accountRes, departmentRes, teamRes, assigneeRes, productRes] =
+        const [conversationsRes, commentsRes, attachmentsRes, contactRes, accountRes, departmentRes, bankRes, assigneeRes, productRes] =
           await Promise.all([
             getTicketConversations(ticketId),
             getTicketComments(ticketId),
@@ -45,7 +45,7 @@ export default function TicketDetailPage() {
             fetchIfPresent(ticket.Contact_Id, getContact),
             fetchIfPresent(ticket.Account_Id, getAccount),
             fetchIfPresent(ticket.Department_Id, getDepartment),
-            fetchIfPresent(ticket.Team_Id, getTeam),
+            fetchIfPresent(ticket.Bank_Id, getBank),
             fetchIfPresent(ticket.Assignee_Id, getAgent),
             fetchIfPresent(ticket.Product_Id, getProduct),
           ])
@@ -62,7 +62,7 @@ export default function TicketDetailPage() {
             contact: contactRes?.data || null,
             account: accountRes?.data || null,
             department: departmentRes?.data || null,
-            team: teamRes?.data || null,
+            bank: bankRes?.data || null,
             assignee: assigneeRes?.data || null,
             product: productRes?.data || null,
           },
@@ -114,7 +114,7 @@ export default function TicketDetailPage() {
     )
   }
 
-  const { ticket, conversations, comments, attachments, contact, account, department, team, assignee, product } = state.data
+  const { ticket, conversations, comments, attachments, contact, account, department, bank, assignee, product } = state.data
 
   const attachmentCountByConversation = attachments.reduce((acc, file) => {
     if (file.Conversation_Id) acc[file.Conversation_Id] = (acc[file.Conversation_Id] || 0) + 1
@@ -148,7 +148,7 @@ export default function TicketDetailPage() {
           contact={contact}
           account={account}
           department={department}
-          team={team}
+          bank={bank}
           assignee={assignee}
           product={product}
           onUpdated={() => setRefreshKey((k) => k + 1)}

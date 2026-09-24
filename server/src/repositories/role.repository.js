@@ -16,4 +16,19 @@ const findByName = (orgId, roleName) => {
     ).get(orgId, roleName);
 };
 
-module.exports = { ...base, findByName };
+const findByKey = (orgId, roleKey) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.ROLE} WHERE Org_Id = ? AND Role_Key = ? AND Is_Deleted = 'N'`
+    ).get(orgId, roleKey);
+};
+
+/** Only the app's built-in roles (Role_Key set) - legacy Zoho-imported roles are not offered. */
+const findAllKeyed = (orgId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.ROLE} WHERE Org_Id = ? AND Role_Key IS NOT NULL AND Is_Deleted = 'N' ORDER BY Sort_Order ASC, Role_Name ASC`
+    ).all(orgId);
+};
+
+module.exports = { ...base, findByName, findByKey, findAllKeyed };

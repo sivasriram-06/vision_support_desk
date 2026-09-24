@@ -6,7 +6,7 @@ export default function Select({ options, className = '', placeholder, ...props 
     <div className={`relative ${className}`}>
       <select
         {...props}
-        className="w-full appearance-none rounded-[9px] border border-border bg-white py-2 pl-3 pr-8 text-[13px] text-ink shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-slate-300 focus:border-primary focus:shadow-[0_0_0_3px_rgba(232,99,43,0.13)]"
+        className="w-full appearance-none rounded-[9px] border border-border bg-white py-2 pl-3 pr-8 text-[13px] text-ink shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-slate-300 focus:border-primary focus:shadow-[0_0_0_3px_rgba(232,99,43,0.13)] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted"
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((opt) => (

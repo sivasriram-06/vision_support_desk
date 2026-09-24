@@ -2,7 +2,7 @@ const TICKET_COLUMNS = [
     "Ticket_Id", "Ticket_Number", "Subject", "Description", "Status", "Status_Type",
     "Priority", "Classification", "Category", "Sub_Category", "Channel",
     "Channel_Code", "Language", "Sentiment", "Relationship_Type", "Department_Id",
-    "Team_Id", "Contact_Id", "Account_Id", "Assignee_Id", "Product_Id",
+    "Bank_Id", "Contact_Id", "Account_Id", "Assignee_Id", "Product_Id",
     "Contract_Id", "Layout_Id", "Sla_Policy_Id", "Blueprint_Id", "Due_Date",
     "Response_Due_Date", "Closed_Time", "Onhold_Time", "Customer_Response_Time",
     "Resolution_Summary", "Is_OverDue", "Is_Response_Overdue", "Is_Escalated",

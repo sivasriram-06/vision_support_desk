@@ -49,6 +49,12 @@ const env = {
     jwtSecret: requireEnv("JWT_SECRET"),
     jwtExpiresIn: requireEnv("JWT_EXPIRES_IN"),
 
+    // Seed-only and optional: the temporary password `npm run seed` gives
+    // each seeded agent that has no sign-in yet (they must change it on
+    // first login). Left unset, the seed issues no credentials and an admin
+    // sets passwords from the Admin page instead.
+    seedDefaultPassword: process.env.SEED_DEFAULT_PASSWORD ? process.env.SEED_DEFAULT_PASSWORD : null,
+
     google: {
         clientId: requireEnv("GOOGLE_CLIENT_ID"),
         clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),

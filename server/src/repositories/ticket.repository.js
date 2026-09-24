@@ -16,7 +16,7 @@ const SORTABLE_FIELDS = new Set([
 
 /**
  * List/queue rows join in display names (contact, account, assignee,
- * department, team) so the frontend never has to resolve raw *_Id columns
+ * department, bank) so the frontend never has to resolve raw *_Id columns
  * itself. Ticket_Id's own primary key isn't ambiguous with the joined
  * tables' ids since every SELECT column is qualified.
  */
@@ -26,13 +26,13 @@ const LIST_SELECT = `
         acc.Account_Name AS Account_Name,
         a.First_Name AS Assignee_First_Name, a.Last_Name AS Assignee_Last_Name,
         d.Department_Name AS Department_Name,
-        tm.Team_Name AS Team_Name
+        bk.Bank_Name AS Bank_Name
     FROM ${DB_TABLES.TICKET} t
     LEFT JOIN ${DB_TABLES.CONTACT} c ON c.Contact_Id = t.Contact_Id
     LEFT JOIN ${DB_TABLES.ACCOUNT} acc ON acc.Account_Id = t.Account_Id
     LEFT JOIN ${DB_TABLES.AGENT} a ON a.Agent_Id = t.Assignee_Id
     LEFT JOIN ${DB_TABLES.DEPARTMENT} d ON d.Department_Id = t.Department_Id
-    LEFT JOIN ${DB_TABLES.TEAM} tm ON tm.Team_Id = t.Team_Id
+    LEFT JOIN ${DB_TABLES.BANK} bk ON bk.Bank_Id = t.Bank_Id
 `;
 const LIST_COUNT_SELECT = `SELECT COUNT(*) AS total FROM ${DB_TABLES.TICKET} t`;
 
@@ -62,9 +62,9 @@ const findAll = (orgId, query = {}) => {
         where += " AND t.Department_Id = ?";
         params.push(query.departmentId);
     }
-    if (query.teamId) {
-        where += " AND t.Team_Id = ?";
-        params.push(query.teamId);
+    if (query.bankId) {
+        where += " AND t.Bank_Id = ?";
+        params.push(query.bankId);
     }
     if (query.assigneeId) {
         where += " AND t.Assignee_Id = ?";
@@ -99,12 +99,12 @@ const findAgentQueue = (orgId, agentId, query = {}) => {
     return findAll(orgId, { ...query, assigneeId: agentId });
 };
 
-/** Team Queue: tickets assigned to a team, optionally unassigned-only. */
-const findTeamQueue = (orgId, teamId, query = {}) => {
+/** Bank Queue: tickets for a bank, optionally unassigned-only. */
+const findBankQueue = (orgId, bankId, query = {}) => {
     const db = getDB();
     const { limit, offset, page } = parsePagination(query);
-    const params = [orgId, teamId];
-    let where = "t.Org_Id = ? AND t.Team_Id = ? AND t.Is_Deleted = 'N'";
+    const params = [orgId, bankId];
+    let where = "t.Org_Id = ? AND t.Bank_Id = ? AND t.Is_Deleted = 'N'";
 
     if (query.unassignedOnly === "true" || query.unassignedOnly === true) {
         where += " AND t.Assignee_Id IS NULL";
@@ -136,4 +136,4 @@ const incrementCounter = (ticketId, column, delta = 1) => {
     ).run(delta, ticketId);
 };
 
-module.exports = { ...base, findAll, findAgentQueue, findTeamQueue, findNextTicketNumber, incrementCounter };
+module.exports = { ...base, findAll, findAgentQueue, findBankQueue, findNextTicketNumber, incrementCounter };

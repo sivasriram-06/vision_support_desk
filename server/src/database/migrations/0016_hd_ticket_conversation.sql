@@ -1,10 +1,15 @@
--- HD_TICKET_CONVERSATION: unified message feed for a ticket
+-- HD_TICKET_CONVERSATION: unified message feed for a ticket.
+-- Content_Html is the sanitized HTML body (see
+-- src/utils/sanitize-email-html.js) alongside plain-text Content, so a
+-- message renders as the sender formatted it; NULL when the source had no
+-- HTML part. Renderers must still treat it as untrusted.
 CREATE TABLE IF NOT EXISTS HD_TICKET_CONVERSATION (
     Conversation_Id      TEXT PRIMARY KEY,
     Ticket_Id            TEXT NOT NULL REFERENCES HD_TICKET_MASTER (Ticket_Id),
     Direction            TEXT CHECK (Direction IN ('in', 'out')),
     Channel              TEXT,
     Content              TEXT NOT NULL,
+    Content_Html         TEXT,
     Author_Contact_Id    TEXT REFERENCES HD_CONTACT_MASTER (Contact_Id),
     Author_Agent_Id      TEXT REFERENCES HD_AGENT_MASTER (Agent_Id),
     Is_Public            TEXT NOT NULL DEFAULT 'Y' CHECK (Is_Public IN ('Y', 'N')),

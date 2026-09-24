@@ -1,22 +1,25 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Inbox, Users, Building2, UserCog, Network, UsersRound, Mail, Headset, Settings, Pin, PinOff } from 'lucide-react'
+import { Inbox, UserCog, Landmark, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { PERMISSIONS } from '../../auth/permissions.js'
 
+// `permission` hides an item from agents who couldn't use the page anyway
+// (the routes in App.jsx and the server enforce the same rule).
 const NAV_ITEMS = [
   { to: '/tickets', label: 'All Cases', icon: Inbox, live: true },
-  // { to: '/contacts', label: 'Contacts', icon: Users, live: false },
-  // { to: '/accounts', label: 'Accounts', icon: Building2, live: false },
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
-  // { to: '/departments', label: 'Departments', icon: Network, live: false },
-  { to: '/teams', label: 'Teams', icon: UsersRound, live: true },
-  // { to: '/gmail', label: 'Gmail Sync', icon: Mail, live: false },
-  { to: '/config', label: 'Config', icon: Settings, live: true },
+  { to: '/banks', label: 'Banks', icon: Landmark, live: true },
+  { to: '/config', label: 'Config', icon: Settings, live: true, permission: PERMISSIONS.CONFIG_MANAGE },
+  { to: '/admin', label: 'Admin', icon: ShieldCheck, live: true, permission: PERMISSIONS.ADMIN_ACCESS },
 ]
 
 
 export default function Sidebar({ pinned, onTogglePin }) {
   const [hovered, setHovered] = useState(false)
+  const { can } = useAuth()
   const expanded = pinned || hovered
+  const navItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission))
 
   return (
     <aside
@@ -48,7 +51,7 @@ export default function Sidebar({ pinned, onTogglePin }) {
       </div>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, live }) =>
+        {navItems.map(({ to, label, icon: Icon, live }) =>
           live ? (
             <NavLink
               key={to}

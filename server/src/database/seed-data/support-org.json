@@ -1,0 +1,54 @@
+{
+  "_source": "docs/Vision Support Desk KB.xlsx - 'Agent Details' sheet, with emails confirmed by the support team. Team leads are the names in bold there. GDI Team and resources without an email are intentionally left out for now.",
+  "admins": ["vision.support@sunoida.com"],
+  "teams": [
+    { "name": "Operations", "sanitizedName": "operations" },
+    { "name": "Support Team A", "sanitizedName": "a" },
+    { "name": "Support Team B", "sanitizedName": "b" },
+    { "name": "Support Team C", "sanitizedName": "c" },
+    { "name": "Support Team D", "sanitizedName": "d" },
+    { "name": "Report Team", "sanitizedName": "report-team" },
+    { "name": "RA Support", "sanitizedName": "ra" }
+  ],
+  "agents": [
+    { "firstName": "Vision", "lastName": "Support", "email": "vision.support@sunoida.com", "team": null, "role": "ADMIN" },
+    { "firstName": "Yogesh", "lastName": "Balan", "email": "yogesh.balan@sunoida.com", "team": null, "role": "MANAGER", "shift": "General" },
+
+    { "firstName": "Vigneshhwaran", "lastName": "", "email": "vigneshwaran.sridharan@sunoida.com", "team": "Operations", "role": "TEAM_MEMBER", "shift": "General" },
+
+    { "firstName": "Harikumar", "lastName": "Bandlapalli", "email": "harikumar.bandlapalli@sunoida.com", "team": "Support Team A", "role": "TEAM_LEAD", "shift": "General" },
+    { "firstName": "Sahul Hameed", "lastName": "S Shahjahan", "email": "sahulhameed.shahjahan@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Ezhilarasu", "lastName": "Anthony", "email": "ezhilarasu.anthony@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Srisudharshanan", "lastName": "Muthaiyan", "email": "srisudharshanan.muthaiyan@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Narmatha", "lastName": "Palanivel", "email": "narmatha.palanivel@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Vishnu", "lastName": "Gomathi Sankar", "email": "vishnu.subbiah@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Balamurugan", "lastName": "Senthil Kumar", "email": "balamurugan.senthilkumar@sunoida.com", "team": "Support Team A", "role": "TEAM_MEMBER", "shift": "Night Shift" },
+
+    { "firstName": "Ashokkumar", "lastName": "Chelladurai", "email": "ashokkumar.chelladurai@sunoida.com", "team": "Support Team B", "role": "TEAM_LEAD", "shift": "General" },
+    { "firstName": "Mahesh", "lastName": "Tellamekala", "email": "mahesh.tellamekala@sunoida.com", "team": "Support Team B", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Nalayiramuthu", "lastName": "Shunmugasundaram", "email": "nalayiramuthu.shunmugasundaram@sunoida.com", "team": "Support Team B", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Meyyazhagan", "lastName": "Selvaraj", "email": "meyyazhagan.selvaraj@sunoida.com", "team": "Support Team B", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Pravin", "lastName": "Kumar", "email": "pravinkumar.rajasekaran@sunoida.com", "team": "Support Team B", "role": "TEAM_MEMBER", "shift": "Night Shift" },
+    { "firstName": "Siva Balan", "lastName": "M", "email": "sivabalan.mahendran@sunoida.com", "team": "Support Team B", "role": "TEAM_MEMBER", "shift": "General" },
+
+    { "firstName": "Sai Vikash", "lastName": "Velugotti", "email": "vikash.velugoti@sunoida.com", "team": "Support Team C", "role": "TEAM_LEAD", "shift": "General" },
+    { "firstName": "Elamparithi", "lastName": "Parthiban", "email": "elamparithi.parthiban@sunoida.com", "team": "Support Team C", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Dinesh", "lastName": "Ramu", "email": "dinesh.ramu@sunoida.com", "team": "Support Team C", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Dinesh", "lastName": "Kannan", "email": "dineshkannan.thirunavukkarasu@sunoida.com", "team": "Support Team C", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Priyadharshan", "lastName": "", "email": "priyadharshan.rajarethinam@sunoida.com", "team": "Support Team C", "role": "TEAM_MEMBER", "shift": "General" },
+
+    { "firstName": "Roshini", "lastName": "Murugan", "email": "roshini.murugan@sunoida.com", "team": "Support Team D", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Kishore", "lastName": "Veerabathiran", "email": "kishore.veerabathiran@sunoida.com", "team": "Support Team D", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Shigin", "lastName": "S", "email": "shigin.selwyn@sunoida.com", "team": "Support Team D", "role": "TEAM_MEMBER", "shift": "General", "remarks": "Also listed under Report Team in the KB sheet; placed in Support Team D for now" },
+
+    { "firstName": "Divya Dharshini", "lastName": "R", "email": "divyadharshini.rajkumar@sunoida.com", "team": "Report Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Nanthan", "lastName": "Saravanan", "email": "nanthan.saravanan@sunoida.com", "team": "Report Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Balaji", "lastName": "Sivaraman", "email": "balaji.sivaraman@sunoida.com", "team": "Report Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Rahul", "lastName": "Thirupathi", "email": "rahul.thirupathi@sunoida.com", "team": "Report Team", "role": "TEAM_MEMBER", "shift": "Night Shift" },
+
+    { "firstName": "Nithish", "lastName": "", "email": "nithish.ravi@sunoida.com", "team": "RA Support", "role": "TEAM_LEAD", "shift": "General" },
+    { "firstName": "Vignesh", "lastName": "P", "email": "vignesh.padmanaban@sunoida.com", "team": "RA Support", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Suresh", "lastName": "Sathiyamoorthy", "email": "suresh.sathiyamoorthy@sunoida.com", "team": "RA Support", "role": "TEAM_MEMBER" },
+    { "firstName": "Suriya", "lastName": "Annadurai", "email": "suriya.annadurai@sunoida.com", "team": "RA Support", "role": "TEAM_MEMBER" }
+  ]
+}

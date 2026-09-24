@@ -1,11 +1,9 @@
 const env = require("./env");
 
 /**
- * Placeholder for future JWT-based, role/profile-scoped authorization
- * (HD_AGENT_AUTH / HD_AGENT_SESSION / HD_ROLE_MASTER / HD_PROFILE_MASTER).
- * Not wired into any route yet - middleware/auth.middleware.js and
- * middleware/authorize.middleware.js are ready to use this once the
- * /api/v1/auth/* login flow is implemented.
+ * Agent sign-in: email + password (HD_AGENT_CREDENTIAL) issues a JWT that
+ * only carries the agent id; role and permissions (HD_ROLE_MASTER) are
+ * re-read on every request by middleware/auth.middleware.js.
  */
 const authConfig = {
     jwtSecret: env.jwtSecret,

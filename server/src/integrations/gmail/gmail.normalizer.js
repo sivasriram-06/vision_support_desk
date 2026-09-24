@@ -112,6 +112,7 @@ const normalizeMessage = (rawMessage) => {
         referencesHeader: getHeader(headers, "References"),
         subject: getHeader(headers, "Subject") || "(no subject)",
         from: from || null,
+        replyTo: parseAddressHeader(getHeader(headers, "Reply-To")),
         to: parseAddressHeader(getHeader(headers, "To")),
         cc: parseAddressHeader(getHeader(headers, "Cc")),
         sentTime: new Date(Number(rawMessage.internalDate)).toISOString(),

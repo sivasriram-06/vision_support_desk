@@ -2,6 +2,7 @@ const { getDB } = require("../config/db");
 const ticketRepository = require("../repositories/ticket.repository");
 const { history: historyRepository, resolution: resolutionRepository, metrics: metricsRepository } = require("../repositories/history.repository");
 const departmentRepository = require("../repositories/department.repository");
+const bankRepository = require("../repositories/bank.repository");
 const contactRepository = require("../repositories/contact.repository");
 const organizationService = require("./organization.service");
 const prioritySlaService = require("./priority-sla.service");
@@ -63,10 +64,20 @@ const getAgentQueue = (agentId, query) => {
     return { data: rows, paging: buildPaging({ page, limit }, total) };
 };
 
-const getTeamQueue = (teamId, query) => {
+const getBankQueue = (bankId, query) => {
     const org = organizationService.getDefaultOrganization();
-    const { rows, total, page, limit } = ticketRepository.findTeamQueue(org.Organization_Id, teamId, query);
+    const { rows, total, page, limit } = ticketRepository.findBankQueue(org.Organization_Id, bankId, query);
     return { data: rows, paging: buildPaging({ page, limit }, total) };
+};
+
+/** The support team (department) that works a bank, or null. */
+const departmentForBank = (bankId) => {
+    if (!bankId) return null;
+    const bank = bankRepository.findById(bankId);
+    if (!bank) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.BANK_NOT_FOUND, "Bank not found");
+    }
+    return bank.Department_Id;
 };
 
 const getTicketById = (ticketId) => {
@@ -110,8 +121,8 @@ const createTicket = (payload, actorAgentId) => {
             Status_Type: statusType,
             Priority: payload.priority || null,
             Channel: payload.channel,
-            Department_Id: payload.departmentId,
-            Team_Id: payload.teamId || null,
+            Department_Id: departmentForBank(payload.bankId) || payload.departmentId,
+            Bank_Id: payload.bankId || null,
             Contact_Id: payload.contactId,
             Account_Id: payload.accountId || null,
             Assignee_Id: payload.assigneeId || null,
@@ -158,7 +169,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         status: "Status",
         priority: "Priority",
         departmentId: "Department_Id",
-        teamId: "Team_Id",
+        bankId: "Bank_Id",
         assigneeId: "Assignee_Id",
         productId: "Product_Id",
         category: "Category",
@@ -166,6 +177,14 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         classification: "Classification",
         dueDate: "Due_Date"
     };
+
+    // A bank is worked by exactly one support team, so picking the bank
+    // routes the ticket to that team's department unless the caller set a
+    // department explicitly in the same request.
+    if (payload.bankId && payload.bankId !== existing.Bank_Id && payload.departmentId === undefined) {
+        const bankDepartmentId = departmentForBank(payload.bankId);
+        if (bankDepartmentId) payload = { ...payload, departmentId: bankDepartmentId };
+    }
 
     const changes = {};
     const historyEntries = [];
@@ -259,7 +278,7 @@ const getTicketMetrics = (ticketId) => {
 module.exports = {
     listTickets,
     getAgentQueue,
-    getTeamQueue,
+    getBankQueue,
     getTicketById,
     createTicket,
     updateTicket,
