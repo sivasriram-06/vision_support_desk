@@ -13,7 +13,7 @@ import { ApiError, getPicklistValues, createPicklistValue, updatePicklistValue, 
  * same Category text can validly repeat under different Classifications, so
  * they're grouped and managed here instead of as a flat picklist.
  */
-export default function ClassificationManager() {
+export default function ClassificationManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, classifications: [], categories: [] })
   const [expanded, setExpanded] = useState(() => new Set())
   const [newClassification, setNewClassification] = useState('')
@@ -121,7 +121,7 @@ export default function ClassificationManager() {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+    <div className={`flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card ${className}`}>
       <div>
         <h2 className="text-[15px] font-bold text-ink-strong">Classification &amp; Category</h2>
         <p className="mt-0.5 text-[12.5px] text-muted">

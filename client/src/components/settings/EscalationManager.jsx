@@ -33,7 +33,7 @@ const toTiming = (offsetHours) => (offsetHours < 0 ? 'before' : offsetHours === 
  * later. Escalated tickets are worked from the Escalations page. Changes
  * apply to open tickets straight away.
  */
-export default function EscalationManager() {
+export default function EscalationManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, priorities: [], levels: [] })
   const [dialog, setDialog] = useState(null) // { mode, priority, levelId?, levelNo, timing, hours }
   const [saving, setSaving] = useState(false)
@@ -124,7 +124,7 @@ export default function EscalationManager() {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+    <div className={`flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card ${className}`}>
       <div>
         <h2 className="text-[15px] font-bold text-ink-strong">Escalation matrix</h2>
         <p className="mt-0.5 text-[12.5px] text-muted">
@@ -144,12 +144,12 @@ export default function EscalationManager() {
       ) : state.priorities.length === 0 ? (
         <EmptyState title="No priorities yet" description="Add priorities under Priority SLA first." />
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
           {state.priorities.map(({ Priority: priority }) => {
             const style = getPriorityStyle(priority)
             const levels = levelsFor(priority)
             return (
-              <div key={priority} className="flex flex-col gap-2 rounded-xl border border-border bg-slate-50/60 p-3">
+              <div key={priority} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-slate-50/60 p-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className={`rounded-md px-2 py-1 text-[11px] font-bold ${style.bg} ${style.text}`}>{priority}</span>
                   <button
@@ -167,22 +167,24 @@ export default function EscalationManager() {
                     {levels.map((level) => {
                       const levelStyle = getEscalationStyle(level.Level_No)
                       return (
-                        <li key={level.Escalation_Level_Id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5">
+                        <li key={level.Escalation_Level_Id} className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-2 py-1.5">
                           <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-bold ${levelStyle.bg} ${levelStyle.text} ${levelStyle.border}`}>
                             <Siren className="h-3 w-3" />L{level.Level_No}
                           </span>
-                          <span className="flex-1 truncate text-[12.5px] font-medium text-ink">{describeEscalationOffset(level.Offset_Hours)}</span>
+                          <span className="min-w-0 flex-1 text-[12px] font-medium leading-tight text-ink" title={describeEscalationOffset(level.Offset_Hours)}>
+                            {describeEscalationOffset(level.Offset_Hours)}
+                          </span>
                           <button
                             onClick={() => openEdit(level)}
                             title="Edit"
-                            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-slate-200 hover:text-ink"
+                            className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted transition hover:bg-slate-200 hover:text-ink"
                           >
                             <Pencil className="h-3 w-3" />
                           </button>
                           <button
                             onClick={() => setPendingDelete(level)}
                             title="Delete"
-                            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-danger/10 hover:text-danger"
+                            className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted transition hover:bg-danger/10 hover:text-danger"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>

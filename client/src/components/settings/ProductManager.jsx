@@ -8,7 +8,7 @@ import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getProducts, createProduct, updateProduct, deleteProduct } from '../../utils/api.js'
 
 /** CRUD list for the Product catalog (Ticket.Product_Id -> HD_PRODUCT_MASTER). */
-export default function ProductManager() {
+export default function ProductManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, products: [] })
   const [newValue, setNewValue] = useState('')
   const [adding, setAdding] = useState(false)
@@ -80,7 +80,7 @@ export default function ProductManager() {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+    <div className={`flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card ${className}`}>
       <div>
         <h2 className="text-[15px] font-bold text-ink-strong">Products</h2>
         <p className="mt-0.5 text-[12.5px] text-muted">Products agents can link to a ticket.</p>

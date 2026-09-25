@@ -27,7 +27,7 @@ const formatHours = (hours) => {
  * - it only affects the Response Due date calculated the next time a
  * ticket's priority is set (see server/src/services/ticket.service.js).
  */
-export default function PrioritySlaManager() {
+export default function PrioritySlaManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [] })
   const [dialog, setDialog] = useState(null) // { mode: 'add' | 'edit', priority?, priorityInput, hoursInput }
   const [saving, setSaving] = useState(false)
@@ -105,7 +105,7 @@ export default function PrioritySlaManager() {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+    <div className={`flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold text-ink-strong">Priority SLA</h2>

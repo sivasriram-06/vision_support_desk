@@ -16,7 +16,7 @@ const CLOCK_OPTIONS = CLOCK_BEHAVIOURS.map((c) => ({ value: c.value, label: `Clo
  * CRUD list for one picklist field. For Status, each value also carries its
  * resolution-clock behaviour (Not started / Running / Paused / Stopped).
  */
-export default function PicklistManager({ field, label }) {
+export default function PicklistManager({ field, label, className = '' }) {
   const isStatus = field === 'STATUS'
   const [state, setState] = useState({ loading: true, error: null, values: [] })
   const [newValue, setNewValue] = useState('')
@@ -97,11 +97,13 @@ export default function PicklistManager({ field, label }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+    <div className={`flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card ${className}`}>
       <div>
         <h2 className="text-[15px] font-bold text-ink-strong">{label}</h2>
         <p className="mt-0.5 text-[12.5px] text-muted">
-          Values agents can pick for the ticket's {label.toLowerCase()} field.
+          {field === 'TEAM_TYPE'
+            ? 'Kinds of team, set on each team under Banks → Manage Support Teams. Support teams are assigned by their team lead; any other type (e.g. Product) can be pulled into a ticket by anyone.'
+            : `Values agents can pick for the ticket's ${label.toLowerCase()} field.`}
           {isStatus && (
             <>
               {' '}
