@@ -8,6 +8,8 @@ const bankIdParamSchema = Joi.object({
 });
 
 const text = (max) => Joi.string().trim().max(max).allow("", null);
+// 24h "HH:MM" - the support window in IST.
+const hhmm = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).messages({ "string.pattern.base": "{#label} must be a time like 10:30" });
 
 const bankDetailFields = {
     country: text(100),
@@ -15,8 +17,8 @@ const bankDetailFields = {
     supportLevel: Joi.string().valid(...SUPPORT_LEVELS).allow(null, ""),
     workingDays: Joi.array().items(Joi.string().valid(...WEEKDAYS)).min(1).unique(),
     timeZone: Joi.string().trim().max(64),
-    supportHoursLocal: text(100),
-    supportHoursIst: text(100),
+    supportStartIst: hhmm,
+    supportEndIst: hhmm,
     is24x7: Joi.boolean(),
     remarks: text(1000),
     primaryResourceIds: Joi.array().items(Joi.string()).unique(),
@@ -26,7 +28,9 @@ const bankDetailFields = {
 const createBankSchema = Joi.object({
     bankName: Joi.string().trim().min(1).max(150).required(),
     departmentId: Joi.string().required(),
-    ...bankDetailFields
+    ...bankDetailFields,
+    supportStartIst: hhmm.required(),
+    supportEndIst: hhmm.required()
 });
 
 const updateBankSchema = Joi.object({

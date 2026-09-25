@@ -11,14 +11,16 @@ const { DateTime } = require("luxon");
 const ticketRepository = require("../repositories/ticket.repository");
 const { computeSlaDueDate } = require("./sla/sla.service");
 const { WEEKDAYS } = require("./sla/business-calendar");
+const { recomputeStoppedResolutionForBank } = require("./sla/resolution-clock.service");
+const escalationService = require("./sla/escalation.service");
 
 // payload key -> HD_BANK_MASTER column, for the plain text/flag fields.
 const DETAIL_FIELDS = {
     country: "Country",
     module: "Module",
     supportLevel: "Support_Level",
-    supportHoursLocal: "Support_Hours_Local",
-    supportHoursIst: "Support_Hours_Ist",
+    supportStartIst: "Support_Start_Ist",
+    supportEndIst: "Support_End_Ist",
     remarks: "Remarks"
 };
 
@@ -89,17 +91,24 @@ const detailChanges = (payload) => {
     return changes;
 };
 
+/** The support window must close after it opens (same IST day). */
+const assertSupportWindow = (start, end) => {
+    if (start && end && end <= start) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, "Support hours must end after they start");
+    }
+};
+
 /**
  * A bank's calendar feeds every SLA due date on its tickets, so when it
  * changes, open tickets (not resolved/closed) are re-dated on the new
- * calendar. Resolved tickets keep the SLA they were measured against.
+ * calendar, along with their escalation triggers. Resolved tickets keep
+ * the SLA they were measured against.
  */
 const recomputeOpenTicketSlas = (bankId, orgId, actorAgentId) => {
     for (const ticket of ticketRepository.findOpenWithPriorityByBankId(bankId)) {
-        ticketRepository.updateById(ticket.Ticket_Id, {
-            Response_Due_Date: computeSlaDueDate({ createdTime: ticket.Created_Time, priority: ticket.Priority, bankId, orgId }),
-            Modified_By: actorAgentId
-        });
+        const dueDate = computeSlaDueDate({ createdTime: ticket.Created_Time, priority: ticket.Priority, bankId, orgId });
+        ticketRepository.updateById(ticket.Ticket_Id, { Response_Due_Date: dueDate, Modified_By: actorAgentId });
+        escalationService.rebuildTriggers({ ...ticket, Bank_Id: bankId, Response_Due_Date: dueDate }, orgId);
     }
 };
 
@@ -108,6 +117,7 @@ const createBank = (payload, actorAgentId) => {
     const department = departmentService.getDepartmentById(payload.departmentId);
     const bankName = payload.bankName.trim();
     assertUniqueName(org.Organization_Id, bankName, null);
+    assertSupportWindow(payload.supportStartIst, payload.supportEndIst);
 
     const bankId = generateId();
     getDB().transaction(() => {
@@ -126,10 +136,11 @@ const createBank = (payload, actorAgentId) => {
 };
 
 const updateBank = (bankId, payload, actorAgentId) => {
-    getBankById(bankId);
+    const existing = getBankById(bankId);
     const org = organizationService.getDefaultOrganization();
 
     const changes = { ...detailChanges(payload), Modified_By: actorAgentId };
+    assertSupportWindow(changes.Support_Start_Ist || existing.Support_Start_Ist, changes.Support_End_Ist || existing.Support_End_Ist);
     if (payload.departmentId !== undefined) {
         departmentService.getDepartmentById(payload.departmentId);
         changes.Department_Id = payload.departmentId;
@@ -141,10 +152,13 @@ const updateBank = (bankId, payload, actorAgentId) => {
     }
 
     const calendarChanged = ["Working_Days", "Time_Zone", "Is_24x7"].some((column) => changes[column] !== undefined);
+    const hoursChanged = ["Support_Start_Ist", "Support_End_Ist"].some((column) => changes[column] !== undefined);
     getDB().transaction(() => {
         bankRepository.updateById(bankId, changes);
         applyResources(bankId, payload, actorAgentId, org.Organization_Id);
         if (calendarChanged) recomputeOpenTicketSlas(bankId, org.Organization_Id, actorAgentId);
+        // Support hours only bound resolution time, not the SLA.
+        if (calendarChanged || hoursChanged) recomputeStoppedResolutionForBank(bankId, actorAgentId);
     })();
     return getBankById(bankId);
 };

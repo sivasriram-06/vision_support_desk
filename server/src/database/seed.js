@@ -15,6 +15,8 @@ const bankRepository = require("../repositories/bank.repository");
 const picklistRepository = require("../repositories/picklist.repository");
 const productRepository = require("../repositories/product.repository");
 const prioritySlaRepository = require("../repositories/priority-sla.repository");
+const escalationLevelRepository = require("../repositories/escalation-level.repository");
+const { DEFAULT_SUPPORT_START_IST, DEFAULT_SUPPORT_END_IST } = require("../services/sla/business-calendar");
 const supportOrg = require("./seed-data/support-org.json");
 const bankSeed = require("./seed-data/banks.json");
 const configSeed = require("./seed-data/config.json");
@@ -308,8 +310,10 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
             // counts every day) in the country's time zone.
             Working_Days: bank.is24x7 ? "MON,TUE,WED,THU,FRI,SAT,SUN" : (bank.workingDays || "MON,TUE,WED,THU,FRI"),
             Time_Zone: bankSeed.timeZoneByCountry[bank.country] || env.timezone,
-            Support_Hours_Local: bank.supportHoursLocal || null,
-            Support_Hours_Ist: bank.supportHoursIst || null,
+            // Support window (IST) that bounds resolution time; the sheet
+            // leaves some banks blank - they get the standard 10:30-19:30.
+            Support_Start_Ist: bank.supportStartIst || DEFAULT_SUPPORT_START_IST,
+            Support_End_Ist: bank.supportEndIst || DEFAULT_SUPPORT_END_IST,
             Is_24x7: bank.is24x7 ? "Y" : "N",
             Remarks: bank.remarks || null,
             Created_By: systemAgentId,
@@ -337,7 +341,8 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
 /**
  * Ticket option lists (seed-data/config.json): statuses (with their
  * resolution-clock behaviour), classifications
- * with their categories, products and priority SLAs. Each value is created
+ * with their categories, products, priority SLAs and the escalation
+ * matrix (levels per priority). Each value is created
  * once; values an admin adds, renames or deletes later on the Config page
  * are not touched.
  */
@@ -376,6 +381,19 @@ const seedConfig = (orgId, systemAgentId) => {
             Priority_Sla_Config_Id: generateId(),
             Priority: priority,
             Sla_Hours: slaHours,
+            Created_By: systemAgentId,
+            Org_Id: orgId
+        });
+        created += 1;
+    }
+
+    for (const { priority, levelNo, offsetHours } of configSeed.escalationLevels) {
+        if (escalationLevelRepository.findByPriorityAndLevel(orgId, priority, levelNo)) continue;
+        escalationLevelRepository.insert({
+            Escalation_Level_Id: generateId(),
+            Priority: priority,
+            Level_No: levelNo,
+            Offset_Hours: offsetHours,
             Created_By: systemAgentId,
             Org_Id: orgId
         });

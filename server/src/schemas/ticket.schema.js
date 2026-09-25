@@ -34,8 +34,7 @@ const updateTicketSchema = Joi.object({
     productId: Joi.string().allow(null),
     category: Joi.string().allow("", null),
     subCategory: Joi.string().allow("", null),
-    classification: Joi.string().allow("", null),
-    dueDate: Joi.string().isoDate().allow(null)
+    classification: Joi.string().allow("", null)
 }).min(1);
 
 const listTicketsQuerySchema = Joi.object({
@@ -52,12 +51,20 @@ const listTicketsQuerySchema = Joi.object({
     sortBy: Joi.string(),
     sortOrder: Joi.string().valid("asc", "desc", "ASC", "DESC"),
     unassignedOnly: Joi.string().valid("true", "false"),
-    slaBreached: Joi.string().valid("true", "false")
+    slaBreached: Joi.string().valid("true", "false"),
+    escalationLevel: Joi.alternatives().try(Joi.string().valid("any"), Joi.number().integer().min(1))
+});
+
+const escalatedTicketsQuerySchema = Joi.object({
+    departmentId: Joi.string(),
+    bankId: Joi.string(),
+    priority: Joi.string().max(30)
 });
 
 module.exports = {
     ticketIdParamSchema,
     createTicketSchema,
     updateTicketSchema,
-    listTicketsQuerySchema
+    listTicketsQuerySchema,
+    escalatedTicketsQuerySchema
 };

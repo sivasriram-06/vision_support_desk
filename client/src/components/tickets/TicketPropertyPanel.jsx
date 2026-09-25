@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Check, X, Timer, Hourglass } from 'lucide-react'
+import { Pencil, Check, X, Timer, Hourglass, Siren } from 'lucide-react'
 import Avatar from '../ui/Avatar.jsx'
 import Badge from '../ui/Badge.jsx'
 import Select from '../ui/Select.jsx'
-import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
 import {
   getPriorityStyle,
@@ -13,8 +12,15 @@ import {
 import { formatDateTime } from '../../utils/format.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
-import { getSupportLevelStyle, formatWorkingDays } from '../../utils/bankMeta.js'
-import { getClockStyle, getClockLabel, formatMinutes, getSlaState } from '../../utils/clockMeta.js'
+import {
+  getSupportLevelStyle,
+  formatWorkingDays,
+  formatSupportHours,
+  formatLocalSupportHours,
+  DEFAULT_SUPPORT_START_IST,
+  DEFAULT_SUPPORT_END_IST,
+} from '../../utils/bankMeta.js'
+import { getClockStyle, getClockLabel, formatMinutes, getSlaState, getEscalationStyle } from '../../utils/clockMeta.js'
 import {
   ApiError,
   updateTicket,
@@ -27,7 +33,6 @@ import {
   getTicketMetrics,
 } from '../../utils/api.js'
 
-const toDatetimeLocalValue = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : '')
 
 function Field({ label, children }) {
   return (
@@ -91,8 +96,8 @@ function BankSection({ bank }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Works this bank">{bank.Support_Team_Name || '-'}</Field>
         <Field label="Working days">{formatWorkingDays(bank.Working_Days, bank.Is_24x7 === 'Y')}</Field>
-        <Field label="Hours (local)">{bank.Support_Hours_Local || '-'}</Field>
-        <Field label="Hours (IST)">{bank.Support_Hours_Ist || '-'}</Field>
+        <Field label="Support hours">{formatSupportHours(bank)}</Field>
+        <Field label="Hours (local)">{formatLocalSupportHours(bank) || '-'}</Field>
         <Field label="Primary resource">
           <ResourceNames agents={bank.Primary_Resources} />
         </Field>
@@ -114,7 +119,31 @@ const formatInZone = (date, timeZone) =>
  * SLA due date: priority SLA hours from when the ticket came in, on the
  * bank's working days. Fixed - status changes never move it.
  */
-function SlaSection({ ticket, bank }) {
+function EscalationLine({ escalation }) {
+  if (!escalation || (escalation.level === 0 && !escalation.nextTriggerTime)) return null
+  const minutesToNext = escalation.nextTriggerTime ? (new Date(escalation.nextTriggerTime) - new Date()) / 60000 : null
+  if (escalation.level === 0) {
+    return (
+      <p className="text-[11.5px] text-muted">
+        Escalates to L{escalation.nextLevelNo} in {formatMinutes(minutesToNext)}
+      </p>
+    )
+  }
+  const style = getEscalationStyle(escalation.level)
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge textClass={style.text} bgClass={style.bg} className={`border ${style.border}`}>
+        <Siren className="h-3 w-3" />
+        Escalation level {escalation.level}
+      </Badge>
+      <span className="text-[11.5px] text-muted">
+        {escalation.nextTriggerTime ? `L${escalation.nextLevelNo} in ${formatMinutes(minutesToNext)}` : 'Top level reached'}
+      </span>
+    </div>
+  )
+}
+
+function SlaSection({ ticket, bank, escalation }) {
   const sla = getSlaState(ticket)
   return (
     <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
@@ -146,6 +175,7 @@ function SlaSection({ ticket, bank }) {
               </Badge>
             )}
           </div>
+          {!sla.stopped && <EscalationLine escalation={escalation} />}
           <p className="text-[11px] text-muted">
             {ticket.Priority} · counted on {bank ? formatWorkingDays(bank.Working_Days, bank.Is_24x7 === 'Y') : 'Mon – Fri'} from when the
             ticket came in; waiting on the bank does not pause it.
@@ -157,11 +187,11 @@ function SlaSection({ ticket, bank }) {
 }
 
 /**
- * Resolution time: how long our side actually worked the ticket - runs
- * in "In Progress", pauses while waiting on the bank, stops when resolved.
- * Refreshed every minute while the clock is running.
+ * Live metrics for the SLA/Resolution blocks (resolution total, escalation
+ * level). Refreshed every minute while the ticket is open, so a running
+ * clock ticks and a new escalation level shows up.
  */
-function ResolutionSection({ ticket }) {
+function useTicketMetrics(ticket) {
   const [metrics, setMetrics] = useState(null)
 
   useEffect(() => {
@@ -171,13 +201,22 @@ function ResolutionSection({ ticket }) {
         .then((res) => !cancelled && setMetrics(res.data))
         .catch(() => {})
     load()
-    const timer = ticket.Clock_State === 'RUNNING' ? setInterval(load, 60000) : null
+    const timer = ticket.Clock_State !== 'STOPPED' ? setInterval(load, 60000) : null
     return () => {
       cancelled = true
       if (timer) clearInterval(timer)
     }
   }, [ticket.Ticket_Id, ticket.Clock_State, ticket.Modified_Time])
 
+  return metrics
+}
+
+/**
+ * Resolution time: how long our side actually worked the ticket - runs
+ * in "In Progress", pauses while waiting on the bank, stops when resolved.
+ * Only the bank's support hours count (full day on 24x7 banks).
+ */
+function ResolutionSection({ ticket, bank, metrics }) {
   const clock = getClockStyle(ticket.Clock_State)
   return (
     <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
@@ -198,9 +237,11 @@ function ResolutionSection({ ticket }) {
         <Field label="Resolved">{ticket.Resolved_Time ? formatDateTime(ticket.Resolved_Time) : '-'}</Field>
         {metrics?.Reopen_Count > 0 && <Field label="Reopened">{metrics.Reopen_Count}×</Field>}
       </div>
-      {ticket.Clock_State === 'NOT_STARTED' && (
-        <p className="text-[11px] text-muted">Starts when the agent moves the ticket to a running status (e.g. In Progress).</p>
-      )}
+      <p className="text-[11px] text-muted">
+        {ticket.Clock_State === 'NOT_STARTED' && 'Starts when the agent moves the ticket to a running status (e.g. In Progress). '}
+        Counts {bank ? formatSupportHours(bank) : `${DEFAULT_SUPPORT_START_IST}–${DEFAULT_SUPPORT_END_IST} IST`}
+        {bank?.Is_24x7 === 'Y' ? ' (every minute)' : ` on ${bank ? formatWorkingDays(bank.Working_Days, false) : 'Mon – Fri'} only`}.
+      </p>
     </div>
   )
 }
@@ -218,6 +259,7 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
   const [options, setOptions] = useState({ departments: [], banks: [], agents: [], products: [], classifications: [], priorities: [], statuses: [] })
   const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState(null)
+  const metrics = useTicketMetrics(ticket)
 
   useEffect(() => {
     if (!isEditing) return
@@ -230,7 +272,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
       productId: ticket.Product_Id || '',
       classification: ticket.Classification || '',
       category: ticket.Category || '',
-      dueDate: toDatetimeLocalValue(ticket.Due_Date),
     })
     setError(null)
 
@@ -315,11 +356,7 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
       classification: ticket.Classification || null,
       category: ticket.Category || null,
     }
-    const changes = Object.fromEntries(Object.entries(next).filter(([key, value]) => value !== current[key]))
-    if (form.dueDate !== toDatetimeLocalValue(ticket.Due_Date)) {
-      changes.dueDate = form.dueDate ? new Date(form.dueDate).toISOString() : null
-    }
-    return changes
+    return Object.fromEntries(Object.entries(next).filter(([key, value]) => value !== current[key]))
   }
 
   const handleSave = async () => {
@@ -398,11 +435,15 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
               </Field>
             </div>
             <Field label="Status">
+              {/* A ticket always has a status ("Unassigned" is the intake one), so no empty option. */}
               <Select
                 value={form.status}
                 onChange={(e) => updateField('status', e.target.value)}
-                options={options.statuses.map((s) => ({ value: s.Value, label: s.Value }))}
-                placeholder="Unset"
+                options={[
+                  ...options.statuses.map((s) => ({ value: s.Value, label: s.Value })),
+                  // Keep a status that was since removed from Config selectable as-is.
+                  ...(form.status && !options.statuses.some((s) => s.Value === form.status) ? [{ value: form.status, label: form.status }] : []),
+                ]}
                 disabled={!canEditStatus}
               />
             </Field>
@@ -441,14 +482,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
                 onChange={(e) => updateField('productId', e.target.value)}
                 options={options.products.map((p) => ({ value: p.Product_Id, label: p.Product_Name }))}
                 placeholder="Unset"
-                disabled={!canEditProperties}
-              />
-            </Field>
-            <Field label="Due date">
-              <Input
-                type="datetime-local"
-                value={form.dueDate}
-                onChange={(e) => updateField('dueDate', e.target.value)}
                 disabled={!canEditProperties}
               />
             </Field>
@@ -516,8 +549,8 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
             </Field>
           </div>
 
-          <SlaSection ticket={ticket} bank={bank} />
-          <ResolutionSection ticket={ticket} />
+          <SlaSection ticket={ticket} bank={bank} escalation={metrics?.escalation} />
+          <ResolutionSection ticket={ticket} bank={bank} metrics={metrics} />
           <BankSection bank={bank} />
 
           <div className="flex flex-col gap-4 border-t border-[#EEF2F8] pt-4">
@@ -525,7 +558,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
             <div className="grid grid-cols-2 gap-4">
               <Field label="Support team">{department?.Department_Name || '-'}</Field>
               <Field label="Product">{product?.Product_Name || '-'}</Field>
-              <Field label="Due date">{ticket.Due_Date ? formatDateTime(ticket.Due_Date) : '-'}</Field>
             </div>
           </div>
 

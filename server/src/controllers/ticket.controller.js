@@ -87,8 +87,17 @@ const getTicketMetrics = (req, res, next) => {
     }
 };
 
+const listEscalatedTickets = (req, res, next) => {
+    try {
+        ok(res, HTTP_STATUS.OK, ticketService.listEscalatedTickets(req.query));
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     listTickets,
+    listEscalatedTickets,
     getAgentQueue,
     getBankQueue,
     getTicketById,

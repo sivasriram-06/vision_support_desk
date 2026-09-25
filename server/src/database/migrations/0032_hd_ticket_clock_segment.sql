@@ -1,8 +1,9 @@
 -- HD_TICKET_CLOCK_SEGMENT: one row per stretch a ticket's resolution clock
 -- was RUNNING (status with Clock_Behaviour = 'RUNNING', e.g. "In
 -- Progress"). Ended_Time is NULL while the clock is still running.
--- Resolution time = working-day minutes summed over all segments, so
--- waiting on the bank (paused statuses) never counts. Kept per segment
+-- Resolution time = support-hours minutes (bank's IST support window on
+-- its working days; every minute on 24x7 banks) summed over all segments,
+-- so waiting on the bank (paused statuses) never counts. Kept per segment
 -- rather than as one running total so it is auditable and recomputable
 -- if a bank's calendar changes.
 CREATE TABLE IF NOT EXISTS HD_TICKET_CLOCK_SEGMENT (

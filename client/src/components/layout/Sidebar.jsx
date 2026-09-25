@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Inbox, UserCog, Landmark, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
+import { Inbox, Siren, UserCog, Landmark, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 
@@ -8,6 +8,7 @@ import { PERMISSIONS } from '../../auth/permissions.js'
 // (the routes in App.jsx and the server enforce the same rule).
 const NAV_ITEMS = [
   { to: '/tickets', label: 'All Cases', icon: Inbox, live: true },
+  { to: '/escalations', label: 'Escalations', icon: Siren, live: true },
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
   { to: '/banks', label: 'Banks', icon: Landmark, live: true },
   { to: '/config', label: 'Config', icon: Settings, live: true, permission: PERMISSIONS.CONFIG_MANAGE },

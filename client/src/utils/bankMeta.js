@@ -31,6 +31,38 @@ export const TIME_ZONES = [
   { value: 'Asia/Kolkata', label: 'India (Asia/Kolkata)' },
 ]
 
+// Support window (server: Support_Start_Ist / Support_End_Ist) - IST, the
+// support team's clock. Resolution time only counts inside it on working
+// days; a 24x7 bank counts the full day.
+export const DEFAULT_SUPPORT_START_IST = '10:30'
+export const DEFAULT_SUPPORT_END_IST = '19:30'
+const IST_OFFSET_MINUTES = 330 // Asia/Kolkata, no DST
+
+/** "10:30" IST -> "08:00" in `timeZone` (today's offset). */
+export const istToLocalTime = (hhmm, timeZone) => {
+  const [hour, minute] = String(hhmm).split(':').map(Number)
+  if (Number.isNaN(hour) || Number.isNaN(minute) || !timeZone) return null
+  const now = new Date()
+  const utcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, minute) - IST_OFFSET_MINUTES * 60000
+  try {
+    return new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(utcMs))
+  } catch {
+    return null
+  }
+}
+
+/** "10:30–19:30 IST", or "24x7". */
+export const formatSupportHours = (bank) =>
+  bank.Is_24x7 === 'Y' ? '24x7' : `${bank.Support_Start_Ist || DEFAULT_SUPPORT_START_IST}–${bank.Support_End_Ist || DEFAULT_SUPPORT_END_IST} IST`
+
+/** "08:00–17:00 local" for the bank's time zone, or null. */
+export const formatLocalSupportHours = (bank) => {
+  if (bank.Is_24x7 === 'Y') return null
+  const start = istToLocalTime(bank.Support_Start_Ist || DEFAULT_SUPPORT_START_IST, bank.Time_Zone)
+  const end = istToLocalTime(bank.Support_End_Ist || DEFAULT_SUPPORT_END_IST, bank.Time_Zone)
+  return start && end ? `${start}–${end} local` : null
+}
+
 const titleDay = (day) => day.charAt(0) + day.slice(1).toLowerCase()
 
 /** "MON,TUE,WED,THU,FRI" -> "Mon – Fri"; non-contiguous days are listed. Handles week wrap (Sun – Thu). */

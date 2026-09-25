@@ -13,25 +13,15 @@ const PROPERTY_FIELDS = {
     productId: "Product_Id",
     category: "Category",
     subCategory: "Sub_Category",
-    classification: "Classification",
-    dueDate: "Due_Date"
+    classification: "Classification"
 };
 
 const forbidden = (message) => new ApiError(HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN, message);
 
 const normalize = (value) => (value === undefined || value === "" ? null : value);
 
-// The property panel round-trips Due_Date through a datetime-local input
-// (minute precision), so compare instants to the minute rather than raw
-// strings - otherwise re-saving an unchanged date looks like an edit.
-const sameDueDate = (a, b) => {
-    if (!a || !b) return !a && !b;
-    return Math.floor(new Date(a).getTime() / 60000) === Math.floor(new Date(b).getTime() / 60000);
-};
-
 const isChanged = (key, payload, existing, column) => {
     if (payload[key] === undefined) return false;
-    if (key === "dueDate") return !sameDueDate(normalize(payload[key]), normalize(existing[column]));
     return normalize(payload[key]) !== normalize(existing[column]);
 };
 

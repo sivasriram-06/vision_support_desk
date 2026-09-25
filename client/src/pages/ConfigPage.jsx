@@ -3,6 +3,7 @@ import PicklistManager from '../components/settings/PicklistManager.jsx'
 import ProductManager from '../components/settings/ProductManager.jsx'
 import PrioritySlaManager from '../components/settings/PrioritySlaManager.jsx'
 import ClassificationManager from '../components/settings/ClassificationManager.jsx'
+import EscalationManager from '../components/settings/EscalationManager.jsx'
 import { PICKLIST_FIELDS } from '../utils/picklistMeta.js'
 
 function GroupHeading({ children }) {
@@ -20,6 +21,7 @@ export default function ConfigPage() {
           <PrioritySlaManager />
           <ClassificationManager />
         </div>
+        <EscalationManager />
       </div>
 
       <div className="flex flex-col gap-3">

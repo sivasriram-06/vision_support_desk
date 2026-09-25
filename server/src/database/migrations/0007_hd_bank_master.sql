@@ -3,9 +3,11 @@
 -- and 24x7 cover. Source: docs/Vision Support Desk KB.xlsx
 -- ("Bank Wise Status" + "Support Hours" sheets).
 -- Working_Days (CSV of MON..SUN) + Time_Zone (IANA) are the bank's SLA
--- calendar: SLA and resolution time skip non-working days in the bank's
--- local time (services/sla/business-calendar.js). Is_24x7 = 'Y' counts
--- every day. Support_Hours_* are display text only.
+-- calendar: the SLA due date skips non-working days in the bank's local
+-- time (services/sla/business-calendar.js). Resolution time is further
+-- bounded to the support window Support_Start_Ist..Support_End_Ist
+-- (HH:MM, IST) on those days. Is_24x7 = 'Y' counts every minute of every
+-- day for both.
 CREATE TABLE IF NOT EXISTS HD_BANK_MASTER (
     Bank_Id              TEXT PRIMARY KEY,
     Bank_Name            TEXT NOT NULL,
@@ -15,8 +17,8 @@ CREATE TABLE IF NOT EXISTS HD_BANK_MASTER (
     Support_Level        TEXT CHECK (Support_Level IS NULL OR Support_Level IN ('Platinum', 'Gold', 'Silver')),
     Working_Days         TEXT NOT NULL DEFAULT 'MON,TUE,WED,THU,FRI',
     Time_Zone            TEXT NOT NULL DEFAULT 'Asia/Kolkata',
-    Support_Hours_Local  TEXT,
-    Support_Hours_Ist    TEXT,
+    Support_Start_Ist    TEXT NOT NULL DEFAULT '10:30' CHECK (Support_Start_Ist GLOB '[0-2][0-9]:[0-5][0-9]'),
+    Support_End_Ist      TEXT NOT NULL DEFAULT '19:30' CHECK (Support_End_Ist GLOB '[0-2][0-9]:[0-5][0-9]'),
     Is_24x7              TEXT NOT NULL DEFAULT 'N' CHECK (Is_24x7 IN ('Y', 'N')),
     Remarks              TEXT,
     Created_By           TEXT,

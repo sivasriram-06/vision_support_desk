@@ -10,6 +10,7 @@ const ticketRepository = require("../repositories/ticket.repository");
 const { history: historyRepository, metrics: metricsRepository } = require("../repositories/history.repository");
 const { computeSlaDueDate } = require("../services/sla/sla.service");
 const resolutionClock = require("../services/sla/resolution-clock.service");
+const escalationService = require("../services/sla/escalation.service");
 const { getCalendar } = require("../services/sla/business-calendar");
 const { SYSTEM_AGENT_EMAIL } = require("../services/organization.service");
 const DB_TABLES = require("../constants/db-tables");
@@ -168,6 +169,7 @@ const seedDemoTickets = () => {
                 Closed_Time: null
             };
             const triagedAt = new Date(created.getTime() + gaps[0] * scale);
+            const dueDate = computeSlaDueDate({ createdTime: created, priority, bankId: bank.Bank_Id, orgId });
             ticketRepository.updateById(original.Ticket_Id, {
                 Created_Time: created.toISOString(),
                 Status: ticket.Status,
@@ -181,9 +183,10 @@ const seedDemoTickets = () => {
                 Priority: priority,
                 Classification: classification,
                 Category: category,
-                Response_Due_Date: computeSlaDueDate({ createdTime: created, priority, bankId: bank.Bank_Id, orgId }),
+                Response_Due_Date: dueDate,
                 Modified_By: assigneeId
             });
+            escalationService.rebuildTriggers({ Ticket_Id: original.Ticket_Id, Priority: priority, Bank_Id: bank.Bank_Id, Response_Due_Date: dueDate }, orgId);
             db.prepare(`UPDATE ${DB_TABLES.TICKET_HISTORY} SET Event_Time = ? WHERE Ticket_Id = ? AND Event_Name = ?`)
                 .run(created.toISOString(), original.Ticket_Id, TICKET_HISTORY_EVENT.CREATED);
             logHistory({ ticketId: original.Ticket_Id, eventName: TICKET_HISTORY_EVENT.PRIORITY_CHANGE, fieldName: "Priority", oldValue: null, newValue: priority, actorAgentId: assigneeId, at: triagedAt, orgId });

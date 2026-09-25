@@ -7,6 +7,7 @@ const contactRepository = require("../repositories/contact.repository");
 const organizationService = require("./organization.service");
 const { computeSlaDueDate } = require("./sla/sla.service");
 const resolutionClock = require("./sla/resolution-clock.service");
+const escalationService = require("./sla/escalation.service");
 const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
@@ -91,6 +92,7 @@ const createTicket = (payload, actorAgentId) => {
         const createdTime = nowIso();
         const statusType = payload.statusType || STATUS_TYPE.OPEN;
         const status = payload.status || DEFAULT_STATUS_BY_TYPE[statusType];
+        const dueDate = computeSlaDueDate({ createdTime, priority: payload.priority, bankId: payload.bankId, orgId: org.Organization_Id });
 
         ticketRepository.insert({
             Ticket_Id: ticketId,
@@ -106,7 +108,7 @@ const createTicket = (payload, actorAgentId) => {
             Contact_Id: payload.contactId,
             Account_Id: payload.accountId || null,
             Assignee_Id: payload.assigneeId || null,
-            Response_Due_Date: computeSlaDueDate({ createdTime, priority: payload.priority, bankId: payload.bankId, orgId: org.Organization_Id }),
+            Response_Due_Date: dueDate,
             // Stored explicitly as ISO-8601 UTC (same instant the SLA was
             // computed from). The column default, datetime('now'), writes
             // "YYYY-MM-DD HH:MM:SS" - mixing the two formats breaks text
@@ -144,6 +146,11 @@ const createTicket = (payload, actorAgentId) => {
         });
         ticketRepository.updateById(ticketId, clockChanges);
 
+        escalationService.rebuildTriggers(
+            { Ticket_Id: ticketId, Priority: payload.priority, Bank_Id: payload.bankId, Response_Due_Date: dueDate },
+            org.Organization_Id
+        );
+
         return ticketId;
     });
 
@@ -170,8 +177,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         productId: "Product_Id",
         category: "Category",
         subCategory: "Sub_Category",
-        classification: "Classification",
-        dueDate: "Due_Date"
+        classification: "Classification"
     };
 
     // A bank is worked by exactly one support team, so picking the bank
@@ -236,7 +242,11 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
             }));
         }
         changes.Modified_By = actorAgentId;
-        ticketRepository.updateById(ticketId, changes);
+        const updated = ticketRepository.updateById(ticketId, changes);
+        // Escalation triggers hang off the due date, so they move with it.
+        if (changes.Response_Due_Date !== undefined) {
+            escalationService.rebuildTriggers(updated, org.Organization_Id);
+        }
         for (const entry of historyEntries) {
             recordHistory({
                 ticketId,
@@ -264,11 +274,21 @@ const getTicketResolution = (ticketId) => {
     return resolutionRepository.findResolutionByTicketId(ticketId) || null;
 };
 
-/** Stored metrics plus the live resolution clock (an open segment keeps counting). */
+/** Stored metrics plus the live resolution clock (an open segment keeps counting) and escalation level. */
 const getTicketMetrics = (ticketId) => {
     const ticket = getTicketById(ticketId);
     const metrics = metricsRepository.findMetricsByTicketId(ticketId) || null;
-    return { ...(metrics || {}), ...resolutionClock.getResolutionSummary(ticket) };
+    return {
+        ...(metrics || {}),
+        ...resolutionClock.getResolutionSummary(ticket),
+        escalation: escalationService.getTicketEscalation(ticket)
+    };
+};
+
+/** Escalation queue: open tickets at level 1 or above, filterable by team / bank / priority. */
+const listEscalatedTickets = (query) => {
+    const org = organizationService.getDefaultOrganization();
+    return ticketRepository.findEscalated(org.Organization_Id, query);
 };
 
 module.exports = {
@@ -281,5 +301,6 @@ module.exports = {
     getTicketHistory,
     getTicketResolution,
     getTicketMetrics,
+    listEscalatedTickets,
     recordHistory
 };

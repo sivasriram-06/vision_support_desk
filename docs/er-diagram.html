@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Desk ER Diagram</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --card:#ffffff; --card-head:#f1f3f6; --line:#dfe3e8; --text:#1c2230; --muted:#6a7383;
+  --edge:#a9b1bd; --accent:#2563eb; --accent-soft:#dbe6fd; --soft:#b07a12; --dim:.18; --grid:#e8ebef; --flash:#fde68a;
+  --g0:#2563eb; --g1:#0e9f6e; --g2:#c2410c; --g3:#7c3aed; --g4:#db2777; --g5:#0891b2; --g6:#a16207;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --panel:#161a22; --card:#1a1f29; --card-head:#222835; --line:#2c3342; --text:#e4e8ef; --muted:#8b95a7;
+    --edge:#4d5668; --accent:#6ea0ff; --accent-soft:#1f2c47; --soft:#e0a93a; --grid:#161b23; --flash:#5b4a12;
+    --g0:#6ea0ff; --g1:#34d399; --g2:#fb923c; --g3:#a78bfa; --g4:#f472b6; --g5:#22d3ee; --g6:#facc15;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --panel:#161a22; --card:#1a1f29; --card-head:#222835; --line:#2c3342; --text:#e4e8ef; --muted:#8b95a7;
+  --edge:#4d5668; --accent:#6ea0ff; --accent-soft:#1f2c47; --soft:#e0a93a; --grid:#161b23; --flash:#5b4a12;
+  --g0:#6ea0ff; --g1:#34d399; --g2:#fb923c; --g3:#a78bfa; --g4:#f472b6; --g5:#22d3ee; --g6:#facc15;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+.mono{font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
+#app{display:grid;grid-template-columns:270px 1fr 0;height:100vh;transition:grid-template-columns .2s}
+#app.open{grid-template-columns:270px 1fr 420px}
+/* sidebar */
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.brand h1{font-size:15px;margin:0 0 2px}
+.brand p{margin:0;color:var(--muted);font-size:12px}
+.search{padding:10px 12px;border-bottom:1px solid var(--line)}
+.search input{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font:inherit}
+.search input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+#list{overflow:auto;flex:1;padding:6px 0 16px}
+.grp{padding:10px 16px 4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.item{display:flex;justify-content:space-between;gap:8px;padding:4px 16px 4px 32px;cursor:pointer;color:var(--text);border:0;background:none;width:100%;text-align:left;font:12px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace}
+.item:hover{background:var(--card-head)}
+.item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.item.rel{color:var(--accent)}
+.item span:last-child{color:var(--muted);font-size:11px}
+.opts{border-top:1px solid var(--line);padding:10px 16px;display:grid;gap:6px;font-size:12px}
+.opts label{display:flex;gap:8px;align-items:center;cursor:pointer}
+/* canvas */
+main{position:relative;min-width:0;overflow:hidden}
+svg#er{width:100%;height:100%;display:block;cursor:grab;touch-action:none;user-select:none}
+svg#er.panning{cursor:grabbing}
+.toolbar{position:absolute;top:12px;left:12px;display:flex;gap:6px;z-index:2;flex-wrap:wrap}
+.toolbar button,.panel-head button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
+.toolbar button:hover,.panel-head button:hover{border-color:var(--accent);color:var(--accent)}
+.legend{position:absolute;bottom:12px;left:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;z-index:2}
+.legend svg{vertical-align:middle;margin-right:4px}
+.hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--muted);z-index:2}
+/* svg elements */
+.gbg{fill:var(--card-head);opacity:.35;stroke:var(--line)}
+.glabel{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.card{cursor:pointer;transition:opacity .15s}
+.card .box{fill:var(--card);stroke:var(--line);stroke-width:1}
+.card .head{fill:var(--card-head)}
+.card .tname{font:700 12.5px ui-monospace,"Cascadia Code",Consolas,monospace;fill:var(--text)}
+.card .cname{font:11.5px ui-monospace,"Cascadia Code",Consolas,monospace;fill:var(--text)}
+.card .ctype{font:10.5px ui-monospace,Consolas,monospace;fill:var(--muted)}
+.card .key{font:700 9px system-ui,sans-serif}
+.card .more{font:italic 11px system-ui,sans-serif;fill:var(--muted)}
+.card .row:hover rect{fill:var(--accent-soft)}
+.card .row rect{fill:transparent}
+.card .row.fk .cname{fill:var(--accent)}
+.card .row.flash rect{fill:var(--flash)}
+.card:hover .box{stroke:var(--accent)}
+.card.sel .box{stroke:var(--accent);stroke-width:2.5}
+.card.rel .box{stroke:var(--accent);stroke-width:1.5}
+.edge{fill:none;stroke:var(--edge);stroke-width:1.3;transition:opacity .15s}
+.edge.soft{stroke:var(--soft);stroke-dasharray:5 4}
+.edge.hi{stroke:var(--accent);stroke-width:2.2}
+.edge.soft.hi{stroke:var(--soft)}
+.dimmed .card:not(.sel):not(.rel){opacity:var(--dim)}
+.dimmed .edge:not(.hi){opacity:.08}
+/* detail panel */
+#panel{background:var(--panel);border-left:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.panel-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+.panel-head h2{font:700 14px ui-monospace,Consolas,monospace;margin:0;word-break:break-all;flex:1}
+.panel-body{overflow:auto;padding:12px 16px 24px;flex:1}
+.meta{color:var(--muted);font-size:12px;margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:11px}
+.desc{margin:6px 0 14px;color:var(--text)}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:18px 0 6px}
+table.cols{width:100%;border-collapse:collapse;font-size:12px}
+table.cols td{border-top:1px solid var(--line);padding:5px 4px;vertical-align:top}
+table.cols tr.flash td{background:var(--flash)}
+table.cols .n{font-family:ui-monospace,Consolas,monospace;font-weight:600;word-break:break-all}
+table.cols .t{color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:11px;white-space:nowrap}
+.badge{display:inline-block;font-size:9.5px;font-weight:700;border-radius:3px;padding:0 4px;margin:0 3px 0 0;border:1px solid currentColor}
+.b-pk{color:var(--g6)} .b-fk{color:var(--accent)} .b-nn{color:var(--muted)} .b-uq{color:var(--g3)} .b-lr{color:var(--soft)}
+.sub{color:var(--muted);font-size:11px;font-family:ui-monospace,Consolas,monospace;word-break:break-word;margin-top:2px}
+a.lnk,button.lnk{color:var(--accent);cursor:pointer;background:none;border:0;padding:0;font:inherit;text-align:left;text-decoration:none}
+a.lnk:hover,button.lnk:hover{text-decoration:underline}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:6px;padding:3px 8px;font:11.5px ui-monospace,Consolas,monospace;background:var(--bg);color:var(--text);cursor:pointer;text-align:left}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip small{color:var(--muted)}
+.idx{font:11.5px ui-monospace,Consolas,monospace;padding:4px 0;border-top:1px solid var(--line)}
+.empty{color:var(--muted);font-size:12px}
+#menuBtn{display:none}
+@media (max-width:900px){
+  #app,#app.open{grid-template-columns:1fr}
+  aside{position:fixed;inset:0 auto 0 0;width:270px;z-index:10;transform:translateX(-100%);transition:transform .2s}
+  #app.menu aside{transform:none}
+  #panel{position:fixed;inset:auto 0 0 0;height:55vh;z-index:9;border-left:0;border-top:1px solid var(--line);transform:translateY(100%);transition:transform .2s}
+  #app.open #panel{transform:none}
+  #menuBtn{display:inline-block}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="brand">
+      <h1>Support Desk schema</h1>
+      <p id="stats"></p>
+    </div>
+    <div class="search"><input id="q" type="search" placeholder="Filter tables or columns…" autocomplete="off"></div>
+    <nav id="list"></nav>
+    <div class="opts">
+      <label><input type="checkbox" id="optAll"> Show all columns on cards</label>
+      <label><input type="checkbox" id="optOrg"> Show Org_Id links (every table)</label>
+      <label><input type="checkbox" id="optSoft" checked> Show logical (unenforced) links</label>
+    </div>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <button id="menuBtn" title="Tables">☰ Tables</button>
+      <button id="zin" title="Zoom in">＋</button>
+      <button id="zout" title="Zoom out">－</button>
+      <button id="fit" title="Fit whole diagram">Fit</button>
+      <button id="clear" title="Clear selection (Esc)">Clear</button>
+      <button id="theme" title="Toggle light/dark">◐</button>
+    </div>
+    <svg id="er" aria-label="Entity relationship diagram">
+      <defs>
+        <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="var(--grid)"/></pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)"/>
+      <g id="vp"><g id="groups"></g><g id="edges"></g><g id="cards"></g></g>
+    </svg>
+    <div class="legend">
+      <span><svg width="44" height="12"><path d="M2 6H42" stroke="var(--edge)" stroke-width="1.5"/><path d="M2 1L8 6L2 11M9 1V11" stroke="var(--edge)" fill="none" stroke-width="1.5"/><path d="M36 1V11M40 1V11" stroke="var(--edge)" stroke-width="1.5"/></svg>many → one (FK, required)</span>
+      <span><svg width="44" height="12"><path d="M2 6H34" stroke="var(--edge)" stroke-width="1.5"/><circle cx="37" cy="6" r="3" fill="var(--card)" stroke="var(--edge)" stroke-width="1.5"/><path d="M42 1V11" stroke="var(--edge)" stroke-width="1.5"/></svg>optional parent (nullable FK)</span>
+      <span><svg width="44" height="12"><path d="M2 6H42" stroke="var(--soft)" stroke-width="1.5" stroke-dasharray="5 4"/></svg>logical link (no FK constraint)</span>
+    </div>
+    <div class="hint">Click a table to focus · click an FK row to jump · drag to pan · scroll to zoom · Esc clears</div>
+  </main>
+  <section id="panel" aria-live="polite"></section>
+</div>
+<script>
+const SCHEMA = [{"name":"HD_ORGANIZATION_MASTER","file":"0001_hd_organization_master.sql","desc":"tenant profile (single-tenant for this deployment)","columns":[{"name":"Organization_Id","type":"TEXT","pk":1,"nn":1},{"name":"Company_Name","type":"TEXT","nn":1},{"name":"Description","type":"TEXT"},{"name":"Portal_Name","type":"TEXT"},{"name":"Portal_Url","type":"TEXT"},{"name":"Custom_Domain","type":"TEXT"},{"name":"Is_Domain_Mapped","type":"TEXT","nn":1,"def":"'N'","check":"Is_Domain_Mapped IN ('Y', 'N')"},{"name":"Alias","type":"TEXT"},{"name":"Edition","type":"TEXT","check":"Edition IN ('Free', 'Standard', 'Professional', 'Enterprise')"},{"name":"Support_Org_Type","type":"TEXT"},{"name":"Industry","type":"TEXT"},{"name":"Employee_Count","type":"INTEGER"},{"name":"Employee_Count_Range","type":"TEXT"},{"name":"Country","type":"TEXT"},{"name":"State","type":"TEXT"},{"name":"City","type":"TEXT"},{"name":"Street","type":"TEXT"},{"name":"Zip_Code","type":"TEXT"},{"name":"Phone_Number","type":"TEXT"},{"name":"Mobile","type":"TEXT"},{"name":"Fax","type":"TEXT"},{"name":"Website","type":"TEXT"},{"name":"Primary_Contact_Email","type":"TEXT"},{"name":"Currency_Code","type":"TEXT"},{"name":"Currency_Symbol","type":"TEXT"},{"name":"Currency_Locale","type":"TEXT"},{"name":"Time_Zone","type":"TEXT"},{"name":"Logo_Url","type":"TEXT"},{"name":"Favicon_Url","type":"TEXT"},{"name":"Is_Sandbox_Portal","type":"TEXT","nn":1,"def":"'N'","check":"Is_Sandbox_Portal IN ('Y', 'N')"},{"name":"Is_Default_Portal","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Default_Portal IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"}],"indexes":[]},{"name":"HD_DEPARTMENT_MASTER","file":"0002_hd_department_master.sql","desc":"support department / top-level queue","columns":[{"name":"Department_Id","type":"TEXT","pk":1,"nn":1},{"name":"Department_Name","type":"TEXT","nn":1},{"name":"Sanitized_Name","type":"TEXT"},{"name":"Description","type":"TEXT"},{"name":"Name_In_Customer_Portal","type":"TEXT"},{"name":"Creator_Agent_Id","type":"TEXT"},{"name":"Is_Default","type":"TEXT","nn":1,"def":"'N'","check":"Is_Default IN ('Y', 'N')"},{"name":"Is_Enabled","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Enabled IN ('Y', 'N')"},{"name":"Is_Visible_To_Contacts","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Visible_To_Contacts IN ('Y', 'N')"},{"name":"Is_Team_Assignment_Enabled","type":"TEXT","nn":1,"def":"'N'","check":"Is_Team_Assignment_Enabled IN ('Y', 'N')"},{"name":"Has_Logo","type":"TEXT","nn":1,"def":"'N'","check":"Has_Logo IN ('Y', 'N')"},{"name":"Chat_Status","type":"TEXT","check":"Chat_Status IN ('Available', 'Away', 'Offline')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_department_org","unique":false,"cols":"Org_Id","where":""}]},{"name":"HD_ROLE_MASTER","file":"0003_hd_role_master.sql","desc":"agent roles and the permissions each one grants. Role_Key is the stable code the app reasons about (ADMIN / MANAGER / TEAM_LEAD / ASSISTANT_TEAM_LEAD / TEAM_MEMBER - see constants/permissions.js); Role_Name is the editable display name. Permissions_Json is the admin-managed permission key list for the role.","columns":[{"name":"Role_Id","type":"TEXT","pk":1,"nn":1},{"name":"Role_Name","type":"TEXT","nn":1},{"name":"Role_Key","type":"TEXT","nn":1},{"name":"Parent_Role_Id","type":"TEXT","fk":{"table":"HD_ROLE_MASTER","column":"Role_Id"}},{"name":"Permissions_Json","type":"TEXT"},{"name":"Sort_Order","type":"INTEGER"},{"name":"Data_Sharing_Rule","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_role_org","unique":false,"cols":"Org_Id","where":""},{"name":"uq_role_key_org","unique":true,"cols":"Org_Id, Role_Key","where":"Is_Deleted = 'N'"}]},{"name":"HD_PROFILE_MASTER","file":"0004_hd_profile_master.sql","desc":"agent permission profile","columns":[{"name":"Profile_Id","type":"TEXT","pk":1,"nn":1},{"name":"Profile_Name","type":"TEXT","nn":1},{"name":"Description","type":"TEXT"},{"name":"Profile_Type","type":"TEXT","nn":1,"def":"'Custom'","check":"Profile_Type IN ('Administrator', 'Agent', 'Custom')"},{"name":"Is_Default","type":"TEXT","nn":1,"def":"'N'","check":"Is_Default IN ('Y', 'N')"},{"name":"Is_Visible","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Visible IN ('Y', 'N')"},{"name":"Permissions_Json","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_profile_org","unique":false,"cols":"Org_Id","where":""}]},{"name":"HD_AGENT_MASTER","file":"0005_hd_agent_master.sql","desc":"support agent record. No password/password hash column - authentication identity lives in HD_AGENT_AUTH (see 0023).","columns":[{"name":"Agent_Id","type":"TEXT","pk":1,"nn":1},{"name":"Zuid","type":"TEXT","nn":1},{"name":"First_Name","type":"TEXT","nn":1},{"name":"Last_Name","type":"TEXT","nn":1},{"name":"Email","type":"TEXT","nn":1},{"name":"Mobile","type":"TEXT"},{"name":"Phone","type":"TEXT"},{"name":"Extension","type":"TEXT"},{"name":"Status","type":"TEXT","nn":1,"def":"'Active'","check":"Status IN ('Active', 'Inactive', 'Confirmed', 'Unconfirmed')"},{"name":"Role_Id","type":"TEXT","fk":{"table":"HD_ROLE_MASTER","column":"Role_Id"}},{"name":"Profile_Id","type":"TEXT","fk":{"table":"HD_PROFILE_MASTER","column":"Profile_Id"}},{"name":"Role_Permission_Type","type":"TEXT","check":"Role_Permission_Type IN ('Standard', 'Custom')"},{"name":"Primary_Department_Id","type":"TEXT","fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Timezone","type":"TEXT"},{"name":"Language","type":"TEXT"},{"name":"Country_Code","type":"TEXT"},{"name":"Photo_Path","type":"TEXT"},{"name":"About_Info","type":"TEXT"},{"name":"Is_Confirmed","type":"TEXT","nn":1,"def":"'N'","check":"Is_Confirmed IN ('Y', 'N')"},{"name":"Is_Zia_Agent","type":"TEXT","nn":1,"def":"'N'","check":"Is_Zia_Agent IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_agent_email_org","unique":true,"cols":"Org_Id, Email","where":"Is_Deleted = 'N'"},{"name":"idx_agent_org","unique":false,"cols":"Org_Id","where":""},{"name":"idx_agent_department","unique":false,"cols":"Primary_Department_Id","where":""}]},{"name":"HD_AGENT_DEPARTMENT_MAP","file":"0006_hd_agent_department_map.sql","desc":"many-to-many agent <-> department membership","columns":[{"name":"Agent_Department_Map_Id","type":"TEXT","pk":1,"nn":1},{"name":"Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Department_Id","type":"TEXT","nn":1,"fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_agent_department","unique":true,"cols":"Agent_Id, Department_Id","where":""}]},{"name":"HD_BANK_MASTER","file":"0007_hd_bank_master.sql","desc":"a client bank and its support contract - which support team (department) works it, module, support level, support days/hours and 24x7 cover. Source: docs/Vision Support Desk KB.xlsx (\"Bank Wise Status\" + \"Support Hours\" sheets). Working_Days (CSV of MON..SUN) + Time_Zone (IANA) are the bank's SLA calendar: the SLA due date skips non-working days in the bank's local time (services/sla/business-calendar.js). Resolution time is further bounded to the support window Support_Start_Ist..Support_End_Ist (HH:MM, IST) on those days. Is_24x7 = 'Y' counts every minute of every day for both.","columns":[{"name":"Bank_Id","type":"TEXT","pk":1,"nn":1},{"name":"Bank_Name","type":"TEXT","nn":1},{"name":"Department_Id","type":"TEXT","nn":1,"fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Country","type":"TEXT"},{"name":"Module","type":"TEXT"},{"name":"Support_Level","type":"TEXT","check":"Support_Level IS NULL OR Support_Level IN ('Platinum', 'Gold', 'Silver')"},{"name":"Working_Days","type":"TEXT","nn":1,"def":"'MON,TUE,WED,THU,FRI'"},{"name":"Time_Zone","type":"TEXT","nn":1,"def":"'Asia/Kolkata'"},{"name":"Support_Start_Ist","type":"TEXT","nn":1,"def":"'10:30'","check":"Support_Start_Ist GLOB '[0-2][0-9]:[0-5][0-9]'"},{"name":"Support_End_Ist","type":"TEXT","nn":1,"def":"'19:30'","check":"Support_End_Ist GLOB '[0-2][0-9]:[0-5][0-9]'"},{"name":"Is_24x7","type":"TEXT","nn":1,"def":"'N'","check":"Is_24x7 IN ('Y', 'N')"},{"name":"Remarks","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_bank_name_org","unique":true,"cols":"Org_Id, Bank_Name COLLATE NOCASE","where":"Is_Deleted = 'N'"},{"name":"idx_bank_department","unique":false,"cols":"Department_Id","where":""}]},{"name":"HD_BANK_RESOURCE_MAP","file":"0007_hd_bank_master.sql","desc":"who works a bank - its primary and secondary resources. A bank may have more than one of each (e.g. I&M Kenya: Sudharshan / Ezhil as primary).","columns":[{"name":"Bank_Resource_Id","type":"TEXT","pk":1,"nn":1},{"name":"Bank_Id","type":"TEXT","nn":1,"fk":{"table":"HD_BANK_MASTER","column":"Bank_Id"}},{"name":"Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Resource_Type","type":"TEXT","nn":1,"check":"Resource_Type IN ('PRIMARY', 'SECONDARY')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_bank_resource","unique":true,"cols":"Bank_Id, Agent_Id, Resource_Type","where":"Is_Deleted = 'N'"},{"name":"idx_bank_resource_agent","unique":false,"cols":"Agent_Id","where":""}]},{"name":"HD_CHANNEL_MASTER","file":"0008_hd_channel_master.sql","desc":"configured support channel","columns":[{"name":"Channel_Id","type":"TEXT","pk":1,"nn":1},{"name":"Channel_Name","type":"TEXT","nn":1},{"name":"Channel_Type","type":"TEXT","nn":1,"check":"Channel_Type IN ('Email', 'Web Form', 'Social', 'Chat', 'Phone')"},{"name":"Department_Id","type":"TEXT","fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Is_Reply_Enabled","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Reply_Enabled IN ('Y', 'N')"},{"name":"Is_Active","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Active IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_channel_department","unique":false,"cols":"Department_Id","where":""}]},{"name":"HD_MAIL_REPLY_ADDRESS","file":"0009_hd_mail_reply_address.sql","desc":"support email address(es) configured per department. The Gmail ingestion engine looks up Department_Id from here by Email_Address (e.g. tasks@sunoida.com) instead of hard-coding department context.","columns":[{"name":"Mail_Reply_Address_Id","type":"TEXT","pk":1,"nn":1},{"name":"Department_Id","type":"TEXT","nn":1,"fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Display_Name","type":"TEXT"},{"name":"Email_Address","type":"TEXT","nn":1},{"name":"Is_Verified","type":"TEXT","nn":1,"def":"'N'","check":"Is_Verified IN ('Y', 'N')"},{"name":"Smtp_Config_Json","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_mail_reply_address","unique":true,"cols":"Email_Address","where":"Is_Deleted = 'N'"}]},{"name":"HD_ACCOUNT_MASTER","file":"0010_hd_account_master.sql","desc":"customer company/organization record","columns":[{"name":"Account_Id","type":"TEXT","pk":1,"nn":1},{"name":"Account_Name","type":"TEXT","nn":1},{"name":"Email","type":"TEXT"},{"name":"Phone","type":"TEXT"},{"name":"Website","type":"TEXT"},{"name":"Fax","type":"TEXT"},{"name":"Industry","type":"TEXT"},{"name":"Annual_Revenue","type":"REAL"},{"name":"Street","type":"TEXT"},{"name":"City","type":"TEXT"},{"name":"State","type":"TEXT"},{"name":"Zip_Code","type":"TEXT"},{"name":"Country","type":"TEXT"},{"name":"Description","type":"TEXT"},{"name":"Owner_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"External_Crm_Account_Id","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_account_org","unique":false,"cols":"Org_Id","where":""}]},{"name":"HD_CONTACT_MASTER","file":"0011_hd_contact_master.sql","desc":"customer/requester directory","columns":[{"name":"Contact_Id","type":"TEXT","pk":1,"nn":1},{"name":"First_Name","type":"TEXT"},{"name":"Last_Name","type":"TEXT","nn":1},{"name":"Email","type":"TEXT"},{"name":"Secondary_Email","type":"TEXT"},{"name":"Phone","type":"TEXT"},{"name":"Mobile","type":"TEXT"},{"name":"Title","type":"TEXT"},{"name":"Twitter","type":"TEXT"},{"name":"Facebook","type":"TEXT"},{"name":"Street","type":"TEXT"},{"name":"City","type":"TEXT"},{"name":"State","type":"TEXT"},{"name":"Zip","type":"TEXT"},{"name":"Country","type":"TEXT"},{"name":"Description","type":"TEXT"},{"name":"Language","type":"TEXT"},{"name":"Contact_Type","type":"TEXT"},{"name":"Account_Id","type":"TEXT","fk":{"table":"HD_ACCOUNT_MASTER","column":"Account_Id"}},{"name":"Owner_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Photo_Url","type":"TEXT"},{"name":"Is_Anonymous","type":"TEXT","nn":1,"def":"'N'","check":"Is_Anonymous IN ('Y', 'N')"},{"name":"Is_End_User","type":"TEXT","nn":1,"def":"'N'","check":"Is_End_User IN ('Y', 'N')"},{"name":"Is_Spam","type":"TEXT","nn":1,"def":"'N'","check":"Is_Spam IN ('Y', 'N')"},{"name":"External_Crm_Contact_Id","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_contact_email_org","unique":true,"cols":"Org_Id, Email","where":"Is_Deleted = 'N' AND Email IS NOT NULL"},{"name":"idx_contact_account","unique":false,"cols":"Account_Id","where":""},{"name":"idx_contact_org","unique":false,"cols":"Org_Id","where":""}]},{"name":"HD_CONTACT_ACCOUNT_MAP","file":"0012_hd_contact_account_map.sql","desc":"a contact can belong to several accounts","columns":[{"name":"Contact_Account_Id","type":"TEXT","pk":1,"nn":1},{"name":"Contact_Id","type":"TEXT","nn":1,"fk":{"table":"HD_CONTACT_MASTER","column":"Contact_Id"}},{"name":"Account_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ACCOUNT_MASTER","column":"Account_Id"}},{"name":"Is_Primary","type":"TEXT","nn":1,"def":"'N'","check":"Is_Primary IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_contact_account","unique":true,"cols":"Contact_Id, Account_Id","where":""}]},{"name":"HD_CUSTOMER_HAPPINESS","file":"0013_hd_customer_happiness.sql","desc":"happiness score breakdown per contact","columns":[{"name":"Happiness_Id","type":"TEXT","pk":1,"nn":1},{"name":"Contact_Id","type":"TEXT","nn":1,"fk":{"table":"HD_CONTACT_MASTER","column":"Contact_Id"}},{"name":"Bad_Percentage","type":"REAL","nn":1,"def":"0"},{"name":"Ok_Percentage","type":"REAL","nn":1,"def":"0"},{"name":"Good_Percentage","type":"REAL","nn":1,"def":"0"},{"name":"Last_Calculated_Time","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_happiness_contact","unique":true,"cols":"Contact_Id","where":""}]},{"name":"HD_TAG_MASTER","file":"0014_hd_tag_master.sql","desc":"org-level tag vocabulary usable across modules","columns":[{"name":"Tag_Id","type":"TEXT","pk":1,"nn":1},{"name":"Tag_Name","type":"TEXT","nn":1},{"name":"Module","type":"TEXT","check":"Module IN ('Tickets', 'Contacts', 'Accounts', 'All')"},{"name":"Tag_Type","type":"TEXT","nn":1,"def":"'Manual'","check":"Tag_Type IN ('Manual', 'Automatic', 'System')"},{"name":"Ticket_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_tag_name_org","unique":true,"cols":"Org_Id, Tag_Name","where":"Is_Deleted = 'N'"}]},{"name":"HD_TICKET_MASTER","file":"0015_hd_ticket_master.sql","desc":"core ticket record. Bank_Id is the client bank the ticket belongs to (HD_BANK_MASTER). Priority is free text from the admin-managed HD_PRIORITY_SLA_CONFIG list. Response_Due_Date is the SLA due date (priority SLA hours on the bank's working-day calendar, fixed - never paused). Clock_State mirrors the current Status's clock behaviour; Resolution_Started_Time / Resolved_Time bound the resolution clock (segments in HD_TICKET_CLOCK_SEGMENT). Layout_Id, Sla_Policy_Id, Blueprint_Id, Product_Id, Contract_Id are kept as plain (unconstrained) TEXT columns for now: their owning tables (HD_LAYOUT_MASTER, HD_SLA_POLICY_MASTER, HD_BLUEPRINT_MASTER, HD_CONTRACT_MASTER) are Phase 2 scope and not yet created, and HD_PRODUCT_MASTER is created later in the migration order.","columns":[{"name":"Ticket_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Number","type":"TEXT","nn":1},{"name":"Subject","type":"TEXT","nn":1},{"name":"Description","type":"TEXT"},{"name":"Status","type":"TEXT","nn":1},{"name":"Status_Type","type":"TEXT","nn":1,"check":"Status_Type IN ('Open', 'On Hold', 'Closed')"},{"name":"Priority","type":"TEXT"},{"name":"Classification","type":"TEXT"},{"name":"Category","type":"TEXT"},{"name":"Sub_Category","type":"TEXT"},{"name":"Channel","type":"TEXT","nn":1,"check":"Channel IN ('Email', 'Web Form', 'Social', 'Chat', 'Phone')"},{"name":"Channel_Code","type":"TEXT"},{"name":"Language","type":"TEXT"},{"name":"Sentiment","type":"TEXT","check":"Sentiment IN ('Positive', 'Negative', 'Neutral')"},{"name":"Relationship_Type","type":"TEXT"},{"name":"Department_Id","type":"TEXT","nn":1,"fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Bank_Id","type":"TEXT","fk":{"table":"HD_BANK_MASTER","column":"Bank_Id"}},{"name":"Contact_Id","type":"TEXT","nn":1,"fk":{"table":"HD_CONTACT_MASTER","column":"Contact_Id"}},{"name":"Account_Id","type":"TEXT","fk":{"table":"HD_ACCOUNT_MASTER","column":"Account_Id"}},{"name":"Assignee_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Product_Id","type":"TEXT"},{"name":"Contract_Id","type":"TEXT"},{"name":"Layout_Id","type":"TEXT"},{"name":"Sla_Policy_Id","type":"TEXT"},{"name":"Blueprint_Id","type":"TEXT"},{"name":"Due_Date","type":"TEXT"},{"name":"Response_Due_Date","type":"TEXT"},{"name":"Closed_Time","type":"TEXT"},{"name":"Clock_State","type":"TEXT","nn":1,"def":"'NOT_STARTED'","check":"Clock_State IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')"},{"name":"Resolution_Started_Time","type":"TEXT"},{"name":"Resolved_Time","type":"TEXT"},{"name":"Onhold_Time","type":"TEXT"},{"name":"Customer_Response_Time","type":"TEXT"},{"name":"Resolution_Summary","type":"TEXT"},{"name":"Is_OverDue","type":"TEXT","nn":1,"def":"'N'","check":"Is_OverDue IN ('Y', 'N')"},{"name":"Is_Response_Overdue","type":"TEXT","nn":1,"def":"'N'","check":"Is_Response_Overdue IN ('Y', 'N')"},{"name":"Is_Escalated","type":"TEXT","nn":1,"def":"'N'","check":"Is_Escalated IN ('Y', 'N')"},{"name":"Is_Archived","type":"TEXT","nn":1,"def":"'N'","check":"Is_Archived IN ('Y', 'N')"},{"name":"Is_Spam","type":"TEXT","nn":1,"def":"'N'","check":"Is_Spam IN ('Y', 'N')"},{"name":"Is_Trashed","type":"TEXT","nn":1,"def":"'N'","check":"Is_Trashed IN ('Y', 'N')"},{"name":"Thread_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Comment_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Follower_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Tag_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Attachment_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Task_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Time_Entry_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Approval_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Is_Read","type":"TEXT","nn":1,"def":"'N'","check":"Is_Read IN ('Y', 'N')"},{"name":"Is_Following","type":"TEXT","nn":1,"def":"'N'","check":"Is_Following IN ('Y', 'N')"},{"name":"Has_Scheduled_Reply","type":"TEXT","nn":1,"def":"'N'","check":"Has_Scheduled_Reply IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_ticket_number_org","unique":true,"cols":"Org_Id, Ticket_Number","where":""},{"name":"idx_ticket_department","unique":false,"cols":"Department_Id","where":""},{"name":"idx_ticket_bank","unique":false,"cols":"Bank_Id","where":""},{"name":"idx_ticket_assignee","unique":false,"cols":"Assignee_Id","where":""},{"name":"idx_ticket_contact","unique":false,"cols":"Contact_Id","where":""},{"name":"idx_ticket_status_type","unique":false,"cols":"Status_Type","where":""},{"name":"idx_ticket_org","unique":false,"cols":"Org_Id","where":""},{"name":"idx_ticket_created_time","unique":false,"cols":"Created_Time","where":""}]},{"name":"HD_TICKET_CONVERSATION","file":"0016_hd_ticket_conversation.sql","desc":"unified message feed for a ticket. Content_Html is the sanitized HTML body (see src/utils/sanitize-email-html.js) alongside plain-text Content, so a message renders as the sender formatted it; NULL when the source had no HTML part. Renderers must still treat it as untrusted.","columns":[{"name":"Conversation_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Direction","type":"TEXT","check":"Direction IN ('in', 'out')"},{"name":"Channel","type":"TEXT"},{"name":"Content","type":"TEXT","nn":1},{"name":"Content_Html","type":"TEXT"},{"name":"Author_Contact_Id","type":"TEXT","fk":{"table":"HD_CONTACT_MASTER","column":"Contact_Id"}},{"name":"Author_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Is_Public","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Public IN ('Y', 'N')"},{"name":"Is_Draft","type":"TEXT","nn":1,"def":"'N'","check":"Is_Draft IN ('Y', 'N')"},{"name":"Is_Forward","type":"TEXT","nn":1,"def":"'N'","check":"Is_Forward IN ('Y', 'N')"},{"name":"To_Address","type":"TEXT"},{"name":"Cc_Address","type":"TEXT"},{"name":"Sent_Time","type":"TEXT","nn":1},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_conversation_ticket","unique":false,"cols":"Ticket_Id","where":""},{"name":"idx_conversation_sent_time","unique":false,"cols":"Sent_Time","where":""}]},{"name":"HD_TICKET_THREAD","file":"0017_hd_ticket_thread.sql","desc":"email-specific threaded view of a ticket's messages. Message_Id_Header carries the RFC 5322 Message-ID (and, for Gmail, we also store the Gmail API message id there when no header is present) - its UNIQUE index is what makes Gmail ingestion idempotent: re-processing the same message is a safe no-op instead of creating a duplicate thread/ticket.","columns":[{"name":"Thread_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Conversation_Id","type":"TEXT","fk":{"table":"HD_TICKET_CONVERSATION","column":"Conversation_Id"}},{"name":"Message_Id_Header","type":"TEXT"},{"name":"In_Reply_To_Header","type":"TEXT"},{"name":"Channel","type":"TEXT","nn":1,"def":"'EMAIL'"},{"name":"Direction","type":"TEXT","check":"Direction IN ('in', 'out')"},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_thread_message_id","unique":true,"cols":"Message_Id_Header","where":"Message_Id_Header IS NOT NULL"},{"name":"idx_thread_ticket","unique":false,"cols":"Ticket_Id","where":""},{"name":"idx_thread_in_reply_to","unique":false,"cols":"In_Reply_To_Header","where":""}]},{"name":"HD_TICKET_COMMENT","file":"0018_hd_ticket_comment.sql","desc":"internal-only notes on a ticket, not visible to the customer","columns":[{"name":"Comment_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Commenter_Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Content","type":"TEXT","nn":1},{"name":"Commented_Time","type":"TEXT","nn":1},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_comment_ticket","unique":false,"cols":"Ticket_Id","where":""}]},{"name":"HD_TICKET_HISTORY","file":"0019_hd_ticket_history.sql","desc":"field-change audit trail / event log for a ticket","columns":[{"name":"History_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Event_Name","type":"TEXT","nn":1},{"name":"Field_Name","type":"TEXT"},{"name":"Old_Value","type":"TEXT"},{"name":"New_Value","type":"TEXT"},{"name":"Actor_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Event_Time","type":"TEXT","nn":1},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_history_ticket","unique":false,"cols":"Ticket_Id","where":""},{"name":"idx_history_event_time","unique":false,"cols":"Event_Time","where":""}]},{"name":"HD_TICKET_RESOLUTION","file":"0020_hd_ticket_resolution.sql","desc":"formal resolution note recorded against a ticket","columns":[{"name":"Resolution_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Author_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Content","type":"TEXT","nn":1},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_resolution_ticket","unique":false,"cols":"Ticket_Id","where":""}]},{"name":"HD_TICKET_METRICS","file":"0021_hd_ticket_metrics.sql","desc":"SLA and handling metrics for a ticket","columns":[{"name":"Metric_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"First_Response_Time_Mins","type":"INTEGER"},{"name":"Total_Response_Time_Mins","type":"INTEGER"},{"name":"Resolution_Time_Mins","type":"INTEGER"},{"name":"Reopen_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Reassign_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Response_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Handled_By_Agent_Ids","type":"TEXT"},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_metrics_ticket","unique":true,"cols":"Ticket_Id","where":""}]},{"name":"HD_TICKET_TAG_MAP","file":"0022_hd_ticket_tag_map.sql","desc":"tags applied to a ticket (tag vocabulary lives once in HD_TAG_MASTER, never duplicated per ticket)","columns":[{"name":"Ticket_Tag_Map_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Tag_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TAG_MASTER","column":"Tag_Id"}},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_ticket_tag","unique":true,"cols":"Ticket_Id, Tag_Id","where":""}]},{"name":"HD_AGENT_AUTH","file":"0023_hd_agent_auth.sql","desc":"external identity mapping for agent authentication. No plaintext password is ever stored here or in HD_AGENT_MASTER.","columns":[{"name":"Agent_Auth_Id","type":"TEXT","pk":1,"nn":1},{"name":"Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Identity_Provider","type":"TEXT","nn":1,"check":"Identity_Provider IN ('GOOGLE', 'OIDC', 'SAML')"},{"name":"External_Subject","type":"TEXT","nn":1},{"name":"Login_Email","type":"TEXT","nn":1},{"name":"Is_Active","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Active IN ('Y', 'N')"},{"name":"Last_Login_Time","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_Time","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Modified_By","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_agent_auth_subject","unique":true,"cols":"Identity_Provider, External_Subject","where":""},{"name":"idx_agent_auth_agent","unique":false,"cols":"Agent_Id","where":""}]},{"name":"HD_AGENT_SESSION","file":"0024_hd_agent_session.sql","desc":"authenticated server-side session state with expiry, revocation and CSRF binding. The raw session/CSRF token is never persisted, only its hash.","columns":[{"name":"Session_Id","type":"TEXT","pk":1,"nn":1},{"name":"Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Session_Token_Hash","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Expires_Time","type":"TEXT","nn":1},{"name":"Last_Activity_Time","type":"TEXT"},{"name":"Revoked_Time","type":"TEXT"},{"name":"Ip_Address","type":"TEXT"},{"name":"User_Agent","type":"TEXT"},{"name":"Csrf_Token_Hash","type":"TEXT"},{"name":"Auth_Method","type":"TEXT","check":"Auth_Method IN ('GOOGLE', 'OIDC', 'SAML')"},{"name":"Is_Active","type":"TEXT","nn":1,"def":"'Y'","check":"Is_Active IN ('Y', 'N')"},{"name":"Created_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_session_agent","unique":false,"cols":"Agent_Id","where":""},{"name":"idx_session_expires","unique":false,"cols":"Expires_Time","where":""}]},{"name":"HD_AUTH_LOGIN_EVENT","file":"0025_hd_auth_login_event.sql","desc":"authentication audit trail for login, logout and session security events. Never store secrets in Failure_Code.","columns":[{"name":"Login_Event_Id","type":"TEXT","pk":1,"nn":1},{"name":"Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Event_Type","type":"TEXT","nn":1,"check":"Event_Type IN ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'SESSION_REVOKED')"},{"name":"Auth_Method","type":"TEXT","check":"Auth_Method IN ('GOOGLE', 'OIDC', 'SAML')"},{"name":"Identity_Provider","type":"TEXT"},{"name":"Login_Email","type":"TEXT"},{"name":"Failure_Code","type":"TEXT"},{"name":"Event_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Ip_Address","type":"TEXT"},{"name":"User_Agent","type":"TEXT"},{"name":"Session_Id","type":"TEXT","fk":{"table":"HD_AGENT_SESSION","column":"Session_Id"}},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_login_event_agent","unique":false,"cols":"Agent_Id","where":""},{"name":"idx_login_event_time","unique":false,"cols":"Event_Time","where":""}]},{"name":"_GMAIL_INGESTED_MESSAGE","file":"0026_gmail_ingested_message.sql","desc":"internal ingestion cursor, not part of the HD_* captured schema. Tracks the raw Gmail API message id (free from messages.list, no quota cost) so the sync job can skip a message it has already processed WITHOUT paying for a messages.get(format=full) call just to read its RFC Message-ID header. This is what keeps repeated ticks cheap on Gmail API quota.","columns":[{"name":"Gmail_Message_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Thread_Id","type":"TEXT","fk":{"table":"HD_TICKET_THREAD","column":"Thread_Id"}},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"}],"indexes":[]},{"name":"HD_TICKET_ATTACHMENT","file":"0027_hd_ticket_attachment.sql","desc":"metadata and storage location for files attached to a ticket. The file bytes themselves live on disk under ATTACHMENTS_DIR (see src/utils/file-storage.js); Storage_Path is the path relative to that root, not an absolute path, so the root can move between environments without invalidating existing rows.","columns":[{"name":"Attachment_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Conversation_Id","type":"TEXT","fk":{"table":"HD_TICKET_CONVERSATION","column":"Conversation_Id"}},{"name":"File_Name","type":"TEXT","nn":1},{"name":"File_Size_Bytes","type":"INTEGER"},{"name":"Mime_Type","type":"TEXT"},{"name":"Storage_Path","type":"TEXT","nn":1},{"name":"Uploaded_By_Agent_Id","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Uploaded_Time","type":"TEXT","nn":1},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_attachment_ticket","unique":false,"cols":"Ticket_Id","where":""},{"name":"idx_attachment_conversation","unique":false,"cols":"Conversation_Id","where":""}]},{"name":"HD_PICKLIST_VALUE","file":"0028_hd_picklist_value.sql","desc":"admin-managed option lists for ticket fields with no dedicated master table - Status, Classification, Category, Sub Category. Category is a sub-classification: Parent_Value holds the owning Classification's Value text (e.g. \"Problem\" -> Application / Process), and the same Category text may repeat under different Classifications. NULL for every non-Category row. Clock_Behaviour (STATUS rows only): what a ticket's resolution clock does while in that status - NOT_STARTED / RUNNING / PAUSED / STOPPED.","columns":[{"name":"Picklist_Value_Id","type":"TEXT","pk":1,"nn":1},{"name":"Field","type":"TEXT","nn":1,"check":"Field IN ('CLASSIFICATION', 'CATEGORY', 'SUB_CATEGORY', 'STATUS')"},{"name":"Value","type":"TEXT","nn":1},{"name":"Parent_Value","type":"TEXT"},{"name":"Clock_Behaviour","type":"TEXT","check":"Clock_Behaviour IS NULL OR Clock_Behaviour IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')"},{"name":"Sort_Order","type":"INTEGER","nn":1,"def":"0"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_picklist_value_field","unique":false,"cols":"Org_Id, Field","where":""},{"name":"idx_picklist_value_parent","unique":false,"cols":"Org_Id, Field, Parent_Value","where":""}]},{"name":"HD_PRODUCT_MASTER","file":"0029_hd_product_master.sql","desc":"product catalog, linkable to tickets (HD_TICKET_MASTER.Product_Id). Documented in docs/Zoho_Desk_Table_Config.xlsx but never implemented until now.","columns":[{"name":"Product_Id","type":"TEXT","pk":1,"nn":1},{"name":"Product_Name","type":"TEXT","nn":1},{"name":"Description","type":"TEXT"},{"name":"Department_Id","type":"TEXT","fk":{"table":"HD_DEPARTMENT_MASTER","column":"Department_Id"}},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_product_name_org","unique":true,"cols":"Org_Id, Product_Name","where":"Is_Deleted = 'N'"},{"name":"idx_product_org","unique":false,"cols":"Org_Id","where":""}]},{"name":"HD_PRIORITY_SLA_CONFIG","file":"0030_hd_priority_sla_config.sql","desc":"admin-managed priority list with an SLA target (in hours) per priority. HD_TICKET_MASTER.Response_Due_Date is recalculated from the ticket's Created_Time + Sla_Hours whenever its Priority is set/changed (see ticket.service.js).","columns":[{"name":"Priority_Sla_Config_Id","type":"TEXT","pk":1,"nn":1},{"name":"Priority","type":"TEXT","nn":1},{"name":"Sla_Hours","type":"INTEGER","nn":1,"check":"Sla_Hours > 0"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_priority_sla_org","unique":true,"cols":"Org_Id, Priority","where":"Is_Deleted = 'N'"}]},{"name":"HD_AGENT_CREDENTIAL","file":"0031_hd_agent_credential.sql","desc":"local (email + password) sign-in credential for an agent. Kept apart from HD_AGENT_AUTH (external IdP subjects). Only a bcrypt hash is stored. Must_Change_Password = 'Y' for temporary passwords (seed default / admin reset) - every other route is refused until the agent chooses their own.","columns":[{"name":"Agent_Credential_Id","type":"TEXT","pk":1,"nn":1},{"name":"Agent_Id","type":"TEXT","nn":1,"fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Password_Hash","type":"TEXT","nn":1},{"name":"Must_Change_Password","type":"TEXT","nn":1,"def":"'Y'","check":"Must_Change_Password IN ('Y', 'N')"},{"name":"Password_Changed_Time","type":"TEXT"},{"name":"Failed_Login_Count","type":"INTEGER","nn":1,"def":"0"},{"name":"Locked_Until","type":"TEXT"},{"name":"Last_Login_Time","type":"TEXT"},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_agent_credential_agent","unique":true,"cols":"Agent_Id","where":"Is_Deleted = 'N'"}]},{"name":"HD_TICKET_CLOCK_SEGMENT","file":"0032_hd_ticket_clock_segment.sql","desc":"one row per stretch a ticket's resolution clock was RUNNING (status with Clock_Behaviour = 'RUNNING', e.g. \"In Progress\"). Ended_Time is NULL while the clock is still running. Resolution time = support-hours minutes (bank's IST support window on its working days; every minute on 24x7 banks) summed over all segments, so waiting on the bank (paused statuses) never counts. Kept per segment rather than as one running total so it is auditable and recomputable if a bank's calendar changes.","columns":[{"name":"Segment_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Started_Time","type":"TEXT","nn":1},{"name":"Ended_Time","type":"TEXT"},{"name":"Status_At_Start","type":"TEXT","nn":1},{"name":"Status_At_End","type":"TEXT"},{"name":"Started_By","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Ended_By","type":"TEXT","fk":{"table":"HD_AGENT_MASTER","column":"Agent_Id"}},{"name":"Created_By","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"idx_clock_segment_ticket","unique":false,"cols":"Ticket_Id","where":""},{"name":"uq_clock_segment_open","unique":true,"cols":"Ticket_Id","where":"Ended_Time IS NULL AND Is_Deleted = 'N'"}]},{"name":"HD_ESCALATION_LEVEL","file":"0033_hd_escalation_level.sql","desc":"admin-managed escalation matrix (Config page). For each priority, level N is reached Offset_Hours from the ticket's SLA due date (Response_Due_Date): negative = before due (\"nearing\"), 0 = at due, positive = after due. Hours are counted on the bank's SLA working-day calendar. Offsets must increase with Level_No within a priority, so a higher level is always reached later. Any number of levels.","columns":[{"name":"Escalation_Level_Id","type":"TEXT","pk":1,"nn":1},{"name":"Priority","type":"TEXT","nn":1},{"name":"Level_No","type":"INTEGER","nn":1,"check":"Level_No >= 1"},{"name":"Offset_Hours","type":"REAL","nn":1},{"name":"Created_By","type":"TEXT"},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Modified_By","type":"TEXT"},{"name":"Modified_Time","type":"TEXT"},{"name":"Is_Deleted","type":"TEXT","nn":1,"def":"'N'","check":"Is_Deleted IN ('Y', 'N')"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_escalation_level","unique":true,"cols":"Org_Id, Priority, Level_No","where":"Is_Deleted = 'N'"}]},{"name":"HD_TICKET_ESCALATION","file":"0034_hd_ticket_escalation.sql","desc":"when each escalation level falls due for a ticket (Trigger_Time, ISO UTC) = its SLA due date + that level's Offset_Hours on the bank's calendar. Rebuilt whenever the due date, bank or the priority's escalation levels change (services/sla/escalation.service.js). A ticket's current level is the highest Level_No whose Trigger_Time has passed while its resolution clock is not STOPPED - computed at read time, so no background job is needed.","columns":[{"name":"Ticket_Escalation_Id","type":"TEXT","pk":1,"nn":1},{"name":"Ticket_Id","type":"TEXT","nn":1,"fk":{"table":"HD_TICKET_MASTER","column":"Ticket_Id"}},{"name":"Level_No","type":"INTEGER","nn":1,"check":"Level_No >= 1"},{"name":"Trigger_Time","type":"TEXT","nn":1},{"name":"Created_Time","type":"TEXT","nn":1,"def":"(datetime('now'))"},{"name":"Org_Id","type":"TEXT","nn":1,"fk":{"table":"HD_ORGANIZATION_MASTER","column":"Organization_Id"}}],"indexes":[{"name":"uq_ticket_escalation","unique":true,"cols":"Ticket_Id, Level_No","where":""},{"name":"idx_ticket_escalation_trigger","unique":false,"cols":"Trigger_Time","where":""}]}];
+
+// Relationships the database does not enforce but the application relies on.
+const SOFT = [
+  {from:'HD_TICKET_MASTER', col:'Product_Id', to:'HD_PRODUCT_MASTER', tcol:'Product_Id', note:'Unconstrained: product table is created later in migration order'},
+  {from:'HD_TICKET_MASTER', col:'Priority', to:'HD_PRIORITY_SLA_CONFIG', tcol:'Priority', note:'Matched by text value; drives Response_Due_Date'},
+  {from:'HD_ESCALATION_LEVEL', col:'Priority', to:'HD_PRIORITY_SLA_CONFIG', tcol:'Priority', note:'Escalation matrix is keyed per priority text'},
+  {from:'HD_TICKET_MASTER', col:'Status', to:'HD_PICKLIST_VALUE', tcol:'Value', note:"Field = 'STATUS'"},
+  {from:'HD_TICKET_MASTER', col:'Classification', to:'HD_PICKLIST_VALUE', tcol:'Value', note:"Field = 'CLASSIFICATION'"},
+  {from:'HD_TICKET_MASTER', col:'Category', to:'HD_PICKLIST_VALUE', tcol:'Value', note:"Field = 'CATEGORY'"},
+  {from:'HD_TICKET_MASTER', col:'Sub_Category', to:'HD_PICKLIST_VALUE', tcol:'Value', note:"Field = 'SUB_CATEGORY'"},
+  {from:'HD_TICKET_ESCALATION', col:'Level_No', to:'HD_ESCALATION_LEVEL', tcol:'Level_No', note:"Level of the ticket's priority"},
+];
+
+const GROUPS = [
+  {name:'Organization & Access', tables:['HD_ORGANIZATION_MASTER','HD_ROLE_MASTER','HD_PROFILE_MASTER','HD_AGENT_AUTH','HD_AGENT_CREDENTIAL','HD_AGENT_SESSION','HD_AUTH_LOGIN_EVENT']},
+  {name:'Teams & Agents', tables:['HD_DEPARTMENT_MASTER','HD_AGENT_MASTER','HD_AGENT_DEPARTMENT_MAP','HD_CHANNEL_MASTER','HD_MAIL_REPLY_ADDRESS','HD_PRODUCT_MASTER']},
+  {name:'Banks & Customers', tables:['HD_BANK_MASTER','HD_BANK_RESOURCE_MAP','HD_ACCOUNT_MASTER','HD_CONTACT_MASTER','HD_CONTACT_ACCOUNT_MAP','HD_CUSTOMER_HAPPINESS']},
+  {name:'Tickets', tables:['HD_TICKET_MASTER','HD_TAG_MASTER','HD_TICKET_TAG_MAP']},
+  {name:'Ticket Activity', tables:['HD_TICKET_CONVERSATION','HD_TICKET_THREAD','HD_TICKET_ATTACHMENT','HD_TICKET_COMMENT','HD_TICKET_HISTORY','HD_TICKET_RESOLUTION','HD_TICKET_METRICS','_GMAIL_INGESTED_MESSAGE']},
+  {name:'SLA & Configuration', tables:['HD_PRIORITY_SLA_CONFIG','HD_ESCALATION_LEVEL','HD_TICKET_ESCALATION','HD_TICKET_CLOCK_SEGMENT','HD_PICKLIST_VALUE']},
+];
+
+/* ---------- model ---------- */
+const T = Object.fromEntries(SCHEMA.map(t => [t.name, t]));
+const placed = new Set(GROUPS.flatMap(g => g.tables));
+const extra = SCHEMA.filter(t => !placed.has(t.name)).map(t => t.name);
+if (extra.length) GROUPS.push({name:'Other', tables:extra});
+GROUPS.forEach((g, gi) => { g.tables = g.tables.filter(n => T[n]); g.color = `var(--g${gi % 7})`; g.tables.forEach(n => T[n].group = gi); });
+
+const RELS = [];
+for (const t of SCHEMA) for (const c of t.columns) if (c.fk && T[c.fk.table])
+  RELS.push({from:t.name, col:c.name, to:c.fk.table, tcol:c.fk.column, soft:false, nullable:!c.nn, org:c.fk.table === 'HD_ORGANIZATION_MASTER' && c.name === 'Org_Id'});
+for (const s of SOFT) if (T[s.from] && T[s.to]) RELS.push({...s, soft:true, nullable:true, org:false});
+for (const t of SCHEMA) for (const ix of t.indexes) {
+  const cols = ix.cols.split(',').map(s => s.trim());
+  if (ix.unique && cols.length === 1) { const c = t.columns.find(c => c.name === cols[0]); if (c) c.uqIdx = 1; }
+}
+const oneToOne = r => { const c = T[r.from].columns.find(c => c.name === r.col); return !!(c && (c.uq || c.uqIdx || c.pk)); };
+
+const opt = {all:false, org:false, soft:true};
+const visibleRels = () => RELS.filter(r => (opt.org || !r.org) && (opt.soft || !r.soft));
+
+/* ---------- layout ---------- */
+const W = 280, HEAD = 34, ROW = 20, GAPY = 34, GAPX = 150, PAD = 24, GHEAD = 40;
+let geo = {};   // table -> {x,y,h,rows:[colName|null]}
+let bounds = {w:0, h:0};
+
+function visibleColumns(t) {
+  if (opt.all) return t.columns.map(c => c.name);
+  const rels = visibleRels();
+  const keep = new Set();
+  t.columns.forEach(c => { if (c.pk) keep.add(c.name); });
+  rels.forEach(r => { if (r.from === t.name) keep.add(r.col); if (r.to === t.name) keep.add(r.tcol); });
+  return t.columns.filter(c => keep.has(c.name)).map(c => c.name);
+}
+
+function layout() {
+  geo = {}; let x = PAD, maxH = 0;
+  GROUPS.forEach(g => {
+    let y = PAD + GHEAD;
+    g.tables.forEach(n => {
+      const t = T[n], rows = visibleColumns(t), hidden = t.columns.length - rows.length;
+      const h = HEAD + rows.length * ROW + (hidden ? ROW : 0) + 6;
+      geo[n] = {x, y, h, rows, hidden};
+      y += h + GAPY;
+    });
+    g.box = {x: x - 14, y: PAD, w: W + 28, h: y - PAD - GAPY + 14};
+    maxH = Math.max(maxH, y);
+    x += W + GAPX;
+  });
+  bounds = {w: x - GAPX + PAD, h: maxH + PAD};
+}
+
+/* ---------- render ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function render() {
+  layout();
+  const gG = $('#groups'), gC = $('#cards');
+  gG.innerHTML = ''; gC.innerHTML = '';
+  GROUPS.forEach(g => {
+    el('rect', {class:'gbg', x:g.box.x, y:g.box.y, width:g.box.w, height:g.box.h, rx:14}, gG);
+    const l = el('text', {class:'glabel', x:g.box.x + 16, y:g.box.y + 26, fill:g.color}, gG); l.textContent = g.name;
+  });
+  for (const n in geo) {
+    const t = T[n], G = geo[n], color = GROUPS[t.group].color;
+    const card = el('g', {class:'card', 'data-t':n, transform:`translate(${G.x},${G.y})`}, gC);
+    el('rect', {class:'box', width:W, height:G.h, rx:8}, card);
+    el('path', {class:'head', d:`M0 8a8 8 0 0 1 8-8h${W-16}a8 8 0 0 1 8 8v${HEAD-8}h-${W}z`}, card);
+    el('rect', {x:0, y:0, width:5, height:HEAD, fill:color, rx:2}, card);
+    const tn = el('text', {class:'tname', x:14, y:21}, card); tn.textContent = n;
+    const cnt = el('text', {class:'ctype', x:W - 10, y:21, 'text-anchor':'end'}, card); cnt.textContent = t.columns.length;
+    const title = el('title', {}, card); title.textContent = t.desc || n;
+    G.rows.forEach((cn, i) => {
+      const c = t.columns.find(c => c.name === cn);
+      const outRel = visibleRels().find(r => r.from === n && r.col === cn);
+      const row = el('g', {class:'row' + (outRel ? ' fk' : ''), 'data-c':cn, transform:`translate(0,${HEAD + i * ROW})`}, card);
+      el('rect', {x:1, y:1, width:W - 2, height:ROW - 1}, row);
+      let kx = 10;
+      const keys = [];
+      if (c.pk) keys.push(['PK', 'var(--g6)']);
+      if (c.fk) keys.push(['FK', 'var(--accent)']);
+      else if (outRel && outRel.soft) keys.push(['LR', 'var(--soft)']);
+      keys.forEach(([k, col]) => { const kt = el('text', {class:'key', x:kx, y:14, fill:col}, row); kt.textContent = k; kx += 18; });
+      const nm = el('text', {class:'cname', x:Math.max(kx, 46), y:14}, row); nm.textContent = cn + (c.nn && !c.pk ? '' : c.pk ? '' : '?');
+      const ty = el('text', {class:'ctype', x:W - 10, y:14, 'text-anchor':'end'}, row); ty.textContent = c.type.toLowerCase();
+      if (outRel) { const tt = el('title', {}, row); tt.textContent = `→ ${outRel.to}.${outRel.tcol}${outRel.soft ? ' (logical)' : ''} — click to open`; }
+    });
+    if (G.hidden) { const m = el('text', {class:'more', x:14, y:HEAD + G.rows.length * ROW + 14}, card); m.textContent = `+ ${G.hidden} more column${G.hidden > 1 ? 's' : ''}`; }
+  }
+  renderEdges();
+  applySelection();
+}
+
+function anchorY(n, col) {
+  const G = geo[n]; let i = G.rows.indexOf(col);
+  if (i < 0) return G.y + HEAD / 2;
+  return G.y + HEAD + i * ROW + ROW / 2;
+}
+
+function renderEdges() {
+  const gE = $('#edges'); gE.innerHTML = '';
+  visibleRels().forEach((r, i) => {
+    const a = geo[r.from], b = geo[r.to]; if (!a || !b) return;
+    const y1 = anchorY(r.from, r.col), y2 = anchorY(r.to, r.tcol);
+    let x1, x2, d1, d2;
+    if (Math.abs(a.x - b.x) < W) { x1 = a.x + W; x2 = b.x + W; d1 = 1; d2 = 1; }          // same column: loop right
+    else if (a.x < b.x) { x1 = a.x + W; x2 = b.x; d1 = 1; d2 = -1; }
+    else { x1 = a.x; x2 = b.x + W; d1 = -1; d2 = 1; }
+    const same = d1 === d2;
+    const k = same ? 40 + Math.min(80, Math.abs(y2 - y1) * 0.15) + (i % 5) * 8 : Math.max(50, Math.abs(x2 - x1) / 2);
+    const g = el('g', {class:'edge' + (r.soft ? ' soft' : ''), 'data-from':r.from, 'data-to':r.to}, gE);
+    el('path', {d:`M${x1} ${y1}C${x1 + d1 * k} ${y1} ${x2 + d2 * k} ${y2} ${x2} ${y2}`}, g);
+    // child end: many (crow's foot) or one
+    if (oneToOne(r)) el('path', {d:`M${x1 + d1 * 8} ${y1 - 6}V${y1 + 6}`, style:'stroke-dasharray:none'}, g);
+    else el('path', {d:`M${x1 + d1 * 12} ${y1}L${x1} ${y1 - 6}M${x1 + d1 * 12} ${y1}L${x1} ${y1 + 6}M${x1 + d1 * 12} ${y1}H${x1}M${x1 + d1 * 15} ${y1 - 6}V${y1 + 6}`, style:'stroke-dasharray:none'}, g);
+    // parent end: exactly one, or zero-or-one
+    if (r.nullable) {
+      el('circle', {cx:x2 + d2 * 12, cy:y2, r:3.5, fill:'var(--card)', style:'stroke-dasharray:none'}, g);
+      el('path', {d:`M${x2 + d2 * 5} ${y2 - 6}V${y2 + 6}`, style:'stroke-dasharray:none'}, g);
+    } else el('path', {d:`M${x2 + d2 * 6} ${y2 - 6}V${y2 + 6}M${x2 + d2 * 10} ${y2 - 6}V${y2 + 6}`, style:'stroke-dasharray:none'}, g);
+    const tt = el('title', {}, g); tt.textContent = `${r.from}.${r.col} → ${r.to}.${r.tcol}${r.soft ? ' (logical)' : ''}`;
+  });
+}
+
+/* ---------- pan / zoom ---------- */
+const svg = $('#er'), vp = $('#vp');
+let view = {x:0, y:0, k:1};
+const apply = () => vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+const clampK = k => Math.min(2.5, Math.max(0.12, k));
+let animId = 0;
+function stopAnim() { animId++; }
+function animateTo(target, ms = 420) {
+  // Frame loop on a timer as well as rAF, so the move still completes where rAF is throttled.
+  const id = ++animId, from = {...view}, t0 = performance.now();
+  const step = () => {
+    if (id !== animId) return;
+    const p = Math.min(1, (performance.now() - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+    view = {x: from.x + (target.x - from.x) * e, y: from.y + (target.y - from.y) * e, k: from.k + (target.k - from.k) * e};
+    apply();
+    if (p < 1) setTimeout(step, 16); else animId++;
+  };
+  step();
+}
+function fit(animate = true) {
+  const r = svg.getBoundingClientRect();
+  const k = clampK(Math.min((r.width - 40) / bounds.w, (r.height - 90) / bounds.h));
+  const t = {k, x:(r.width - bounds.w * k) / 2, y:Math.max(56, (r.height - bounds.h * k) / 2)};
+  animate ? animateTo(t) : (view = t, apply());
+}
+function zoomAt(f, cx, cy) {
+  const k = clampK(view.k * f), s = k / view.k;
+  view = {k, x: cx - (cx - view.x) * s, y: cy - (cy - view.y) * s}; apply();
+}
+function focusTable(n) {
+  // Frame the selected table together with its direct neighbours when they fit.
+  // Size the canvas will have once the detail panel is open, rather than measuring mid-transition.
+  // On narrow screens the panel instead covers the bottom 55% of the canvas.
+  const names = [n, ...neighbours(n)], narrow = innerWidth <= 900;
+  const r = {width: narrow ? innerWidth : innerWidth - 270 - 420, height: narrow ? innerHeight * 0.45 : innerHeight};
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  names.forEach(m => { const g = geo[m]; x0 = Math.min(x0, g.x); y0 = Math.min(y0, g.y); x1 = Math.max(x1, g.x + W); y1 = Math.max(y1, g.y + g.h); });
+  let k = clampK(Math.min(1.1, (r.width - 80) / (x1 - x0), (r.height - 120) / (y1 - y0)));
+  const G = geo[n];
+  if (k < 0.45) { k = 0.8; x0 = G.x; x1 = G.x + W; y0 = G.y; y1 = G.y + Math.min(G.h, (r.height - 120) / k); }
+  animateTo({k, x: r.width / 2 - (x0 + x1) / 2 * k, y: Math.max(60, r.height / 2 - (y0 + y1) / 2 * k)});
+}
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault(); stopAnim();
+  const r = svg.getBoundingClientRect();
+  zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+}, {passive:false});
+
+let drag = null; const pointers = new Map();
+svg.addEventListener('pointerdown', e => {
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pointers.size === 2) { const [p, q] = [...pointers.values()]; drag = {pinch:Math.hypot(p.x - q.x, p.y - q.y), moved:99}; return; }
+  stopAnim();
+  drag = {sx:e.clientX, sy:e.clientY, vx:view.x, vy:view.y, moved:0, target:e.target};
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (drag.pinch && pointers.size === 2) {
+    const [p, q] = [...pointers.values()], d = Math.hypot(p.x - q.x, p.y - q.y), r = svg.getBoundingClientRect();
+    zoomAt(d / drag.pinch, (p.x + q.x) / 2 - r.left, (p.y + q.y) / 2 - r.top); drag.pinch = d; return;
+  }
+  if (drag.pinch) return;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+  if (drag.moved > 4) { svg.classList.add('panning'); view.x = drag.vx + dx; view.y = drag.vy + dy; apply(); }
+});
+const endDrag = e => {
+  pointers.delete(e.pointerId);
+  if (!drag) return;
+  svg.classList.remove('panning');
+  const d = drag; drag = null;
+  if (d.moved <= 4 && d.target) onCanvasClick(d.target);
+};
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); drag = null; svg.classList.remove('panning'); });
+
+function onCanvasClick(target) {
+  const card = target.closest('.card');
+  if (!card) { go(null); return; }
+  const n = card.dataset.t, row = target.closest('.row');
+  if (row) {
+    const r = visibleRels().find(r => r.from === n && r.col === row.dataset.c);
+    if (r) { go(r.to, r.tcol); return; }
+    go(n, row.dataset.c); return;
+  }
+  go(n);
+}
+
+/* ---------- selection & navigation ---------- */
+let selected = null, selCol = null;
+function neighbours(n) {
+  const s = new Set();
+  visibleRels().forEach(r => { if (r.from === n) s.add(r.to); if (r.to === n) s.add(r.from); });
+  s.delete(n); return [...s];
+}
+function go(n, col) {
+  const h = n ? '#' + n + (col ? '/' + col : '') : '';
+  if (location.hash !== h) location.hash = h; else fromHash(true);
+}
+function fromHash(refocus = true) {
+  const raw = decodeURIComponent(location.hash.slice(1)).trim();
+  const [n, col] = raw.split('/');
+
+  if (n && T[n]) { selected = n; selCol = col || null; } else { selected = null; selCol = null; }
+  applySelection();
+  renderPanel();
+  if (selected && refocus) focusTable(selected);
+}
+function applySelection() {
+  const root = $('#vp'), rel = new Set(selected ? neighbours(selected) : []);
+  root.classList.toggle('dimmed', !!selected);
+  document.querySelectorAll('.card').forEach(c => {
+    c.classList.toggle('sel', c.dataset.t === selected);
+    c.classList.toggle('rel', rel.has(c.dataset.t));
+    c.querySelectorAll('.row').forEach(r => r.classList.toggle('flash', c.dataset.t === selected && r.dataset.c === selCol));
+  });
+  document.querySelectorAll('.edge').forEach(e => e.classList.toggle('hi', !!selected && (e.dataset.from === selected || e.dataset.to === selected)));
+  document.querySelectorAll('.item').forEach(i => { i.classList.toggle('active', i.dataset.t === selected); i.classList.toggle('rel', rel.has(i.dataset.t)); });
+  const act = document.querySelector('.item.active'); if (act) act.scrollIntoView({block:'nearest'});
+  $('#app').classList.toggle('open', !!selected);
+}
+
+function renderPanel() {
+  const P = $('#panel');
+  if (!selected) { P.innerHTML = ''; return; }
+  const t = T[selected], g = GROUPS[t.group];
+  const out = RELS.filter(r => r.from === t.name && !r.org), inc = RELS.filter(r => r.to === t.name);
+  const relFor = c => RELS.find(r => r.from === t.name && r.col === c);
+  const rows = t.columns.map(c => {
+    const r = relFor(c.name), b = [];
+    if (c.pk) b.push('<span class="badge b-pk">PK</span>');
+    if (c.fk) b.push('<span class="badge b-fk">FK</span>');
+    if (r && r.soft) b.push('<span class="badge b-lr" title="Logical reference, not enforced">LR</span>');
+    if (c.nn && !c.pk) b.push('<span class="badge b-nn">NN</span>');
+    if (c.uq || c.uqIdx) b.push('<span class="badge b-uq">UQ</span>');
+    const subs = [];
+    if (r) subs.push(`→ <button class="lnk" data-go="${r.to}" data-col="${r.tcol}">${r.to}.${r.tcol}</button>${r.soft ? ' <span title="' + esc(r.note) + '">(logical)</span>' : ''}`);
+    if (c.def) subs.push('default ' + esc(c.def));
+    if (c.check) subs.push('check ' + esc(c.check));
+    return `<tr data-c="${c.name}" class="${c.name === selCol ? 'flash' : ''}"><td><div class="n">${esc(c.name)}</div>${subs.length ? `<div class="sub">${subs.join('<br>')}</div>` : ''}</td><td class="t">${c.type.toLowerCase()}</td><td style="white-space:nowrap;text-align:right">${b.join('')}</td></tr>`;
+  }).join('');
+  const chip = (n, col, label) => `<button class="chip" data-go="${n}" ${col ? `data-col="${col}"` : ''}>${label}</button>`;
+  const incGroups = {};
+  inc.forEach(r => (incGroups[r.from] = incGroups[r.from] || []).push(r));
+  P.innerHTML = `
+    <div class="panel-head"><h2>${t.name}</h2><button data-close title="Close (Esc)">✕</button></div>
+    <div class="panel-body">
+      <div class="meta"><span class="pill"><span class="dot" style="background:${g.color}"></span>${g.name}</span><span class="mono">${t.file}</span><span>${t.columns.length} columns</span></div>
+      ${t.desc ? `<p class="desc">${esc(t.desc)}</p>` : ''}
+      <h3>References (${out.length})</h3>
+      ${out.length ? `<div class="chips">${out.map(r => chip(r.to, r.tcol, `${r.col} <small>→</small> ${r.to}${r.soft ? ' <small>(logical)</small>' : ''}`)).join('')}</div>` : '<div class="empty">No outgoing references (besides Org_Id).</div>'}
+      <h3>Referenced by (${Object.keys(incGroups).length} tables)</h3>
+      ${inc.length ? `<div class="chips">${Object.entries(incGroups).sort().map(([n, rs]) => chip(n, rs[0].col, `${n} <small>.${rs.map(r => r.col).join(', .')}${rs[0].soft ? ' (logical)' : ''}</small>`)).join('')}</div>` : '<div class="empty">Nothing references this table.</div>'}
+      <h3>Columns</h3>
+      <table class="cols">${rows}</table>
+      <h3>Indexes (${t.indexes.length})</h3>
+      ${t.indexes.length ? t.indexes.map(ix => `<div class="idx">${ix.unique ? '<span class="badge b-uq">UNIQUE</span>' : ''}${esc(ix.name)}<div class="sub">(${esc(ix.cols)})${ix.where ? ' WHERE ' + esc(ix.where.replace(/\s+/g, ' ')) : ''}</div></div>`).join('') : '<div class="empty">Primary key only.</div>'}
+    </div>`;
+  const fl = P.querySelector('tr.flash'); if (fl) fl.scrollIntoView({block:'center'});
+}
+$('#panel').addEventListener('click', e => {
+  if (e.target.closest('[data-close]')) return go(null);
+  const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go, b.dataset.col);
+});
+
+/* ---------- sidebar ---------- */
+function renderList() {
+  const q = $('#q').value.trim().toLowerCase();
+  let html = '';
+  GROUPS.forEach(g => {
+    const items = g.tables.filter(n => !q || n.toLowerCase().includes(q) || T[n].columns.some(c => c.name.toLowerCase().includes(q)));
+    if (!items.length) return;
+    html += `<div class="grp"><span class="dot" style="background:${g.color}"></span>${g.name}</div>`;
+    html += items.map(n => `<button class="item" data-t="${n}"><span>${n.replace(/^HD_/, '')}</span><span>${T[n].columns.length}</span></button>`).join('');
+  });
+  $('#list').innerHTML = html || '<div class="empty" style="padding:12px 16px">No match.</div>';
+  applySelection();
+}
+$('#list').addEventListener('click', e => { const i = e.target.closest('.item'); if (i) { go(i.dataset.t); $('#app').classList.remove('menu'); } });
+$('#q').addEventListener('input', renderList);
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const f = document.querySelector('.item'); if (f) go(f.dataset.t); }
+});
+
+/* ---------- controls ---------- */
+const center = () => { const r = svg.getBoundingClientRect(); return [r.width / 2, r.height / 2]; };
+$('#zin').onclick = () => zoomAt(1.25, ...center());
+$('#zout').onclick = () => zoomAt(0.8, ...center());
+$('#fit').onclick = () => fit();
+$('#clear').onclick = () => go(null);
+$('#menuBtn').onclick = () => $('#app').classList.toggle('menu');
+$('#theme').onclick = () => {
+  const root = document.documentElement, dark = getComputedStyle(root).colorScheme.includes('dark');
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('er-theme', root.dataset.theme); } catch (_) {}
+};
+try { const th = localStorage.getItem('er-theme'); if (th) document.documentElement.dataset.theme = th; } catch (_) {}
+const rerender = () => { render(); renderPanel(); };
+$('#optAll').onchange = e => { opt.all = e.target.checked; rerender(); if (selected) focusTable(selected); };
+$('#optOrg').onchange = e => { opt.org = e.target.checked; rerender(); };
+$('#optSoft').onchange = e => { opt.soft = e.target.checked; rerender(); };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (document.activeElement === $('#q') && $('#q').value) { $('#q').value = ''; renderList(); } else go(null); }
+  if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+});
+window.addEventListener('hashchange', () => fromHash(true));
+window.addEventListener('resize', () => { if (!selected) fit(false); });
+
+/* ---------- boot ---------- */
+const fkCount = RELS.filter(r => !r.soft && !r.org).length, softCount = RELS.filter(r => r.soft).length;
+$('#stats').textContent = `${SCHEMA.length} tables · ${fkCount} foreign keys · ${softCount} logical links (+ Org_Id on every table)`;
+render(); renderList(); fit(false);
+if (location.hash.length > 1) fromHash(true);
+</script>
+</body>
+</html>

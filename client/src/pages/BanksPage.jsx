@@ -14,10 +14,29 @@ import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
 import DepartmentManager from '../components/settings/DepartmentManager.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../auth/permissions.js'
-import { SUPPORT_LEVELS, getSupportLevelStyle, WEEKDAYS, DEFAULT_WORKING_DAYS, TIME_ZONES, formatWorkingDays } from '../utils/bankMeta.js'
+import {
+  SUPPORT_LEVELS,
+  getSupportLevelStyle,
+  WEEKDAYS,
+  DEFAULT_WORKING_DAYS,
+  TIME_ZONES,
+  DEFAULT_SUPPORT_START_IST,
+  DEFAULT_SUPPORT_END_IST,
+  formatWorkingDays,
+  formatSupportHours,
+  formatLocalSupportHours,
+  istToLocalTime,
+} from '../utils/bankMeta.js'
 import { ApiError, getBanks, createBank, updateBank, deleteBank, getDepartments, getAgents, getProducts } from '../utils/api.js'
 
 const NO_TEAM = 'No support team'
+
+/** "= 08:00–17:00 in Africa/Nairobi" under the IST time inputs. */
+const localHoursHint = (start, end, timeZone) => {
+  const localStart = istToLocalTime(start, timeZone)
+  const localEnd = istToLocalTime(end, timeZone)
+  return localStart && localEnd ? `= ${localStart}–${localEnd} in ${timeZone}` : ''
+}
 const fullNameOf = (a) => [a.First_Name, a.Last_Name].filter(Boolean).join(' ')
 
 const emptyForm = {
@@ -28,8 +47,8 @@ const emptyForm = {
   supportLevel: '',
   workingDays: DEFAULT_WORKING_DAYS,
   timeZone: 'Africa/Nairobi',
-  supportHoursLocal: '',
-  supportHoursIst: '',
+  supportStartIst: DEFAULT_SUPPORT_START_IST,
+  supportEndIst: DEFAULT_SUPPORT_END_IST,
   is24x7: false,
   remarks: '',
   primaryResourceIds: [],
@@ -44,8 +63,8 @@ const formFromBank = (bank) => ({
   supportLevel: bank.Support_Level || '',
   workingDays: (bank.Working_Days || DEFAULT_WORKING_DAYS.join(',')).split(','),
   timeZone: bank.Time_Zone || 'Africa/Nairobi',
-  supportHoursLocal: bank.Support_Hours_Local || '',
-  supportHoursIst: bank.Support_Hours_Ist || '',
+  supportStartIst: bank.Support_Start_Ist || DEFAULT_SUPPORT_START_IST,
+  supportEndIst: bank.Support_End_Ist || DEFAULT_SUPPORT_END_IST,
   is24x7: bank.Is_24x7 === 'Y',
   remarks: bank.Remarks || '',
   primaryResourceIds: bank.Primary_Resources.map((a) => a.Agent_Id),
@@ -135,6 +154,10 @@ function BankFormModal({ bankId, initial, departments, agents, products, onClose
       setError('Pick at least one working day, or tick 24x7.')
       return
     }
+    if (!form.supportStartIst || !form.supportEndIst || form.supportEndIst <= form.supportStartIst) {
+      setError('Set support hours that end after they start.')
+      return
+    }
     setSaving(true)
     setError(null)
     const payload = { ...form, bankName: form.bankName.trim(), supportLevel: form.supportLevel || null }
@@ -216,13 +239,32 @@ function BankFormModal({ bankId, initial, departments, agents, products, onClose
             {field('Bank time zone')}
             <Select value={form.timeZone} onChange={(e) => set('timeZone', e.target.value)} options={TIME_ZONES} />
           </div>
-          <div>
-            {field('Support hours (bank local time)')}
-            <Input value={form.supportHoursLocal} onChange={(e) => set('supportHoursLocal', e.target.value)} placeholder="e.g. 8 AM to 5 PM" />
-          </div>
-          <div>
-            {field('Support hours (IST)')}
-            <Input value={form.supportHoursIst} onChange={(e) => set('supportHoursIst', e.target.value)} placeholder="e.g. 10.30 AM - 7.30 PM" />
+          <div className="sm:col-span-2">
+            {field('Support hours, IST (resolution time counts only inside this window)')}
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="time"
+                required
+                value={form.supportStartIst}
+                disabled={form.is24x7}
+                onChange={(e) => set('supportStartIst', e.target.value)}
+                className="w-32"
+              />
+              <span className="text-[13px] text-muted">to</span>
+              <Input
+                type="time"
+                required
+                value={form.supportEndIst}
+                disabled={form.is24x7}
+                onChange={(e) => set('supportEndIst', e.target.value)}
+                className="w-32"
+              />
+              <span className="text-[12px] text-muted">
+                {form.is24x7
+                  ? 'Full day, all days (24x7)'
+                  : localHoursHint(form.supportStartIst, form.supportEndIst, form.timeZone)}
+              </span>
+            </div>
           </div>
           <div className="sm:col-span-3">
             {field('Remarks')}
@@ -343,7 +385,7 @@ export default function BanksPage() {
     { label: 'Module', width: '9%' },
     { label: 'Level', width: '9%' },
     { label: 'Working Days', width: '10%' },
-    { label: 'Hours (Local / IST)', width: '17%' },
+    { label: 'Support Hours (IST / Local)', width: '17%' },
     { label: 'Primary Resource', width: '15%' },
     { label: 'Secondary Resource', width: '15%' },
     ...(canManage ? [{ label: '', width: '8%' }] : []),
@@ -485,13 +527,9 @@ export default function BanksPage() {
                         )}
                       </td>
                       <td className="px-3.5 py-2.5">
-                        {bank.Support_Hours_Local || bank.Support_Hours_Ist ? (
-                          <>
-                            <p className="text-ink">{bank.Support_Hours_Local || '—'}</p>
-                            <p className="text-[11.5px] text-muted">IST {bank.Support_Hours_Ist || '—'}</p>
-                          </>
-                        ) : (
-                          <span className="text-muted">—</span>
+                        <p className="whitespace-nowrap text-ink">{formatSupportHours(bank)}</p>
+                        {formatLocalSupportHours(bank) && (
+                          <p className="whitespace-nowrap text-[11.5px] text-muted">{formatLocalSupportHours(bank)}</p>
                         )}
                       </td>
                       <td className="px-3.5 py-2.5">

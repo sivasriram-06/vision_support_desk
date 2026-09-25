@@ -44,13 +44,15 @@ export const CHANNEL_LABELS = {
 }
 
 
+// Ageing buckets in weeks, as used by the support team's reports. Each
+// bucket covers ages below `underDays` (0-1 WK = 0-6 days, 1-2 WK = 7-13,
+// 2-4 WK = 14-27, 4-10 WK = 28-69, 10+ WK = 70 and over).
 const AGEING_BUCKETS = [
-  { maxDays: 1, label: '0-1 Day' },
-  { maxDays: 3, label: '2-3 Days' },
-  { maxDays: 7, label: '4-7 Days' },
-  { maxDays: 14, label: '8-14 Days' },
-  { maxDays: 30, label: '15-30 Days' },
-  { maxDays: Infinity, label: '30+ Days' },
+  { underDays: 7, label: '0-1 WK' },
+  { underDays: 14, label: '1-2 WK' },
+  { underDays: 28, label: '2-4 WK' },
+  { underDays: 70, label: '4-10 WK' },
+  { underDays: Infinity, label: '10+ WK' },
 ]
 
 export const getTicketAgeDays = (ticket) => {
@@ -62,7 +64,7 @@ export const getTicketAgeDays = (ticket) => {
 
 export const getAgeingBucketLabel = (ageDays) => {
   if (ageDays === null || ageDays === undefined) return null
-  return AGEING_BUCKETS.find((bucket) => ageDays <= bucket.maxDays)?.label || null
+  return AGEING_BUCKETS.find((bucket) => ageDays < bucket.underDays)?.label || null
 }
 
 /** Deterministic color for an avatar/dot from a name or id string. */

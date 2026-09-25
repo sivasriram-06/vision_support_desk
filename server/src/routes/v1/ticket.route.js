@@ -9,6 +9,7 @@ const {
     createTicketSchema,
     updateTicketSchema,
     listTicketsQuerySchema,
+    escalatedTicketsQuerySchema,
     ticketIdParamSchema
 } = require("../../schemas/ticket.schema");
 const { addReplySchema, addCommentSchema } = require("../../schemas/conversation.schema");
@@ -19,6 +20,7 @@ router.use(requirePermission(PERMISSIONS.TICKETS_VIEW));
 
 router.get("/queues/agent/:agentId", ticketController.getAgentQueue);
 router.get("/queues/bank/:bankId", ticketController.getBankQueue);
+router.get("/queues/escalated", validate(escalatedTicketsQuerySchema, "query"), ticketController.listEscalatedTickets);
 
 router.get("/", validate(listTicketsQuerySchema, "query"), ticketController.listTickets);
 router.post("/", requirePermission(PERMISSIONS.TICKETS_CREATE), validate(createTicketSchema), ticketController.createTicket);

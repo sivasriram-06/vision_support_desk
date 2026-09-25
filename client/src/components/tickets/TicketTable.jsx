@@ -6,7 +6,7 @@ import EmptyState from '../ui/EmptyState.jsx'
 import SkeletonRows from '../ui/SkeletonRows.jsx'
 import Pagination from '../ui/Pagination.jsx'
 import { getPriorityStyle } from '../../utils/ticketMeta.js'
-import { getClockStyle, getSlaState, formatMinutes } from '../../utils/clockMeta.js'
+import { getClockStyle, getSlaState, formatMinutes, getEscalationStyle } from '../../utils/clockMeta.js'
 import { formatDateTime } from '../../utils/format.js'
 
 const CHANNEL_ICONS = { Email: Mail, 'Web Form': Globe, Chat: MessageSquare, Phone: Phone, Social: Share2 }
@@ -27,6 +27,7 @@ function TicketRow({ ticket }) {
   const navigate = useNavigate()
   const status = getClockStyle(ticket.Clock_State)
   const sla = getSlaState(ticket)
+  const escalation = ticket.Escalation_Level > 0 ? getEscalationStyle(ticket.Escalation_Level) : null
   const priority = getPriorityStyle(ticket.Priority)
   const ChannelIcon = CHANNEL_ICONS[ticket.Channel] || Mail
   const contactName = [ticket.Contact_First_Name, ticket.Contact_Last_Name].filter(Boolean).join(' ') || 'Unknown contact'
@@ -64,8 +65,13 @@ function TicketRow({ ticket }) {
         {sla ? (
           <div className="min-w-0">
             <p className={`truncate text-[12.5px] ${sla.overdue ? 'font-semibold text-danger' : 'text-slate-600'}`}>{formatDateTime(ticket.Response_Due_Date)}</p>
-            <p className={`truncate text-[11px] ${sla.overdue ? 'text-danger' : 'text-muted'}`}>
+            <p className={`flex items-center gap-1.5 truncate text-[11px] ${sla.overdue ? 'text-danger' : 'text-muted'}`}>
               {sla.stopped ? (sla.overdue ? 'Breached' : 'Met') : sla.overdue ? `Overdue ${formatMinutes(sla.minutes)}` : `${formatMinutes(sla.minutes)} left`}
+              {escalation && (
+                <span className={`rounded border px-1 font-bold ${escalation.bg} ${escalation.text} ${escalation.border}`} title={`Escalation level ${ticket.Escalation_Level}`}>
+                  L{ticket.Escalation_Level}
+                </span>
+              )}
             </p>
           </div>
         ) : (

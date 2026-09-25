@@ -154,6 +154,14 @@ export const createPrioritySlaConfig = (priority, slaHours) => unwrap(axiosClien
 export const upsertPrioritySlaConfig = (priority, slaHours) => unwrap(axiosClient.put(`/api/v1/priority-sla/${encodeURIComponent(priority)}`, { slaHours }))
 export const deletePrioritySlaConfig = (priority) => unwrap(axiosClient.delete(`/api/v1/priority-sla/${encodeURIComponent(priority)}`))
 
+// Escalation matrix (Config page) + the Escalations queue
+export const getEscalationLevels = () => unwrap(axiosClient.get('/api/v1/escalation-levels'))
+export const createEscalationLevel = (data) => unwrap(axiosClient.post('/api/v1/escalation-levels', data))
+export const updateEscalationLevel = (escalationLevelId, offsetHours) =>
+  unwrap(axiosClient.patch(`/api/v1/escalation-levels/${escalationLevelId}`, { offsetHours }))
+export const deleteEscalationLevel = (escalationLevelId) => unwrap(axiosClient.delete(`/api/v1/escalation-levels/${escalationLevelId}`))
+export const getEscalatedTickets = (params) => unwrap(axiosClient.get('/api/v1/tickets/queues/escalated', { params }))
+
 // Picklists (Status / Classification / Category / Sub Category option lists)
 export const getPicklistValues = (field, parentValue) => unwrap(axiosClient.get('/api/v1/picklists', { params: { field, parentValue } }))
 export const createPicklistValue = (data) => unwrap(axiosClient.post('/api/v1/picklists', data))

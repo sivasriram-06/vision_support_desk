@@ -65,5 +65,17 @@
       "priority": "P3",
       "slaHours": 240
     }
+  ],
+  "_escalationLevels": "Escalation matrix: per priority, level N is reached offsetHours from the SLA due date (negative = before due, 0 = at due, positive = after), counted on the bank's SLA working-day calendar. Resolved/closed tickets never escalate.",
+  "escalationLevels": [
+    { "priority": "P1", "levelNo": 1, "offsetHours": -4 },
+    { "priority": "P1", "levelNo": 2, "offsetHours": 0 },
+    { "priority": "P1", "levelNo": 3, "offsetHours": 8 },
+    { "priority": "P2", "levelNo": 1, "offsetHours": -12 },
+    { "priority": "P2", "levelNo": 2, "offsetHours": 0 },
+    { "priority": "P2", "levelNo": 3, "offsetHours": 24 },
+    { "priority": "P3", "levelNo": 1, "offsetHours": -24 },
+    { "priority": "P3", "levelNo": 2, "offsetHours": 0 },
+    { "priority": "P3", "levelNo": 3, "offsetHours": 48 }
   ]
 }

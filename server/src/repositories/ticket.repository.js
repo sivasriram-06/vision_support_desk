@@ -15,6 +15,24 @@ const SORTABLE_FIELDS = new Set([
 ]);
 
 /**
+ * Current escalation level of `t`: the highest level whose trigger time
+ * has passed, 0 when none has or the ticket is resolved/closed. Trigger
+ * times are ISO-8601 UTC, matching strftime's format, so text comparison
+ * orders correctly.
+ */
+const NOW_ISO_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+const ESCALATION_LEVEL_SQL = `
+    CASE WHEN t.Clock_State = 'STOPPED' THEN 0 ELSE COALESCE((
+        SELECT MAX(e.Level_No) FROM ${DB_TABLES.TICKET_ESCALATION} e
+        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time <= ${NOW_ISO_SQL}
+    ), 0) END`;
+const NEXT_ESCALATION_TIME_SQL = `
+    CASE WHEN t.Clock_State = 'STOPPED' THEN NULL ELSE (
+        SELECT MIN(e.Trigger_Time) FROM ${DB_TABLES.TICKET_ESCALATION} e
+        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time > ${NOW_ISO_SQL}
+    ) END`;
+
+/**
  * List/queue rows join in display names (contact, account, assignee,
  * department, bank) so the frontend never has to resolve raw *_Id columns
  * itself. Ticket_Id's own primary key isn't ambiguous with the joined
@@ -26,7 +44,9 @@ const LIST_SELECT = `
         acc.Account_Name AS Account_Name,
         a.First_Name AS Assignee_First_Name, a.Last_Name AS Assignee_Last_Name,
         d.Department_Name AS Department_Name,
-        bk.Bank_Name AS Bank_Name
+        bk.Bank_Name AS Bank_Name,
+        ${ESCALATION_LEVEL_SQL} AS Escalation_Level,
+        ${NEXT_ESCALATION_TIME_SQL} AS Next_Escalation_Time
     FROM ${DB_TABLES.TICKET} t
     LEFT JOIN ${DB_TABLES.CONTACT} c ON c.Contact_Id = t.Contact_Id
     LEFT JOIN ${DB_TABLES.ACCOUNT} acc ON acc.Account_Id = t.Account_Id
@@ -68,6 +88,13 @@ const findAll = (orgId, query = {}) => {
             OR (t.Clock_State = 'STOPPED' AND t.Resolved_Time > t.Response_Due_Date)
         )`;
         params.push(new Date().toISOString());
+    }
+    // Escalation: "any" = level 1 or above, or an exact level number.
+    if (query.escalationLevel === "any") {
+        where += ` AND ${ESCALATION_LEVEL_SQL} >= 1`;
+    } else if (query.escalationLevel) {
+        where += ` AND ${ESCALATION_LEVEL_SQL} = ?`;
+        params.push(Number(query.escalationLevel));
     }
     if (query.departmentId) {
         where += " AND t.Department_Id = ?";
@@ -132,6 +159,50 @@ const findBankQueue = (orgId, bankId, query = {}) => {
     return { rows, total, page, limit };
 };
 
+/**
+ * Escalation queue: every open ticket at level 1 or above (unpaginated -
+ * the board groups them by level), most escalated and most overdue first.
+ */
+const findEscalated = (orgId, query = {}) => {
+    const db = getDB();
+    const params = [orgId];
+    let where = `t.Org_Id = ? AND t.Is_Deleted = 'N' AND ${ESCALATION_LEVEL_SQL} >= 1`;
+
+    if (query.departmentId) {
+        where += " AND t.Department_Id = ?";
+        params.push(query.departmentId);
+    }
+    if (query.bankId) {
+        where += " AND t.Bank_Id = ?";
+        params.push(query.bankId);
+    }
+    if (query.priority) {
+        where += " AND t.Priority = ?";
+        params.push(query.priority);
+    }
+
+    return db.prepare(
+        `${LIST_SELECT} WHERE ${where} ORDER BY Escalation_Level DESC, t.Response_Due_Date ASC`
+    ).all(...params);
+};
+
+/** Open tickets carrying a priority, for re-deriving escalation triggers when its levels change. */
+const findOpenByPriority = (orgId, priority) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT Ticket_Id, Priority, Bank_Id, Response_Due_Date FROM ${DB_TABLES.TICKET}
+         WHERE Org_Id = ? AND Priority = ? AND Clock_State <> 'STOPPED' AND Is_Deleted = 'N'`
+    ).all(orgId, priority);
+};
+
+/** Resolved/closed tickets on a bank - their stored resolution total follows the bank's calendar. */
+const findStoppedByBankId = (bankId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT Ticket_Id FROM ${DB_TABLES.TICKET} WHERE Bank_Id = ? AND Clock_State = 'STOPPED' AND Is_Deleted = 'N'`
+    ).all(bankId);
+};
+
 const findNextTicketNumber = (orgId) => {
     const db = getDB();
     const row = db.prepare(
@@ -178,6 +249,9 @@ module.exports = {
     findAll,
     findAgentQueue,
     findBankQueue,
+    findEscalated,
+    findOpenByPriority,
+    findStoppedByBankId,
     findNextTicketNumber,
     incrementCounter,
     findOpenWithPriorityByBankId,

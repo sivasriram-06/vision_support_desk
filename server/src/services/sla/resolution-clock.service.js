@@ -5,15 +5,16 @@ const ticketRepository = require("../../repositories/ticket.repository");
 const { metrics: metricsRepository } = require("../../repositories/history.repository");
 const generateId = require("../../utils/generate-id");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
-const { getCalendar, workingMinutesBetween } = require("./business-calendar");
+const { getCalendar, supportMinutesBetween } = require("./business-calendar");
 
 /**
  * Resolution time = how long our side actually worked a ticket - distinct
  * from the SLA due date. The clock RUNS while the ticket is in a RUNNING
  * status (e.g. "In Progress"), PAUSES while we wait on the bank (e.g. "On
  * Hold - Client"), and STOPS at Resolved/Closed. Each running stretch is a
- * row in HD_TICKET_CLOCK_SEGMENT; the total is the working-day minutes of
- * all segments (bank's non-working days excluded).
+ * row in HD_TICKET_CLOCK_SEGMENT; the total is the support-hours minutes of
+ * all segments: only time inside the bank's support window (IST) on its
+ * working days counts, or every minute on a 24x7 bank.
  *
  * Everything here that writes must run inside the caller's transaction.
  */
@@ -29,10 +30,10 @@ const clockBehaviourForStatus = (orgId, status) => {
 
 const calendarForBankId = (bankId) => getCalendar(bankId ? bankRepository.findById(bankId) : null);
 
-/** Working-day minutes across every segment; an open segment counts up to `now`. */
+/** Support-hours minutes across every segment; an open segment counts up to `now`. */
 const computeResolutionMinutes = (ticketId, calendar, now = new Date()) =>
     clockSegmentRepository.findByTicketId(ticketId).reduce(
-        (total, segment) => total + workingMinutesBetween(toDate(segment.Started_Time), toDate(segment.Ended_Time) || now, calendar),
+        (total, segment) => total + supportMinutesBetween(toDate(segment.Started_Time), toDate(segment.Ended_Time) || now, calendar),
         0
     );
 
@@ -108,6 +109,24 @@ const resyncTicketsInStatus = ({ orgId, status, actorAgentId, now = new Date() }
     return moved;
 };
 
+/**
+ * A bank's calendar or support hours changed: re-total the stored
+ * Resolution_Time_Mins of its resolved tickets on the new calendar. Open
+ * tickets are always totalled live, so they need nothing. Runs in the
+ * caller's transaction.
+ */
+const recomputeStoppedResolutionForBank = (bankId, actorAgentId) => {
+    const calendar = calendarForBankId(bankId);
+    for (const ticket of ticketRepository.findStoppedByBankId(bankId)) {
+        const metrics = metricsRepository.findMetricsByTicketId(ticket.Ticket_Id);
+        if (!metrics) continue;
+        metricsRepository.updateById(metrics.Metric_Id, {
+            Resolution_Time_Mins: computeResolutionMinutes(ticket.Ticket_Id, calendar),
+            Modified_By: actorAgentId
+        });
+    }
+};
+
 /** Live resolution summary for the ticket panel. */
 const getResolutionSummary = (ticket, now = new Date()) => ({
     clockState: ticket.Clock_State,
@@ -117,4 +136,11 @@ const getResolutionSummary = (ticket, now = new Date()) => ({
     segments: clockSegmentRepository.findByTicketId(ticket.Ticket_Id)
 });
 
-module.exports = { clockBehaviourForStatus, computeResolutionMinutes, applyStatusChange, resyncTicketsInStatus, getResolutionSummary };
+module.exports = {
+    clockBehaviourForStatus,
+    computeResolutionMinutes,
+    applyStatusChange,
+    resyncTicketsInStatus,
+    recomputeStoppedResolutionForBank,
+    getResolutionSummary
+};

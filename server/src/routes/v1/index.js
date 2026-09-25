@@ -10,6 +10,7 @@ const bankRoutes = require("./bank.route");
 const picklistRoutes = require("./picklist.route");
 const productRoutes = require("./product.route");
 const prioritySlaRoutes = require("./priority-sla.route");
+const escalationLevelRoutes = require("./escalation-level.route");
 const gmailRoutes = require("./gmail.route");
 const authRoutes = require("./auth.route");
 const adminRoutes = require("./admin.route");
@@ -32,6 +33,7 @@ router.use("/banks", bankRoutes);
 router.use("/picklists", picklistRoutes);
 router.use("/products", productRoutes);
 router.use("/priority-sla", prioritySlaRoutes);
+router.use("/escalation-levels", escalationLevelRoutes);
 router.use("/admin", adminRoutes);
 
 module.exports = router;

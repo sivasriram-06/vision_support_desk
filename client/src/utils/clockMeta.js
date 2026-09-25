@@ -29,6 +29,25 @@ export const formatMinutes = (totalMinutes) => {
   return `${minutes}m`
 }
 
+// Escalation levels (Config page -> Escalation matrix): amber while the
+// ticket is nearing due, deepening to red as it slips further. Levels past
+// the last style reuse the darkest one.
+const ESCALATION_STYLE = [
+  { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300/70', header: 'bg-amber-500' },
+  { dot: 'bg-orange-600', text: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300/70', header: 'bg-orange-600' },
+  { dot: 'bg-danger', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300/70', header: 'bg-danger' },
+  { dot: 'bg-red-800', text: 'text-red-900', bg: 'bg-red-100', border: 'border-red-400/70', header: 'bg-red-800' },
+]
+
+export const getEscalationStyle = (level) => ESCALATION_STYLE[Math.min(Math.max(level, 1), ESCALATION_STYLE.length) - 1]
+
+/** "4h before due" / "At due" / "8h after due" for an escalation level's offset. */
+export const describeEscalationOffset = (offsetHours) => {
+  if (offsetHours === 0) return 'At due'
+  const hours = Math.abs(offsetHours)
+  return `${hours}h ${offsetHours < 0 ? 'before' : 'after'} due`
+}
+
 /** SLA state for a ticket: null when no SLA, else { overdue, minutesLeft | minutesOver }. */
 export const getSlaState = (ticket, now = new Date()) => {
   if (!ticket?.Response_Due_Date) return null
