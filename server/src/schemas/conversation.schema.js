@@ -9,7 +9,9 @@ const addReplySchema = Joi.object({
 });
 
 const addCommentSchema = Joi.object({
-    content: Joi.string().required()
+    content: Joi.string().required(),
+    // Optional: the assignment (one person's work) this comment is about.
+    assignmentId: Joi.string().allow(null)
 });
 
 module.exports = { addReplySchema, addCommentSchema };

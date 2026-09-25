@@ -7,6 +7,7 @@ const bankRepository = require("../repositories/bank.repository");
 const picklistRepository = require("../repositories/picklist.repository");
 const prioritySlaRepository = require("../repositories/priority-sla.repository");
 const ticketRepository = require("../repositories/ticket.repository");
+const assignmentRepository = require("../repositories/ticket-assignment.repository");
 const { history: historyRepository, metrics: metricsRepository } = require("../repositories/history.repository");
 const { computeSlaDueDate } = require("../services/sla/sla.service");
 const resolutionClock = require("../services/sla/resolution-clock.service");
@@ -14,7 +15,8 @@ const escalationService = require("../services/sla/escalation.service");
 const { getCalendar } = require("../services/sla/business-calendar");
 const { SYSTEM_AGENT_EMAIL } = require("../services/organization.service");
 const DB_TABLES = require("../constants/db-tables");
-const { TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
+const { TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR, WORK_STATE } = require("../constants/ticket.constants");
+const workRepository = require("../repositories/assignment-work.repository");
 
 /**
  * DEMO DATA - test environments only. Rewrites every ticket with a random
@@ -33,6 +35,7 @@ const { TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR } = require("../constants/ticket.c
  */
 const DEMO_WINDOW_DAYS = 10;
 const MINUTE = 60 * 1000;
+const WORKLOG_NOTES = ["Analysed logs", "Checked the report query", "Fixed data mapping", "Tested on UAT", "Call with bank team", "Reviewed the job run", null];
 
 // Weighted picks. Unassigned is left out on purpose: every demo ticket is assigned.
 const STATUS_WEIGHTS = {
@@ -82,6 +85,8 @@ const buildPath = (target, behaviourOf) => {
 
 const resetTicketActivity = (db, ticketId) => {
     db.prepare(`DELETE FROM ${DB_TABLES.TICKET_CLOCK_SEGMENT} WHERE Ticket_Id = ?`).run(ticketId);
+    workRepository.deleteByTicketId(ticketId);
+    assignmentRepository.deleteByTicketId(ticketId);
     db.prepare(`DELETE FROM ${DB_TABLES.TICKET_HISTORY} WHERE Ticket_Id = ? AND Event_Name <> ?`).run(ticketId, TICKET_HISTORY_EVENT.CREATED);
     db.prepare(`UPDATE ${DB_TABLES.TICKET_METRICS} SET Resolution_Time_Mins = NULL, Reopen_Count = 0 WHERE Ticket_Id = ?`).run(ticketId);
 };
@@ -116,6 +121,129 @@ const seedDemoTickets = () => {
          WHERE a.Is_Deleted = 'N' AND a.Status = 'Active' AND a.Email <> ?`
     ).all(SYSTEM_AGENT_EMAIL).reduce((map, row) => map.set(row.Primary_Department_Id, [...(map.get(row.Primary_Department_Id) || []), row.Agent_Id]), new Map());
     const banks = bankRepository.findAll(orgId).filter((bank) => agentsByTeam.has(bank.Department_Id));
+    // Team leads assign within their team; product team members (Java /
+    // Angular) are pulled in cross-team on some tickets.
+    const leadByTeam = new Map(
+        db.prepare(
+            `SELECT a.Agent_Id, a.Primary_Department_Id FROM ${DB_TABLES.AGENT} a
+             JOIN ${DB_TABLES.ROLE} r ON r.Role_Id = a.Role_Id AND r.Role_Key = 'TEAM_LEAD'
+             WHERE a.Is_Deleted = 'N' AND a.Status = 'Active'`
+        ).all().map((row) => [row.Primary_Department_Id, row.Agent_Id])
+    );
+    const productAgents = db.prepare(
+        `SELECT a.Agent_Id, a.Primary_Department_Id FROM ${DB_TABLES.AGENT} a
+         JOIN ${DB_TABLES.DEPARTMENT} d ON d.Department_Id = a.Primary_Department_Id AND d.Team_Type = 'Product'
+         WHERE a.Is_Deleted = 'N' AND a.Status = 'Active'`
+    ).all();
+    const assign = ({ ticketId, agentId, teamId, crossTeam, by, at }) => {
+        const assignmentId = generateId();
+        assignmentRepository.insert({
+            Assignment_Id: assignmentId,
+            Ticket_Id: ticketId,
+            Agent_Id: agentId,
+            Department_Id: teamId,
+            Is_Cross_Team: crossTeam ? "Y" : "N",
+            Assigned_By: by,
+            Assigned_Time: at.toISOString(),
+            Seen_Time: random() < 0.7 ? new Date(at.getTime() + between(5, 240)).toISOString() : null,
+            Org_Id: orgId
+        });
+        logHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.ASSIGNEE_ADDED, fieldName: "Assignee", oldValue: null, newValue: agentId, actorAgentId: by, at, orgId });
+        return { assignmentId, agentId, at: at.getTime(), crossTeam };
+    };
+
+    /**
+     * Writes one assignment's work timeline: `points` = [{ time, state,
+     * note? }] in order. Consecutive repeats collapse; each stretch ends
+     * where the next starts, the last stays open. History rows match.
+     */
+    const writeWork = (ticketId, assignment, points) => {
+        const steps = points.filter((p, i) => i === 0 || p.state !== points[i - 1].state);
+        steps.forEach((p, i) => {
+            const next = steps[i + 1];
+            db.prepare(
+                `INSERT INTO ${DB_TABLES.ASSIGNMENT_STATE_LOG} (State_Log_Id, Assignment_Id, Ticket_Id, Work_State, Started_Time, Ended_Time, Actor_Agent_Id, Note, Org_Id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).run(generateId(), assignment.assignmentId, ticketId, p.state, new Date(p.time).toISOString(), next ? new Date(next.time).toISOString() : null, assignment.agentId, p.note || null, orgId);
+            if (i > 0) {
+                logHistory({
+                    ticketId,
+                    eventName: p.state === WORK_STATE.READY ? TICKET_HISTORY_EVENT.WORK_UNBLOCKED : TICKET_HISTORY_EVENT.WORK_STATE_CHANGE,
+                    fieldName: assignment.agentId,
+                    oldValue: steps[i - 1].state,
+                    newValue: p.state,
+                    actorAgentId: assignment.agentId,
+                    at: new Date(p.time),
+                    orgId
+                });
+            }
+            // Some people log the effort of an active stretch.
+            if (p.state === WORK_STATE.IN_PROGRESS && next && random() < 0.6) {
+                const minutes = Math.max(15, Math.round(Math.min((next.time - p.time) / MINUTE, 30 + random() * 210)));
+                const loggedAt = new Date(next.time);
+                db.prepare(
+                    `INSERT INTO ${DB_TABLES.TICKET_WORKLOG} (Worklog_Id, Ticket_Id, Assignment_Id, Agent_Id, Minutes, Work_Date, Note, Logged_By, Logged_Time, Org_Id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                ).run(generateId(), ticketId, assignment.assignmentId, assignment.agentId, minutes, loggedAt.toISOString().slice(0, 10), pick(WORKLOG_NOTES), assignment.agentId, loggedAt.toISOString(), orgId);
+                logHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.WORKLOG_ADDED, fieldName: assignment.agentId, oldValue: null, newValue: minutes, actorAgentId: assignment.agentId, at: loggedAt, orgId });
+            }
+        });
+        assignmentRepository.updateWork(assignment.assignmentId, { workState: steps[steps.length - 1].state });
+    };
+
+    /**
+     * Replays believable work for a ticket's assignees from its status
+     * walk: support assignees start when the ticket goes running, hold
+     * while it waits on the bank, finish when it's resolved. A product
+     * member pulled in mid-way works their part, and the first support
+     * assignee waits on them (a dependency) until they're done.
+     */
+    const replayWork = (ticketId, supportAssignments, product, statusTimeline, endMs) => {
+        const workStateFor = (behaviour) =>
+            behaviour === CLOCK_BEHAVIOUR.RUNNING ? WORK_STATE.IN_PROGRESS
+                : behaviour === CLOCK_BEHAVIOUR.PAUSED ? WORK_STATE.ON_HOLD
+                    : behaviour === CLOCK_BEHAVIOUR.STOPPED ? WORK_STATE.DONE : null;
+        const stopAt = statusTimeline.find((s) => s.behaviour === CLOCK_BEHAVIOUR.STOPPED)?.time ?? null;
+
+        let productDone = null;
+        if (product) {
+            const start = product.at + between(20, 600);
+            const limit = (stopAt ?? endMs) - MINUTE;
+            productDone = Math.min(start + between(60, 2880), limit);
+            const points = [{ time: product.at, state: WORK_STATE.PENDING }];
+            if (start < limit) points.push({ time: start, state: WORK_STATE.IN_PROGRESS });
+            if (productDone > product.at && (stopAt !== null || productDone < endMs - 30 * MINUTE)) points.push({ time: productDone, state: WORK_STATE.DONE });
+            else productDone = null; // still working on it
+            writeWork(ticketId, product, points);
+        }
+
+        supportAssignments.forEach((assignment, index) => {
+            const points = [{ time: assignment.at, state: WORK_STATE.PENDING }];
+            for (const s of statusTimeline) {
+                const state = workStateFor(s.behaviour);
+                if (state && s.time >= assignment.at) points.push({ time: s.time, state });
+            }
+            let timeline = points;
+            if (product && index === 0) {
+                // Waits on the product team from the hand-over until their fix is done.
+                const waitEnd = productDone ?? Infinity;
+                const resume = productDone !== null ? Math.min(productDone + between(10, 240), (stopAt ?? endMs) - MINUTE) : null;
+                timeline = points.filter((p) => p.time < product.at || p.state === WORK_STATE.DONE || (resume !== null && p.time > resume));
+                timeline.push({ time: product.at, state: WORK_STATE.WAITING, note: "Waiting on product team" });
+                if (productDone !== null && waitEnd < (stopAt ?? endMs)) {
+                    timeline.push({ time: productDone, state: WORK_STATE.READY });
+                    if (resume > productDone) timeline.push({ time: resume, state: WORK_STATE.IN_PROGRESS });
+                }
+                timeline.sort((a, b) => a.time - b.time);
+                db.prepare(
+                    `INSERT INTO ${DB_TABLES.ASSIGNMENT_DEPENDENCY} (Dependency_Id, Ticket_Id, Assignment_Id, Depends_On_Assignment_Id, Created_By, Created_Time, Org_Id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`
+                ).run(generateId(), ticketId, assignment.assignmentId, product.assignmentId, assignment.agentId, new Date(product.at).toISOString(), orgId);
+                logHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.DEPENDENCY_ADDED, fieldName: assignment.agentId, oldValue: null, newValue: product.agentId, actorAgentId: assignment.agentId, at: new Date(product.at), orgId });
+            }
+            writeWork(ticketId, assignment, timeline);
+        });
+    };
 
     const statuses = picklistRepository.findAll(orgId, "STATUS").map((s) => s.Value);
     const behaviourOf = (status) => resolutionClock.clockBehaviourForStatus(orgId, status);
@@ -179,7 +307,6 @@ const seedDemoTickets = () => {
                 Closed_Time: null,
                 Bank_Id: bank.Bank_Id,
                 Department_Id: bank.Department_Id,
-                Assignee_Id: assigneeId,
                 Priority: priority,
                 Classification: classification,
                 Category: category,
@@ -190,7 +317,21 @@ const seedDemoTickets = () => {
             db.prepare(`UPDATE ${DB_TABLES.TICKET_HISTORY} SET Event_Time = ? WHERE Ticket_Id = ? AND Event_Name = ?`)
                 .run(created.toISOString(), original.Ticket_Id, TICKET_HISTORY_EVENT.CREATED);
             logHistory({ ticketId: original.Ticket_Id, eventName: TICKET_HISTORY_EVENT.PRIORITY_CHANGE, fieldName: "Priority", oldValue: null, newValue: priority, actorAgentId: assigneeId, at: triagedAt, orgId });
-            logHistory({ ticketId: original.Ticket_Id, eventName: TICKET_HISTORY_EVENT.REASSIGNED, fieldName: "Assignee_Id", oldValue: null, newValue: assigneeId, actorAgentId: assigneeId, at: triagedAt, orgId });
+            // The team lead assigns one member, sometimes two (equal assignees).
+            const teamMembers = agentsByTeam.get(bank.Department_Id);
+            const assigner = leadByTeam.get(bank.Department_Id) || assigneeId;
+            const supportAssignments = [assign({ ticketId: original.Ticket_Id, agentId: assigneeId, teamId: bank.Department_Id, crossTeam: false, by: assigner, at: triagedAt })];
+            const second = teamMembers.find((id) => id !== assigneeId);
+            if (second && random() < 0.25) {
+                supportAssignments.push(assign({ ticketId: original.Ticket_Id, agentId: second, teamId: bank.Department_Id, crossTeam: false, by: assigner, at: new Date(triagedAt.getTime() + MINUTE) }));
+            }
+            let productAssignment = null;
+            const statusTimeline = [];
+            // Some product-side issues pull in a Java / Angular member mid-way.
+            // Never after the ticket is resolved.
+            let crossTeamAt = productAgents.length && path.length > 1 && random() < 0.3 ? 1 + Math.floor(random() * (path.length - 1)) : -1;
+            if (crossTeamAt !== -1 && behaviourOf(path[crossTeamAt]) === CLOCK_BEHAVIOUR.STOPPED) crossTeamAt -= 1;
+            if (crossTeamAt === 0) crossTeamAt = -1;
 
             let at = triagedAt.getTime();
             for (let i = 0; i < path.length; i += 1) {
@@ -202,7 +343,13 @@ const seedDemoTickets = () => {
                 logHistory({ ticketId: original.Ticket_Id, eventName: TICKET_HISTORY_EVENT.STATUS_CHANGE, fieldName: "Status", oldValue: ticket.Status, newValue: path[i], actorAgentId: assigneeId, at: when, orgId });
                 ticket = { ...ticket, ...changes, Status: path[i] };
                 ticketRepository.updateById(original.Ticket_Id, { ...changes, Status: path[i], Modified_By: assigneeId });
+                statusTimeline.push({ time: at, behaviour: behaviourOf(path[i]) });
+                if (i === crossTeamAt) {
+                    const product = pick(productAgents);
+                    productAssignment = assign({ ticketId: original.Ticket_Id, agentId: product.Agent_Id, teamId: product.Primary_Department_Id, crossTeam: true, by: assigneeId, at: new Date(at + MINUTE) });
+                }
             }
+            replayWork(original.Ticket_Id, supportAssignments, productAssignment, statusTimeline, now);
 
             // Stored total for tickets still running reflects "now".
             const metrics = metricsRepository.findMetricsByTicketId(original.Ticket_Id);

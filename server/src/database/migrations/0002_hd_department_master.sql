@@ -6,6 +6,11 @@ CREATE TABLE IF NOT EXISTS HD_DEPARTMENT_MASTER (
     Description                 TEXT,
     Name_In_Customer_Portal     TEXT,
     Creator_Agent_Id            TEXT,
+    -- Kind of team, from the admin-managed TEAM_TYPE list on the Config
+    -- page (e.g. Support, Product; more can be added). Descriptive only:
+    -- "cross-team" on a ticket means an assignee from a team other than
+    -- the ticket's own team, whatever its type.
+    Team_Type                   TEXT,
     Is_Default                  TEXT NOT NULL DEFAULT 'N' CHECK (Is_Default IN ('Y', 'N')),
     Is_Enabled                  TEXT NOT NULL DEFAULT 'Y' CHECK (Is_Enabled IN ('Y', 'N')),
     Is_Visible_To_Contacts      TEXT NOT NULL DEFAULT 'Y' CHECK (Is_Visible_To_Contacts IN ('Y', 'N')),

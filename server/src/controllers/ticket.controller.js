@@ -33,7 +33,7 @@ const getBankQueue = (req, res, next) => {
 
 const getTicketById = (req, res, next) => {
     try {
-        const ticket = ticketService.getTicketById(req.params.ticketId);
+        const ticket = ticketService.getTicketDetail(req.params.ticketId);
         ok(res, HTTP_STATUS.OK, ticket);
     } catch (error) {
         next(error);

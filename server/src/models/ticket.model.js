@@ -2,8 +2,8 @@ const TICKET_COLUMNS = [
     "Ticket_Id", "Ticket_Number", "Subject", "Description", "Status", "Status_Type",
     "Priority", "Classification", "Category", "Sub_Category", "Channel",
     "Channel_Code", "Language", "Sentiment", "Relationship_Type", "Department_Id",
-    "Bank_Id", "Contact_Id", "Account_Id", "Assignee_Id", "Product_Id",
-    "Contract_Id", "Layout_Id", "Sla_Policy_Id", "Blueprint_Id", "Due_Date",
+    "Bank_Id", "Contact_Id", "Account_Id", "Product_Id",
+    "Contract_Id", "Layout_Id", "Sla_Policy_Id", "Blueprint_Id",
     "Response_Due_Date", "Closed_Time", "Clock_State", "Resolution_Started_Time", "Resolved_Time", "Onhold_Time", "Customer_Response_Time",
     "Resolution_Summary", "Is_OverDue", "Is_Response_Overdue", "Is_Escalated",
     "Is_Archived", "Is_Spam", "Is_Trashed", "Thread_Count", "Comment_Count",
@@ -26,7 +26,7 @@ const TICKET_THREAD_COLUMNS = [
 ];
 
 const TICKET_COMMENT_COLUMNS = [
-    "Comment_Id", "Ticket_Id", "Commenter_Agent_Id", "Content", "Commented_Time",
+    "Comment_Id", "Ticket_Id", "Commenter_Agent_Id", "Content", "Assignment_Id", "Commented_Time",
     "Created_By", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
@@ -68,8 +68,14 @@ const TICKET_TAG_MAP_COLUMNS = [
     "Modified_Time", "Org_Id"
 ];
 
+const TICKET_ASSIGNMENT_COLUMNS = [
+    "Assignment_Id", "Ticket_Id", "Agent_Id", "Department_Id", "Is_Cross_Team",
+    "Assigned_By", "Assigned_Time", "Note", "Work_State", "Round_No", "Seen_Time", "Released_By", "Released_Time", "Org_Id"
+];
+
 module.exports = {
     TICKET_COLUMNS,
+    TICKET_ASSIGNMENT_COLUMNS,
     TICKET_CONVERSATION_COLUMNS,
     TICKET_THREAD_COLUMNS,
     TICKET_COMMENT_COLUMNS,

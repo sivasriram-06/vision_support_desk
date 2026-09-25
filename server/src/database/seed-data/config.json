@@ -2,7 +2,7 @@
   "_source": "Option lists configured on the Config page (Status, Classification -> Category, Products, Priority SLA). 'Unassigned' is the status every newly ingested email ticket starts in. Each status's 'clock' is what the resolution clock does in it: NOT_STARTED (work not begun), RUNNING (our side working), PAUSED (waiting on the bank), STOPPED (resolved/closed). The SLA due date never pauses.",
   "statuses": [
     { "value": "Unassigned", "clock": "NOT_STARTED" },
-    { "value": "Open", "clock": "NOT_STARTED" },
+    { "value": "Open", "clock": "RUNNING" },
     { "value": "In Progress", "clock": "RUNNING" },
     { "value": "In Progress - Client", "clock": "PAUSED" },
     { "value": "On Hold - Client", "clock": "PAUSED" },
@@ -11,6 +11,8 @@
     { "value": "Resolved - Under Observation", "clock": "STOPPED" },
     { "value": "Closed", "clock": "STOPPED" }
   ],
+  "_teamTypes": "Kinds of team (HD_DEPARTMENT_MASTER.Team_Type), managed on the Config page. Support teams own banks; other teams (e.g. Product: Java, Angular) are pulled in on a ticket by cross-team assignment. More types can be added.",
+  "teamTypes": ["Support", "Product"],
   "classifications": {
     "Complaint": [
       "Application",

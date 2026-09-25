@@ -4,6 +4,7 @@ import Avatar from '../ui/Avatar.jsx'
 import Badge from '../ui/Badge.jsx'
 import Select from '../ui/Select.jsx'
 import Button from '../ui/Button.jsx'
+import AssigneesSection from './AssigneesSection.jsx'
 import {
   getPriorityStyle,
   getTicketAgeDays,
@@ -26,7 +27,6 @@ import {
   updateTicket,
   getDepartments,
   getBanks,
-  getAgents,
   getProducts,
   getPicklistValues,
   getPrioritySlaConfig,
@@ -246,17 +246,15 @@ function ResolutionSection({ ticket, bank, metrics }) {
   )
 }
 
-export default function TicketPropertyPanel({ ticket, contact, account, department, bank, assignee, product, onUpdated }) {
-  const { can, agent: me } = useAuth()
+export default function TicketPropertyPanel({ ticket, contact, department, bank, product, onUpdated }) {
+  const { can } = useAuth()
   const canEditStatus = can(PERMISSIONS.TICKETS_EDIT_STATUS)
   const canEditProperties = can(PERMISSIONS.TICKETS_EDIT_PROPERTIES)
-  const canAssignAny = can(PERMISSIONS.TICKETS_ASSIGN_ANY)
-  const canAssign = canAssignAny || can(PERMISSIONS.TICKETS_ASSIGN_TEAM)
-  const canEditAnything = canEditStatus || canEditProperties || canAssign
+  const canEditAnything = canEditStatus || canEditProperties
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [options, setOptions] = useState({ departments: [], banks: [], agents: [], products: [], classifications: [], priorities: [], statuses: [] })
+  const [options, setOptions] = useState({ departments: [], banks: [], products: [], classifications: [], priorities: [], statuses: [] })
   const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState(null)
   const metrics = useTicketMetrics(ticket)
@@ -268,7 +266,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
       priority: ticket.Priority || '',
       departmentId: ticket.Department_Id || '',
       bankId: ticket.Bank_Id || '',
-      assigneeId: ticket.Assignee_Id || '',
       productId: ticket.Product_Id || '',
       classification: ticket.Classification || '',
       category: ticket.Category || '',
@@ -279,18 +276,16 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
     Promise.all([
       getDepartments(),
       getBanks(),
-      getAgents(),
       getProducts(),
       getPicklistValues('CLASSIFICATION'),
       getPrioritySlaConfig(),
       getPicklistValues('STATUS'),
     ])
-      .then(([departmentsRes, banksRes, agentsRes, productsRes, classificationsRes, prioritiesRes, statusesRes]) => {
+      .then(([departmentsRes, banksRes, productsRes, classificationsRes, prioritiesRes, statusesRes]) => {
         if (cancelled) return
         setOptions({
           departments: departmentsRes.data,
           banks: banksRes.data,
-          agents: agentsRes.data,
           products: productsRes.data,
           classifications: classificationsRes.data,
           priorities: prioritiesRes.data,
@@ -341,7 +336,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
       priority: form.priority || null,
       departmentId: form.departmentId,
       bankId: form.bankId || null,
-      assigneeId: form.assigneeId || null,
       productId: form.productId || null,
       classification: form.classification || null,
       category: form.category || null,
@@ -351,7 +345,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
       priority: ticket.Priority || null,
       departmentId: ticket.Department_Id,
       bankId: ticket.Bank_Id || null,
-      assigneeId: ticket.Assignee_Id || null,
       productId: ticket.Product_Id || null,
       classification: ticket.Classification || null,
       category: ticket.Category || null,
@@ -378,25 +371,9 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
     }
   }
 
-  // Team Leads may only hand tickets to their own team; the current assignee
-  // stays listed so the field still shows who owns the ticket today.
-  const assigneeOptions = options.agents.filter(
-    (a) =>
-      a.Agent_Id === ticket.Assignee_Id ||
-      (a.Status === 'Active' && (canAssignAny || (me?.teamId && a.Primary_Department_Id === me.teamId))),
-  )
-
-  const formBank = options.banks.find((b) => b.Bank_Id === form?.bankId)
-  const resourceTag = (agentId) => {
-    if (formBank?.Primary_Resources.some((a) => a.Agent_Id === agentId)) return ' ★ Primary'
-    if (formBank?.Secondary_Resources.some((a) => a.Agent_Id === agentId)) return ' · Secondary'
-    return ''
-  }
-
   const status = getClockStyle(ticket.Clock_State)
   const priority = getPriorityStyle(ticket.Priority)
   const contactName = contact ? [contact.First_Name, contact.Last_Name].filter(Boolean).join(' ') : '-'
-  const assigneeName = assignee ? [assignee.First_Name, assignee.Last_Name].filter(Boolean).join(' ') : null
   const ageDays = getTicketAgeDays(ticket)
   const ageingBucket = getAgeingBucketLabel(ageDays)
 
@@ -464,18 +441,6 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
                 disabled={!canEditProperties}
               />
             </Field>
-            <Field label="Assignee">
-              <Select
-                value={form.assigneeId}
-                onChange={(e) => updateField('assigneeId', e.target.value)}
-                options={assigneeOptions.map((a) => ({
-                  value: a.Agent_Id,
-                  label: fullNameOf(a) + (canAssignAny && a.Team_Name ? ` (${a.Team_Name})` : '') + resourceTag(a.Agent_Id),
-                }))}
-                placeholder="Unassigned"
-                disabled={!canAssign}
-              />
-            </Field>
             <Field label="Product">
               <Select
                 value={form.productId}
@@ -532,16 +497,7 @@ export default function TicketPropertyPanel({ ticket, contact, account, departme
 
           <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
             <SectionHeading>Key Information</SectionHeading>
-            <Field label="Ticket Owner">
-              {assigneeName ? (
-                <div className="flex items-center gap-2">
-                  <Avatar name={assigneeName} size={22} />
-                  <p className="truncate">{assigneeName}</p>
-                </div>
-              ) : (
-                <span className="italic text-muted">Unassigned</span>
-              )}
-            </Field>
+            <AssigneesSection ticket={ticket} bank={bank} onChanged={onUpdated} />
             <Field label="Status">
               <Badge dotClass={status.dot} textClass={status.text} bgClass={status.bg}>
                 {ticket.Status}

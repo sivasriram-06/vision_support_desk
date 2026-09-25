@@ -21,7 +21,7 @@ const findByEmail = (orgId, email) => {
 // the password hash itself.
 const DIRECTORY_SELECT = `
     SELECT a.*,
-           d.Department_Name AS Team_Name,
+           d.Department_Name AS Team_Name, d.Team_Type,
            r.Role_Name, r.Role_Key, r.Sort_Order AS Role_Sort_Order,
            CASE WHEN c.Agent_Credential_Id IS NULL THEN 'N' ELSE 'Y' END AS Has_Login,
            c.Must_Change_Password, c.Last_Login_Time, c.Locked_Until

@@ -72,6 +72,7 @@ const addComment = (ticketId, payload, actorAgentId) => {
             Ticket_Id: ticketId,
             Commenter_Agent_Id: actorAgentId,
             Content: payload.content,
+            Assignment_Id: payload.assignmentId || null,
             Commented_Time: nowIso(),
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id

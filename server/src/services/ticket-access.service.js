@@ -1,4 +1,3 @@
-const agentRepository = require("../repositories/agent.repository");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -31,9 +30,9 @@ const isChanged = (key, payload, existing, column) => {
  * an unchanged priority isn't refused for "editing properties".
  *
  *   Status                -> tickets.edit_status
- *   Assignee              -> tickets.assign_any, or tickets.assign_team
- *                            limited to agents in the actor's own team
  *   Everything else       -> tickets.edit_properties (incl. Bank)
+ *
+ * Assignees are not a PATCH field - see ticket-assignment.service.js.
  */
 const assertCanUpdateTicket = (actor, existing, payload) => {
     const has = (key) => actor.permissions.includes(key);
@@ -45,24 +44,6 @@ const assertCanUpdateTicket = (actor, existing, payload) => {
     const changedProperties = Object.entries(PROPERTY_FIELDS).filter(([key, column]) => isChanged(key, payload, existing, column));
     if (changedProperties.length > 0 && !has(PERMISSIONS.TICKETS_EDIT_PROPERTIES)) {
         throw forbidden("You do not have permission to edit ticket properties");
-    }
-
-    const assigneeChanged = isChanged("assigneeId", payload, existing, "Assignee_Id");
-    if (!assigneeChanged) return;
-    if (has(PERMISSIONS.TICKETS_ASSIGN_ANY)) return;
-    if (!has(PERMISSIONS.TICKETS_ASSIGN_TEAM)) {
-        throw forbidden("You do not have permission to assign tickets");
-    }
-
-    const newAssigneeId = normalize(payload.assigneeId);
-    if (newAssigneeId) {
-        const assignee = agentRepository.findById(newAssigneeId);
-        if (!actor.teamId || !assignee || assignee.Primary_Department_Id !== actor.teamId) {
-            throw forbidden("You can only assign tickets to members of your own team");
-        }
-        if (assignee.Status !== "Active") {
-            throw forbidden("This agent is inactive and can't be assigned tickets");
-        }
     }
 };
 

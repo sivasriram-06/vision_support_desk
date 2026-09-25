@@ -97,6 +97,24 @@ export const updateTicket = (ticketId, data) => unwrap(axiosClient.patch(`/api/v
 export const getTicketHistory = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/history`))
 export const getTicketResolution = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/resolution`))
 export const getTicketMetrics = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/metrics`))
+// Assignees (several per ticket) + My Tickets
+export const getTicketAssignees = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/assignees`))
+export const addTicketAssignees = (ticketId, agentIds, note) =>
+  unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees`, { agentIds, note }))
+export const removeTicketAssignee = (ticketId, agentId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}/assignees/${agentId}`))
+export const markTicketSeen = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees/seen`))
+// Tracking tab: work states, dependencies, work logs
+export const getTicketTracking = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/tracking`))
+export const setWorkState = (ticketId, agentId, state, note) =>
+  unwrap(axiosClient.patch(`/api/v1/tickets/${ticketId}/assignees/${agentId}/state`, { state, note }))
+export const addWorkDependency = (ticketId, agentId, blockerAgentId) =>
+  unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees/${agentId}/dependencies`, { blockerAgentId }))
+export const removeWorkDependency = (ticketId, agentId, blockerAgentId) =>
+  unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}/assignees/${agentId}/dependencies/${blockerAgentId}`))
+export const addWorklog = (ticketId, agentId, data) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees/${agentId}/worklogs`, data))
+export const deleteWorklog = (ticketId, worklogId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}/worklogs/${worklogId}`))
+export const getMyTickets = (params) => unwrap(axiosClient.get('/api/v1/tickets/my', { params }))
+export const getMyTicketCounts = () => unwrap(axiosClient.get('/api/v1/tickets/my/counts'))
 export const getAgentQueue = (agentId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/agent/${agentId}`, { params }))
 export const getBankQueue = (bankId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/bank/${bankId}`, { params }))
 

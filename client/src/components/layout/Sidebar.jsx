@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Inbox, Siren, UserCog, Landmark, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
+import { getMyTicketCounts } from '../../utils/api.js'
+import { Inbox, UserCheck, Siren, UserCog, Landmark, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 
 // `permission` hides an item from agents who couldn't use the page anyway
 // (the routes in App.jsx and the server enforce the same rule).
 const NAV_ITEMS = [
+  { to: '/my-tickets', label: 'My Tickets', icon: UserCheck, live: true, badge: 'unseen' },
   { to: '/tickets', label: 'All Cases', icon: Inbox, live: true },
   { to: '/escalations', label: 'Escalations', icon: Siren, live: true },
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
@@ -16,11 +18,37 @@ const NAV_ITEMS = [
 ]
 
 
+/**
+ * Tickets newly assigned to me that I haven't opened yet - the sidebar
+ * badge that tells an agent the lead handed them something. Polled every
+ * minute, and refreshed at once when a ticket is opened.
+ */
+function useUnseenAssignments() {
+  const [unseen, setUnseen] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      getMyTicketCounts()
+        .then((res) => !cancelled && setUnseen(res.data.unseen || 0))
+        .catch(() => {})
+    load()
+    const timer = setInterval(load, 60000)
+    window.addEventListener('vsd:my-tickets-changed', load)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener('vsd:my-tickets-changed', load)
+    }
+  }, [])
+  return unseen
+}
+
 export default function Sidebar({ pinned, onTogglePin }) {
   const [hovered, setHovered] = useState(false)
   const { can } = useAuth()
   const expanded = pinned || hovered
   const navItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission))
+  const unseen = useUnseenAssignments()
 
   return (
     <aside
@@ -52,20 +80,30 @@ export default function Sidebar({ pinned, onTogglePin }) {
       </div>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3">
-        {navItems.map(({ to, label, icon: Icon, live }) =>
+        {navItems.map(({ to, label, icon: Icon, live, badge }) =>
           live ? (
             <NavLink
               key={to}
               to={to}
               title={expanded ? undefined : label}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold transition-all ${
+                `relative flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold transition-all ${
                   expanded ? '' : 'justify-center px-0'
                 } ${isActive ? 'bg-primary/15 text-primary' : 'text-white/50 hover:bg-white/5 hover:text-white/80'}`
               }
             >
               <Icon className="h-[17px] w-[17px] shrink-0" />
-              {expanded && label}
+              {expanded && <span className="flex-1">{label}</span>}
+              {badge === 'unseen' && unseen > 0 && (
+                <span
+                  title={`${unseen} newly assigned`}
+                  className={`rounded-full bg-primary px-1.5 font-mono text-[10.5px] font-bold leading-[18px] text-white ${
+                    expanded ? '' : 'absolute right-2 top-1'
+                  }`}
+                >
+                  {unseen}
+                </span>
+              )}
             </NavLink>
           ) : (
             <div

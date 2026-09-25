@@ -8,7 +8,7 @@
 -- while in that status - NOT_STARTED / RUNNING / PAUSED / STOPPED.
 CREATE TABLE IF NOT EXISTS HD_PICKLIST_VALUE (
     Picklist_Value_Id   TEXT PRIMARY KEY,
-    Field               TEXT NOT NULL CHECK (Field IN ('CLASSIFICATION', 'CATEGORY', 'SUB_CATEGORY', 'STATUS')),
+    Field               TEXT NOT NULL CHECK (Field IN ('CLASSIFICATION', 'CATEGORY', 'SUB_CATEGORY', 'STATUS', 'TEAM_TYPE')),
     Value               TEXT NOT NULL,
     Parent_Value        TEXT,
     Clock_Behaviour     TEXT CHECK (Clock_Behaviour IS NULL OR Clock_Behaviour IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),

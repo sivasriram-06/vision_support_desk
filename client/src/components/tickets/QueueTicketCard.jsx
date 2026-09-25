@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Inbox, Hourglass, Tag, Siren } from 'lucide-react'
 import Badge from '../ui/Badge.jsx'
-import Avatar from '../ui/Avatar.jsx'
+import AssigneeStack from './AssigneeStack.jsx'
 import { getPriorityStyle } from '../../utils/ticketMeta.js'
 import { getClockStyle, getSlaState, formatMinutes, getEscalationStyle } from '../../utils/clockMeta.js'
 import { formatDateTime } from '../../utils/format.js'
@@ -20,7 +20,6 @@ export default function QueueCard({ ticket, mode }) {
   const status = getClockStyle(ticket.Clock_State)
   const priority = getPriorityStyle(ticket.Priority)
   const contact = fullName(ticket.Contact_First_Name, ticket.Contact_Last_Name) || 'Unknown contact'
-  const assignee = fullName(ticket.Assignee_First_Name, ticket.Assignee_Last_Name)
   const level = ticket.Escalation_Level || 0
   const escalation = level > 0 ? getEscalationStyle(level) : null
   const showStatus = mode !== 'status'
@@ -33,8 +32,8 @@ export default function QueueCard({ ticket, mode }) {
     >
       <div className="flex items-start justify-between gap-2">
         <p className="line-clamp-2 text-[13px] font-bold leading-snug text-ink group-hover:text-primary-dark">{ticket.Subject}</p>
-        {assignee ? (
-          <Avatar name={assignee} size={26} />
+        {ticket.Assignees?.length ? (
+          <AssigneeStack assignees={ticket.Assignees} size={26} max={2} />
         ) : (
           <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted">Unassigned</span>
         )}

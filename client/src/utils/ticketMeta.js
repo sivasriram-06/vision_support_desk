@@ -77,3 +77,6 @@ export const getAvatarColor = (seed) => {
   }
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length]
 }
+
+/** Display name of an entry in ticket.Assignees. */
+export const assigneeName = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ')

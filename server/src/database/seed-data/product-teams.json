@@ -1,0 +1,13 @@
+{
+  "_source": "Product (engineering) teams that support pulls in on a ticket by cross-team assignment. The members are DUMMY TEST ACCOUNTS for the test environment only - replace them with the real Java / Angular team roster before production.",
+  "teams": [
+    { "name": "Java Team", "sanitizedName": "java-team", "teamType": "Product" },
+    { "name": "Angular Team", "sanitizedName": "angular-team", "teamType": "Product" }
+  ],
+  "agents": [
+    { "firstName": "Java", "lastName": "Member 1", "email": "java.member1@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Java", "lastName": "Member 2", "email": "java.member2@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Angular", "lastName": "Member 1", "email": "angular.member1@sunoida.com", "team": "Angular Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Angular", "lastName": "Member 2", "email": "angular.member2@sunoida.com", "team": "Angular Team", "role": "TEAM_MEMBER", "shift": "General" }
+  ]
+}

@@ -5,6 +5,9 @@
 -- working-day calendar, fixed - never paused). Clock_State mirrors the
 -- current Status's clock behaviour; Resolution_Started_Time / Resolved_Time
 -- bound the resolution clock (segments in HD_TICKET_CLOCK_SEGMENT).
+-- Who works the ticket is not a column here: a ticket can have several
+-- equal assignees, including cross-team (product team) members, kept with
+-- their history in HD_TICKET_ASSIGNMENT.
 -- Layout_Id, Sla_Policy_Id, Blueprint_Id, Product_Id, Contract_Id are kept as
 -- plain (unconstrained) TEXT columns for now: their owning tables
 -- (HD_LAYOUT_MASTER, HD_SLA_POLICY_MASTER, HD_BLUEPRINT_MASTER,
@@ -30,13 +33,11 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Bank_Id                    TEXT REFERENCES HD_BANK_MASTER (Bank_Id),
     Contact_Id                 TEXT NOT NULL REFERENCES HD_CONTACT_MASTER (Contact_Id),
     Account_Id                 TEXT REFERENCES HD_ACCOUNT_MASTER (Account_Id),
-    Assignee_Id                TEXT REFERENCES HD_AGENT_MASTER (Agent_Id),
     Product_Id                 TEXT,
     Contract_Id                 TEXT,
     Layout_Id                  TEXT,
     Sla_Policy_Id                TEXT,
     Blueprint_Id                TEXT,
-    Due_Date                   TEXT,
     Response_Due_Date            TEXT,
     Closed_Time                 TEXT,
     Clock_State                 TEXT NOT NULL DEFAULT 'NOT_STARTED' CHECK (Clock_State IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),
@@ -73,7 +74,6 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ticket_number_org ON HD_TICKET_MASTER (Org_Id, Ticket_Number);
 CREATE INDEX IF NOT EXISTS idx_ticket_department ON HD_TICKET_MASTER (Department_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_bank ON HD_TICKET_MASTER (Bank_Id);
-CREATE INDEX IF NOT EXISTS idx_ticket_assignee ON HD_TICKET_MASTER (Assignee_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_contact ON HD_TICKET_MASTER (Contact_Id);
 CREATE INDEX IF NOT EXISTS idx_ticket_status_type ON HD_TICKET_MASTER (Status_Type);
 CREATE INDEX IF NOT EXISTS idx_ticket_org ON HD_TICKET_MASTER (Org_Id);

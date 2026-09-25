@@ -17,7 +17,6 @@ const createTicketSchema = Joi.object({
     bankId: Joi.string().allow(null),
     contactId: Joi.string().required(),
     accountId: Joi.string().allow(null),
-    assigneeId: Joi.string().allow(null),
     status: Joi.string().allow(null),
     statusType: Joi.string().valid(...Object.values(STATUS_TYPE)),
     priority: Joi.string().max(30).allow(null)
@@ -30,7 +29,6 @@ const updateTicketSchema = Joi.object({
     priority: Joi.string().max(30).allow(null),
     departmentId: Joi.string(),
     bankId: Joi.string().allow(null),
-    assigneeId: Joi.string().allow(null),
     productId: Joi.string().allow(null),
     category: Joi.string().allow("", null),
     subCategory: Joi.string().allow("", null),
@@ -55,6 +53,47 @@ const listTicketsQuerySchema = Joi.object({
     escalationLevel: Joi.alternatives().try(Joi.string().valid("any"), Joi.number().integer().min(1))
 });
 
+const addAssigneesSchema = Joi.object({
+    agentIds: Joi.array().items(Joi.string()).min(1).unique().required(),
+    note: Joi.string().trim().max(500).allow("", null)
+});
+
+const assigneeParamSchema = Joi.object({
+    ticketId: Joi.string().required(),
+    agentId: Joi.string().required()
+});
+
+const workStateSchema = Joi.object({
+    state: Joi.string().valid("IN_PROGRESS", "ON_HOLD", "DONE").required(),
+    note: Joi.string().trim().max(500).allow("", null)
+});
+
+const dependencySchema = Joi.object({
+    blockerAgentId: Joi.string().required()
+});
+
+const dependencyParamSchema = Joi.object({
+    ticketId: Joi.string().required(),
+    agentId: Joi.string().required(),
+    blockerAgentId: Joi.string().required()
+});
+
+const worklogSchema = Joi.object({
+    minutes: Joi.number().integer().min(1).max(24 * 60).required(),
+    workDate: Joi.string().isoDate(),
+    note: Joi.string().trim().max(1000).allow("", null)
+});
+
+const worklogParamSchema = Joi.object({
+    ticketId: Joi.string().required(),
+    worklogId: Joi.string().required()
+});
+
+const myTicketsQuerySchema = Joi.object({
+    scope: Joi.string().valid("assigned", "assignedBy", "team").default("assigned"),
+    includeClosed: Joi.string().valid("true", "false")
+});
+
 const escalatedTicketsQuerySchema = Joi.object({
     departmentId: Joi.string(),
     bankId: Joi.string(),
@@ -66,5 +105,13 @@ module.exports = {
     createTicketSchema,
     updateTicketSchema,
     listTicketsQuerySchema,
-    escalatedTicketsQuerySchema
+    escalatedTicketsQuerySchema,
+    addAssigneesSchema,
+    assigneeParamSchema,
+    myTicketsQuerySchema,
+    workStateSchema,
+    dependencySchema,
+    dependencyParamSchema,
+    worklogSchema,
+    worklogParamSchema
 };

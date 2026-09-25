@@ -2,15 +2,22 @@ import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
+import Select from '../ui/Select.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
-import { ApiError, getDepartments, createDepartment, updateDepartment, deleteDepartment } from '../../utils/api.js'
+import { ApiError, getDepartments, createDepartment, updateDepartment, deleteDepartment, getPicklistValues } from '../../utils/api.js'
 
-/** Add/edit/delete departments. Used inside the "Manage Support Teams" modal on the Banks page. */
+/**
+ * Add/edit/delete teams and set each team's type (Support, Product, ...
+ * from the Config page). Used inside the "Manage Support Teams" modal on
+ * the Banks page.
+ */
 export default function DepartmentManager({ onChanged }) {
   const [state, setState] = useState({ loading: true, error: null, departments: [] })
   const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState('Support')
+  const [typeOptions, setTypeOptions] = useState([])
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
@@ -28,7 +35,21 @@ export default function DepartmentManager({ onChanged }) {
 
   useEffect(() => {
     load()
+    getPicklistValues('TEAM_TYPE')
+      .then((res) => setTypeOptions(res.data.map((t) => ({ value: t.Value, label: t.Value }))))
+      .catch(() => {})
   }, [])
+
+  const handleTypeChange = async (item, teamType) => {
+    setRowError(null)
+    try {
+      await updateDepartment(item.Department_Id, { departmentName: item.Department_Name, teamType: teamType || null })
+      load()
+      onChanged?.()
+    } catch (err) {
+      setRowError(err instanceof ApiError ? err.message : 'Failed to change team type.')
+    }
+  }
 
   const handleAdd = async () => {
     const departmentName = newName.trim()
@@ -36,7 +57,7 @@ export default function DepartmentManager({ onChanged }) {
     setAdding(true)
     setRowError(null)
     try {
-      await createDepartment({ departmentName })
+      await createDepartment({ departmentName, teamType: newType || null })
       setNewName('')
       load()
       onChanged?.()
@@ -89,9 +110,10 @@ export default function DepartmentManager({ onChanged }) {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="Add a new department"
+          placeholder="Add a new team"
           className="flex-1"
         />
+        <Select value={newType} onChange={(e) => setNewType(e.target.value)} options={typeOptions} placeholder="Team type" className="w-36" />
         <Button variant="primary" icon={Plus} onClick={handleAdd} disabled={adding || !newName.trim()}>
           Add
         </Button>
@@ -146,6 +168,14 @@ export default function DepartmentManager({ onChanged }) {
                     {item.Department_Name}
                     {item.Is_Default === 'Y' && <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-muted">Default</span>}
                   </span>
+                  {/* Team type is changed in place from the Config page's Team Type list. */}
+                  <Select
+                    value={item.Team_Type || ''}
+                    onChange={(e) => handleTypeChange(item, e.target.value)}
+                    options={typeOptions}
+                    placeholder="No type"
+                    className="w-32"
+                  />
                   <button
                     onClick={() => startEdit(item)}
                     title="Rename"

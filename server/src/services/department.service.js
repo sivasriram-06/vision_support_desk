@@ -1,4 +1,6 @@
 const departmentRepository = require("../repositories/department.repository");
+const picklistRepository = require("../repositories/picklist.repository");
+const { PICKLIST_FIELD } = require("../constants/picklist.constants");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
@@ -11,6 +13,17 @@ const sanitizeName = (name) =>
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
+
+/** Team type must be one of the Config page's TEAM_TYPE values (or blank). */
+const resolveTeamType = (orgId, teamType) => {
+    if (teamType === undefined) return undefined;
+    const value = (teamType || "").trim();
+    if (!value) return null;
+    if (!picklistRepository.findByValue(orgId, PICKLIST_FIELD.TEAM_TYPE, value)) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, `Unknown team type "${value}" - add it on the Config page first`);
+    }
+    return value;
+};
 
 const listDepartments = () => {
     const org = organizationService.getDefaultOrganization();
@@ -40,6 +53,7 @@ const createDepartment = (payload, actorAgentId) => {
         Department_Id: departmentId,
         Department_Name: departmentName,
         Sanitized_Name: sanitizedName,
+        Team_Type: resolveTeamType(org.Organization_Id, payload.teamType) ?? null,
         Creator_Agent_Id: actorAgentId,
         Is_Default: "N",
         Is_Enabled: "Y",
@@ -64,6 +78,7 @@ const updateDepartment = (departmentId, payload, actorAgentId) => {
     departmentRepository.updateById(departmentId, {
         Department_Name: departmentName,
         Sanitized_Name: sanitizedName,
+        ...(payload.teamType !== undefined ? { Team_Type: resolveTeamType(org.Organization_Id, payload.teamType) } : {}),
         Modified_By: actorAgentId
     });
     return departmentRepository.findById(departmentId);

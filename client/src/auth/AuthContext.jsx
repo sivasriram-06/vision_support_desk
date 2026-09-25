@@ -31,6 +31,23 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null)
   }, [clearSession])
 
+  // All tabs share one stored login. If another tab signs in as someone
+  // else (or signs out), this tab would otherwise keep showing the old
+  // person while its requests go out as the new one - so follow the
+  // change: reload as the new account, or drop to the sign-in page.
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== 'vsd:token' || event.newValue === event.oldValue) return
+      if (event.newValue) window.location.reload()
+      else {
+        setAgent(null)
+        setStatus('signedOut')
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   useEffect(() => {
     if (!getStoredToken()) return
     getMe()

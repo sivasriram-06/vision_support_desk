@@ -4,6 +4,7 @@ import TicketsPage from './pages/TicketsPage.jsx'
 import TicketDetailPage from './pages/TicketDetailPage.jsx'
 import BanksPage from './pages/BanksPage.jsx'
 import EscalationsPage from './pages/EscalationsPage.jsx'
+import MyTicketsPage from './pages/MyTicketsPage.jsx'
 import AgentsPage from './pages/AgentsPage.jsx'
 import ConfigPage from './pages/ConfigPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
@@ -33,6 +34,7 @@ function AuthenticatedApp() {
         <Route path="/" element={<Navigate to="/tickets" replace />} />
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
+        <Route path="/my-tickets" element={<MyTicketsPage />} />
         <Route path="/escalations" element={<EscalationsPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/banks" element={<BanksPage />} />

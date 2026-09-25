@@ -12,7 +12,8 @@ const generateId = require("../utils/generate-id");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
-const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT } = require("../constants/ticket.constants");
+const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
+const assignmentRepository = require("../repositories/ticket-assignment.repository");
 const { buildPaging } = require("../utils/pagination");
 
 const nowIso = () => new Date().toISOString();
@@ -68,6 +69,12 @@ const getTicketById = (ticketId) => {
     return ticket;
 };
 
+/** Ticket for the API: row plus current Assignees, display names and escalation level. */
+const getTicketDetail = (ticketId) => {
+    getTicketById(ticketId);
+    return ticketRepository.findDetailById(ticketId);
+};
+
 /**
  * Creates a ticket + its initial history row + an empty metrics row in one
  * transaction, per "use transactions for multi-table business operations".
@@ -107,7 +114,6 @@ const createTicket = (payload, actorAgentId) => {
             Bank_Id: payload.bankId || null,
             Contact_Id: payload.contactId,
             Account_Id: payload.accountId || null,
-            Assignee_Id: payload.assigneeId || null,
             Response_Due_Date: dueDate,
             // Stored explicitly as ISO-8601 UTC (same instant the SLA was
             // computed from). The column default, datetime('now'), writes
@@ -155,7 +161,7 @@ const createTicket = (payload, actorAgentId) => {
     });
 
     const ticketId = createTxn();
-    return getTicketById(ticketId);
+    return getTicketDetail(ticketId);
 };
 
 /**
@@ -173,7 +179,6 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         priority: "Priority",
         departmentId: "Department_Id",
         bankId: "Bank_Id",
-        assigneeId: "Assignee_Id",
         productId: "Product_Id",
         category: "Category",
         subCategory: "Sub_Category",
@@ -205,7 +210,6 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         let eventName = "FIELD_CHANGE";
         if (column === "Status") eventName = TICKET_HISTORY_EVENT.STATUS_CHANGE;
         else if (column === "Priority") eventName = TICKET_HISTORY_EVENT.PRIORITY_CHANGE;
-        else if (column === "Assignee_Id") eventName = TICKET_HISTORY_EVENT.REASSIGNED;
 
         historyEntries.push({ eventName, fieldName: column, oldValue, newValue });
     }
@@ -225,7 +229,18 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     }
 
     if (Object.keys(changes).length === 0) {
-        return existing;
+        return getTicketDetail(ticketId);
+    }
+
+    // Resolving/closing needs every current assignee's work Done (or the
+    // assignee released), so tracking never shows open work on a closed
+    // ticket.
+    if (changes.Status !== undefined && resolutionClock.clockBehaviourForStatus(org.Organization_Id, changes.Status) === CLOCK_BEHAVIOUR.STOPPED) {
+        const unfinished = assignmentRepository.findOpenUnfinished(ticketId);
+        if (unfinished.length > 0) {
+            const names = unfinished.map((a) => [a.First_Name, a.Last_Name].filter(Boolean).join(" ")).join(", ");
+            throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, `Mark every assignee's work Done first - still open: ${names}`);
+        }
     }
 
     const db = getDB();
@@ -261,7 +276,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     });
 
     updateTxn();
-    return getTicketById(ticketId);
+    return getTicketDetail(ticketId);
 };
 
 const getTicketHistory = (ticketId) => {
@@ -296,6 +311,7 @@ module.exports = {
     getAgentQueue,
     getBankQueue,
     getTicketById,
+    getTicketDetail,
     createTicket,
     updateTicket,
     getTicketHistory,

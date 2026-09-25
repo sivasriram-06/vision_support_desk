@@ -23,4 +23,13 @@ const findBySanitizedName = (orgId, sanitizedName) => {
     ).get(orgId, sanitizedName);
 };
 
-module.exports = { ...base, findAll, findBySanitizedName };
+/** Follows a Team Type rename on the Config page. */
+const renameTeamType = (orgId, oldType, newType, modifiedBy) => {
+    const db = getDB();
+    db.prepare(
+        `UPDATE ${DB_TABLES.DEPARTMENT} SET Team_Type = ?, Modified_By = ?, Modified_Time = datetime('now')
+         WHERE Org_Id = ? AND Team_Type = ? AND Is_Deleted = 'N'`
+    ).run(newType, modifiedBy, orgId, oldType);
+};
+
+module.exports = { ...base, findAll, findBySanitizedName, renameTeamType };

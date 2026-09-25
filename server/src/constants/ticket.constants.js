@@ -55,11 +55,32 @@ const TICKET_HISTORY_EVENT = {
     STATUS_CHANGE: "STATUS_CHANGE",
     PRIORITY_CHANGE: "PRIORITY_CHANGE",
     REASSIGNED: "REASSIGNED",
+    // HD_TICKET_ASSIGNMENT changes; New_Value / Old_Value hold the agent id.
+    ASSIGNEE_ADDED: "ASSIGNEE_ADDED",
+    ASSIGNEE_REMOVED: "ASSIGNEE_REMOVED",
+    // Assignment work tracking (Tracking tab). New_Value = work state /
+    // blocker assignment id / minutes; Field_Name = the assignee's agent id.
+    WORK_STATE_CHANGE: "WORK_STATE_CHANGE",
+    WORK_UNBLOCKED: "WORK_UNBLOCKED",
+    DEPENDENCY_ADDED: "DEPENDENCY_ADDED",
+    DEPENDENCY_REMOVED: "DEPENDENCY_REMOVED",
+    WORKLOG_ADDED: "WORKLOG_ADDED",
     CONVERSATION_ADDED: "CONVERSATION_ADDED",
     COMMENT_ADDED: "COMMENT_ADDED"
 };
 
+// One assignee's work on a ticket (HD_TICKET_ASSIGNMENT.Work_State).
+const WORK_STATE = {
+    PENDING: "PENDING", // assigned, not started - waiting for handover
+    WAITING: "WAITING", // blocked by another assignee's unfinished work
+    READY: "READY", // unblocked, not started yet
+    IN_PROGRESS: "IN_PROGRESS",
+    ON_HOLD: "ON_HOLD", // waiting on the bank / information
+    DONE: "DONE"
+};
+
 module.exports = {
+    WORK_STATE,
     STATUS_TYPE,
     DEFAULT_STATUS_BY_TYPE,
     NEW_EMAIL_TICKET_STATUS,

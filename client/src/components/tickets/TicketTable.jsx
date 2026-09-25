@@ -5,6 +5,7 @@ import Avatar from '../ui/Avatar.jsx'
 import EmptyState from '../ui/EmptyState.jsx'
 import SkeletonRows from '../ui/SkeletonRows.jsx'
 import Pagination from '../ui/Pagination.jsx'
+import AssigneeStack from './AssigneeStack.jsx'
 import { getPriorityStyle } from '../../utils/ticketMeta.js'
 import { getClockStyle, getSlaState, formatMinutes, getEscalationStyle } from '../../utils/clockMeta.js'
 import { formatDateTime } from '../../utils/format.js'
@@ -19,7 +20,7 @@ const COLUMNS = [
   { label: 'Priority', width: '7%' },
   { label: 'SLA Due', width: '12%' },
   { label: 'Contact', width: '13%' },
-  { label: 'Assignee', width: '11%' },
+  { label: 'Assignees', width: '11%' },
   { label: 'Created', width: '10%' },
 ]
 
@@ -31,7 +32,6 @@ function TicketRow({ ticket }) {
   const priority = getPriorityStyle(ticket.Priority)
   const ChannelIcon = CHANNEL_ICONS[ticket.Channel] || Mail
   const contactName = [ticket.Contact_First_Name, ticket.Contact_Last_Name].filter(Boolean).join(' ') || 'Unknown contact'
-  const assigneeName = [ticket.Assignee_First_Name, ticket.Assignee_Last_Name].filter(Boolean).join(' ')
 
   return (
     <tr
@@ -85,14 +85,7 @@ function TicketRow({ ticket }) {
         </div>
       </td>
       <td className="px-3.5 py-3">
-        {assigneeName ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <Avatar name={assigneeName} size={24} />
-            <span className="truncate text-[12.5px] font-medium text-slate-600">{assigneeName}</span>
-          </div>
-        ) : (
-          <span className="text-[12px] italic text-muted">Unassigned</span>
-        )}
+        <AssigneeStack assignees={ticket.Assignees} showName />
       </td>
       <td className="overflow-hidden text-ellipsis whitespace-nowrap px-3.5 py-3 text-[12.5px] text-muted">
         {formatDateTime(ticket.Created_Time)}

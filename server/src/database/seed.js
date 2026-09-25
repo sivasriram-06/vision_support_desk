@@ -18,6 +18,7 @@ const prioritySlaRepository = require("../repositories/priority-sla.repository")
 const escalationLevelRepository = require("../repositories/escalation-level.repository");
 const { DEFAULT_SUPPORT_START_IST, DEFAULT_SUPPORT_END_IST } = require("../services/sla/business-calendar");
 const supportOrg = require("./seed-data/support-org.json");
+const productTeamSeed = require("./seed-data/product-teams.json");
 const bankSeed = require("./seed-data/banks.json");
 const configSeed = require("./seed-data/config.json");
 
@@ -178,7 +179,9 @@ const seedRoles = (orgId, systemAgentId) => {
  */
 const seedSupportTeams = (orgId, systemAgentId) => {
     const teamIdByName = {};
-    for (const team of supportOrg.teams) {
+    // Support teams from the KB sheet, then the product teams (Java /
+    // Angular) that support pulls in by cross-team assignment.
+    for (const team of [...supportOrg.teams, ...productTeamSeed.teams]) {
         let department = departmentRepository.findBySanitizedName(orgId, team.sanitizedName);
         if (!department) {
             const departmentId = generateId();
@@ -186,6 +189,7 @@ const seedSupportTeams = (orgId, systemAgentId) => {
                 Department_Id: departmentId,
                 Department_Name: team.name,
                 Sanitized_Name: team.sanitizedName,
+                Team_Type: team.teamType || "Support",
                 Is_Default: "N",
                 Is_Enabled: "Y",
                 Is_Visible_To_Contacts: "N",
@@ -217,7 +221,7 @@ const seedSupportTeams = (orgId, systemAgentId) => {
  */
 const seedSupportAgents = (orgId, systemAgentId, roleIdByKey, teamIdByName) => {
     const defaultPassword = env.seedDefaultPassword;
-    const entries = [...supportOrg.agents];
+    const entries = [...supportOrg.agents, ...productTeamSeed.agents];
     const mailbox = SUPPORT_MAILBOX.trim().toLowerCase();
     if (!entries.some((entry) => entry.email === mailbox)) {
         const [localPart] = mailbox.split("@");
@@ -364,6 +368,7 @@ const seedConfig = (orgId, systemAgentId) => {
     };
 
     configSeed.statuses.forEach((status, index) => addPicklist("STATUS", status.value, index, null, status.clock));
+    configSeed.teamTypes.forEach((teamType, index) => addPicklist("TEAM_TYPE", teamType, index));
     Object.entries(configSeed.classifications).forEach(([classification, categories], index) => {
         addPicklist("CLASSIFICATION", classification, index);
         categories.forEach((category, categoryIndex) => addPicklist("CATEGORY", category, categoryIndex, classification));

@@ -9,7 +9,7 @@ const ORGANIZATION_COLUMNS = [
 ];
 
 const DEPARTMENT_COLUMNS = [
-    "Department_Id", "Department_Name", "Sanitized_Name", "Description",
+    "Department_Id", "Department_Name", "Sanitized_Name", "Description", "Team_Type",
     "Name_In_Customer_Portal", "Creator_Agent_Id", "Is_Default", "Is_Enabled",
     "Is_Visible_To_Contacts", "Is_Team_Assignment_Enabled", "Has_Logo",
     "Chat_Status", "Created_By", "Modified_By", "Modified_Time", "Org_Id"

@@ -1,6 +1,7 @@
 const { getDB } = require("../config/db");
 const picklistRepository = require("../repositories/picklist.repository");
 const ticketRepository = require("../repositories/ticket.repository");
+const departmentRepository = require("../repositories/department.repository");
 const resolutionClock = require("./sla/resolution-clock.service");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
@@ -105,6 +106,11 @@ const updateValue = (picklistValueId, payload, actorAgentId) => {
         // text link (same precedent as Priority/Status not being FK ids).
         if (existing.Field === PICKLIST_FIELD.CLASSIFICATION && payload.value !== undefined && nextValue !== existing.Value) {
             picklistRepository.renameParentValue(org.Organization_Id, PICKLIST_FIELD.CATEGORY, existing.Value, nextValue, actorAgentId);
+        }
+
+        // Team type is plain text on the team row too - follow the rename.
+        if (existing.Field === PICKLIST_FIELD.TEAM_TYPE && payload.value !== undefined && nextValue !== existing.Value) {
+            departmentRepository.renameTeamType(org.Organization_Id, existing.Value, nextValue, actorAgentId);
         }
 
         if (existing.Field === PICKLIST_FIELD.STATUS) {
