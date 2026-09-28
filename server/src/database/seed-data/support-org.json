@@ -13,6 +13,8 @@
   "agents": [
     { "firstName": "Vision", "lastName": "Support", "email": "vision.support@sunoida.com", "team": null, "role": "ADMIN" },
     { "firstName": "Yogesh", "lastName": "Balan", "email": "yogesh.balan@sunoida.com", "team": null, "role": "MANAGER", "shift": "General" },
+    { "firstName": "Deepak", "lastName": "S", "email": "deepak.kumaran@sunoida.com", "team": null, "role": "MANAGER", "shift": "General" },
+    { "firstName": "Prabu", "lastName": "CJ", "email": "prabu.cj@sunoida.com", "team": null, "role": "MANAGER", "shift": "General" },
 
     { "firstName": "Vigneshhwaran", "lastName": "Sridharan", "email": "vigneshwaran.sridharan@sunoida.com", "team": "Operations", "role": "TEAM_MEMBER", "shift": "General" },
 

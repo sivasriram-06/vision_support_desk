@@ -185,9 +185,9 @@ const myTickets = (actor, { scope = "assigned", includeClosed = false } = {}) =>
     });
 };
 
-const myTicketCounts = (actor) => {
+const myTicketCounts = (actor, { includeClosed = false } = {}) => {
     const org = organizationService.getDefaultOrganization();
-    return ticketRepository.countMyTickets(org.Organization_Id, { agentId: actor.agentId, teamId: actor.teamId });
+    return ticketRepository.countMyTickets(org.Organization_Id, { agentId: actor.agentId, teamId: actor.teamId, includeClosed });
 };
 
 module.exports = { addAssignees, removeAssignee, listAssignments, markSeen, myTickets, myTicketCounts };

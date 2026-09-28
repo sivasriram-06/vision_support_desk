@@ -8,8 +8,8 @@ import { PERMISSIONS } from '../../auth/permissions.js'
 // `permission` hides an item from agents who couldn't use the page anyway
 // (the routes in App.jsx and the server enforce the same rule).
 const NAV_ITEMS = [
-  { to: '/my-tickets', label: 'My Tickets', icon: UserCheck, live: true, badge: 'unseen' },
   { to: '/tickets', label: 'All Cases', icon: Inbox, live: true },
+  { to: '/my-tickets', label: 'My Tickets', icon: UserCheck, live: true, badge: 'unseen' },
   { to: '/escalations', label: 'Escalations', icon: Siren, live: true },
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
   { to: '/banks', label: 'Banks', icon: Landmark, live: true },

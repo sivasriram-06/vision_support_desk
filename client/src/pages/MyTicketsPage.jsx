@@ -113,10 +113,11 @@ export default function MyTicketsPage() {
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    getMyTicketCounts()
+    // Tab badges follow the "include resolved and closed" box, like the list.
+    getMyTicketCounts({ includeClosed: includeClosed ? 'true' : undefined })
       .then((res) => setCounts(res.data))
       .catch(() => {})
-  }, [reloadKey, state.tickets])
+  }, [includeClosed, reloadKey, state.tickets])
 
   useEffect(() => {
     let cancelled = false

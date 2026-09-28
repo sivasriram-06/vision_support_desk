@@ -13,6 +13,7 @@ const {
     addAssigneesSchema,
     assigneeParamSchema,
     myTicketsQuerySchema,
+    myTicketCountsQuerySchema,
     workStateSchema,
     dependencySchema,
     dependencyParamSchema,
@@ -32,7 +33,7 @@ router.get("/queues/agent/:agentId", ticketController.getAgentQueue);
 router.get("/queues/bank/:bankId", ticketController.getBankQueue);
 router.get("/queues/escalated", validate(escalatedTicketsQuerySchema, "query"), ticketController.listEscalatedTickets);
 router.get("/my", validate(myTicketsQuerySchema, "query"), assignmentController.myTickets);
-router.get("/my/counts", assignmentController.myTicketCounts);
+router.get("/my/counts", validate(myTicketCountsQuerySchema, "query"), assignmentController.myTicketCounts);
 
 router.get("/", validate(listTicketsQuerySchema, "query"), ticketController.listTickets);
 router.post("/", requirePermission(PERMISSIONS.TICKETS_CREATE), validate(createTicketSchema), ticketController.createTicket);

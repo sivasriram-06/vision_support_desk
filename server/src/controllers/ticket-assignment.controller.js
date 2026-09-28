@@ -46,7 +46,7 @@ const myTickets = (req, res, next) => {
 
 const myTicketCounts = (req, res, next) => {
     try {
-        ok(res, HTTP_STATUS.OK, assignmentService.myTicketCounts(req.agent));
+        ok(res, HTTP_STATUS.OK, assignmentService.myTicketCounts(req.agent, { includeClosed: req.query.includeClosed === "true" }));
     } catch (error) {
         next(error);
     }

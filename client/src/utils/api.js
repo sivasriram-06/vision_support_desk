@@ -114,7 +114,7 @@ export const removeWorkDependency = (ticketId, agentId, blockerAgentId) =>
 export const addWorklog = (ticketId, agentId, data) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees/${agentId}/worklogs`, data))
 export const deleteWorklog = (ticketId, worklogId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}/worklogs/${worklogId}`))
 export const getMyTickets = (params) => unwrap(axiosClient.get('/api/v1/tickets/my', { params }))
-export const getMyTicketCounts = () => unwrap(axiosClient.get('/api/v1/tickets/my/counts'))
+export const getMyTicketCounts = (params) => unwrap(axiosClient.get('/api/v1/tickets/my/counts', { params }))
 export const getAgentQueue = (agentId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/agent/${agentId}`, { params }))
 export const getBankQueue = (bankId, params) => unwrap(axiosClient.get(`/api/v1/tickets/queues/bank/${bankId}`, { params }))
 

@@ -266,15 +266,20 @@ const findMyTickets = (orgId, { scope, agentId, teamId, includeClosed = false })
     ).all({ orgId, agentId, teamId: teamId || "" }).map(withAssignees);
 };
 
-/** My Tickets tab badges: open counts per scope, plus unseen assignments for me. */
-const countMyTickets = (orgId, { agentId, teamId }) => {
+/**
+ * My Tickets tab badges, per scope. They follow the page's "include resolved
+ * and closed" box like findMyTickets; unseen (the sidebar badge) always
+ * counts open tickets only.
+ */
+const countMyTickets = (orgId, { agentId, teamId, includeClosed = false }) => {
     const db = getDB();
-    const open = `t.Org_Id = @orgId AND t.Is_Deleted = 'N' AND t.Clock_State <> 'STOPPED'`;
+    const openOnly = `t.Org_Id = @orgId AND t.Is_Deleted = 'N' AND t.Clock_State <> 'STOPPED'`;
+    const open = includeClosed ? `t.Org_Id = @orgId AND t.Is_Deleted = 'N'` : openOnly;
     return db.prepare(
         `SELECT
             (SELECT COUNT(*) FROM ${DB_TABLES.TICKET} t WHERE ${open} AND EXISTS (
                 SELECT 1 FROM ${DB_TABLES.TICKET_ASSIGNMENT} s WHERE s.Ticket_Id = t.Ticket_Id AND s.Agent_Id = @agentId AND s.Released_Time IS NULL)) AS assigned,
-            (SELECT COUNT(*) FROM ${DB_TABLES.TICKET} t WHERE ${open} AND EXISTS (
+            (SELECT COUNT(*) FROM ${DB_TABLES.TICKET} t WHERE ${openOnly} AND EXISTS (
                 SELECT 1 FROM ${DB_TABLES.TICKET_ASSIGNMENT} s WHERE s.Ticket_Id = t.Ticket_Id AND s.Agent_Id = @agentId AND s.Released_Time IS NULL AND s.Seen_Time IS NULL)) AS unseen,
             (SELECT COUNT(*) FROM ${DB_TABLES.TICKET} t WHERE ${open} AND EXISTS (
                 SELECT 1 FROM ${DB_TABLES.TICKET_ASSIGNMENT} s WHERE s.Ticket_Id = t.Ticket_Id AND s.Assigned_By = @agentId AND s.Agent_Id <> @agentId AND s.Released_Time IS NULL)) AS assignedBy,

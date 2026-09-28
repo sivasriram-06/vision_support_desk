@@ -93,6 +93,10 @@ const myTicketsQuerySchema = Joi.object({
     includeClosed: Joi.string().valid("true", "false")
 });
 
+const myTicketCountsQuerySchema = Joi.object({
+    includeClosed: Joi.string().valid("true", "false")
+});
+
 const escalatedTicketsQuerySchema = Joi.object({
     departmentId: Joi.string(),
     bankId: Joi.string(),
@@ -108,6 +112,7 @@ module.exports = {
     addAssigneesSchema,
     assigneeParamSchema,
     myTicketsQuerySchema,
+    myTicketCountsQuerySchema,
     workStateSchema,
     dependencySchema,
     dependencyParamSchema,
