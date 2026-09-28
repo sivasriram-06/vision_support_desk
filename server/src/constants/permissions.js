@@ -13,6 +13,7 @@ const PERMISSIONS = {
     TICKETS_EDIT_PROPERTIES: "tickets.edit_properties",
     TICKETS_ASSIGN_TEAM: "tickets.assign_team",
     TICKETS_ASSIGN_ANY: "tickets.assign_any",
+    CUSTOMERS_MANAGE: "customers.manage",
     AGENTS_MANAGE: "agents.manage",
     TEAMS_MANAGE: "teams.manage",
     CONFIG_MANAGE: "config.manage",
@@ -27,6 +28,7 @@ const PERMISSION_CATALOG = [
     { key: PERMISSIONS.TICKETS_EDIT_PROPERTIES, group: "Tickets", label: "Edit properties", description: "Change bank, priority, department, product, classification, category and due date." },
     { key: PERMISSIONS.TICKETS_ASSIGN_TEAM, group: "Assignment", label: "Assign within own team", description: "Assign tickets to members of their own team." },
     { key: PERMISSIONS.TICKETS_ASSIGN_ANY, group: "Assignment", label: "Assign to anyone", description: "Assign tickets to any agent in any team." },
+    { key: PERMISSIONS.CUSTOMERS_MANAGE, group: "Customers", label: "Customers page", description: "Open the Customers page (Gmail senders), see their ticket counts and edit name and bank." },
     { key: PERMISSIONS.AGENTS_MANAGE, group: "Administration", label: "Manage agents", description: "Add, edit and deactivate agents and move them between teams." },
     { key: PERMISSIONS.TEAMS_MANAGE, group: "Administration", label: "Manage banks & teams", description: "Add and edit banks (support team, level, hours, primary / secondary resources) and support teams." },
     { key: PERMISSIONS.CONFIG_MANAGE, group: "Administration", label: "Manage config", description: "Edit priorities/SLA, statuses, classifications and products." },
@@ -50,24 +52,22 @@ const MEMBER_PERMISSIONS = [
 ];
 
 const DEFAULT_ROLES = [
-    { key: ROLE_KEYS.ADMIN, name: "Admin", sortOrder: 1, parentKey: null, permissions: ALL_PERMISSION_KEYS },
-    { key: ROLE_KEYS.MANAGER, name: "Manager", sortOrder: 2, parentKey: ROLE_KEYS.ADMIN, permissions: ALL_PERMISSION_KEYS },
+    { key: ROLE_KEYS.ADMIN, name: "Admin", sortOrder: 1, permissions: ALL_PERMISSION_KEYS },
+    { key: ROLE_KEYS.MANAGER, name: "Manager", sortOrder: 2, permissions: ALL_PERMISSION_KEYS },
     {
         key: ROLE_KEYS.TEAM_LEAD,
         name: "Team Lead",
         sortOrder: 3,
-        parentKey: ROLE_KEYS.MANAGER,
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM]
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.CUSTOMERS_MANAGE]
     },
     {
         key: ROLE_KEYS.ASSISTANT_TEAM_LEAD,
         name: "Assistant Team Lead",
         sortOrder: 4,
-        parentKey: ROLE_KEYS.TEAM_LEAD,
         // Team Lead and Assistant Team Lead both pick up new tickets and assign them within the team.
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM]
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.CUSTOMERS_MANAGE]
     },
-    { key: ROLE_KEYS.TEAM_MEMBER, name: "Team Member", sortOrder: 5, parentKey: ROLE_KEYS.ASSISTANT_TEAM_LEAD, permissions: MEMBER_PERMISSIONS }
+    { key: ROLE_KEYS.TEAM_MEMBER, name: "Team Member", sortOrder: 5, permissions: MEMBER_PERMISSIONS }
 ];
 
 module.exports = { PERMISSIONS, PERMISSION_CATALOG, ALL_PERMISSION_KEYS, ROLE_KEYS, DEFAULT_ROLES };

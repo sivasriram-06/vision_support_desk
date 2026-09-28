@@ -14,7 +14,6 @@ import {
   getTicketComments,
   getTicketAttachments,
   getContact,
-  getAccount,
   getDepartment,
   getBank,
   markTicketSeen,
@@ -55,13 +54,12 @@ export default function TicketDetailPage() {
             .catch(() => {})
         }
 
-        const [conversationsRes, commentsRes, attachmentsRes, contactRes, accountRes, departmentRes, bankRes, productRes] =
+        const [conversationsRes, commentsRes, attachmentsRes, contactRes, departmentRes, bankRes, productRes] =
           await Promise.all([
             getTicketConversations(ticketId),
             getTicketComments(ticketId),
             getTicketAttachments(ticketId),
             fetchIfPresent(ticket.Contact_Id, getContact),
-            fetchIfPresent(ticket.Account_Id, getAccount),
             fetchIfPresent(ticket.Department_Id, getDepartment),
             fetchIfPresent(ticket.Bank_Id, getBank),
             fetchIfPresent(ticket.Product_Id, getProduct),
@@ -77,7 +75,6 @@ export default function TicketDetailPage() {
             comments: commentsRes.data,
             attachments: attachmentsRes.data,
             contact: contactRes?.data || null,
-            account: accountRes?.data || null,
             department: departmentRes?.data || null,
             bank: bankRes?.data || null,
             product: productRes?.data || null,
@@ -130,7 +127,7 @@ export default function TicketDetailPage() {
     )
   }
 
-  const { ticket, conversations, comments, attachments, contact, account, department, bank, product } = state.data
+  const { ticket, conversations, comments, attachments, contact, department, bank, product } = state.data
 
   const attachmentCountByConversation = attachments.reduce((acc, file) => {
     if (file.Conversation_Id) acc[file.Conversation_Id] = (acc[file.Conversation_Id] || 0) + 1
@@ -182,7 +179,6 @@ export default function TicketDetailPage() {
         <TicketPropertyPanel
           ticket={ticket}
           contact={contact}
-          account={account}
           department={department}
           bank={bank}
           product={product}

@@ -73,14 +73,12 @@ const createAgent = (payload, actor) => {
     const agentId = generateId();
     agentRepository.insert({
         Agent_Id: agentId,
-        Zuid: agentId,
         First_Name: payload.firstName.trim(),
         Last_Name: (payload.lastName || "").trim(),
         Email: email,
         Status: "Active",
         Role_Id: role ? role.Role_Id : null,
         Primary_Department_Id: payload.departmentId || null,
-        Is_Confirmed: "N",
         Created_By: actor.agentId,
         Org_Id: org.Organization_Id
     });
@@ -163,12 +161,10 @@ const findOrCreateBySender = ({ email, name }, actorAgentId) => {
     const agentId = generateId();
     agentRepository.insert({
         Agent_Id: agentId,
-        Zuid: agentId,
         First_Name: firstName,
         Last_Name: lastName,
         Email: normalizedEmail,
         Status: "Active",
-        Is_Confirmed: "N",
         Created_By: actorAgentId,
         Org_Id: org.Organization_Id
     });

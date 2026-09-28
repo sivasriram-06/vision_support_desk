@@ -59,20 +59,8 @@ const env = {
         clientId: requireEnv("GOOGLE_CLIENT_ID"),
         clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
         redirectUri: requireEnv("GOOGLE_REDIRECT_URI"),
-        // Exception to "throw if missing": this is genuinely empty on a
-        // fresh setup - it only exists AFTER the one-time consent flow at
-        // GET /api/v1/gmail/auth-url completes (docs/development/gmail-console-setup.md
-        // step 5). The server must be able to boot without it so that flow
-        // can run at all. gmail.client.js throws GMAIL_NOT_CONFIGURED at
-        // call time if a Gmail API call is attempted before it's set.
         refreshToken: process.env.GOOGLE_REFRESH_TOKEN ? process.env.GOOGLE_REFRESH_TOKEN : null,
-        // The mailbox ingestion targets. Currently sivasriram.balasubramaniyan@sunoida.com
-        // for testing; will change once the real tasks@sunoida.com OAuth grant is set up.
         mailbox: requireEnv("GMAIL_MAILBOX"),
-
-        // Background sync job (src/jobs/gmail-sync.job.js). Independent of
-        // refreshToken above: the job simply doesn't start yet if that's
-        // still null, logging why instead of throwing.
         syncEnabled: requireEnvBool("GMAIL_SYNC_ENABLED"),
         syncIntervalMs: requireEnvInt("GMAIL_SYNC_INTERVAL_MS")
     }

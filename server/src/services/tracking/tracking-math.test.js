@@ -42,6 +42,12 @@ test("critical path with no dependencies is the single longest lane", () => {
     assert.deepEqual(path.ids, ["b"]);
 });
 
+test("critical path with a single assignee is that lane", () => {
+    const path = criticalPath([{ id: "a", spanMinutes: 0 }], []);
+    assert.deepEqual(path.ids, ["a"]);
+    assert.equal(path.slowestId, "a");
+});
+
 test("longest wait compares work waits with bank waits", () => {
     const wait = longestWait({
         laneStretches: [

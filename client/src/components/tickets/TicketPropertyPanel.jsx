@@ -44,7 +44,8 @@ function Field({ label, children }) {
 }
 
 function SectionHeading({ children }) {
-  return <p className="text-[13px] font-bold tracking-wider text-ink-strong">{children}</p>
+  // Same type as a message's author name in the conversation thread.
+  return <p className="text-[13px] font-semibold text-ink">{children}</p>
 }
 
 function ResourceNames({ agents }) {

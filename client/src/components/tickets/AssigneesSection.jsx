@@ -32,14 +32,11 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
   const [error, setError] = useState(null)
   const assignees = ticket.Assignees || []
 
-  // Support teams (and untyped teams like the intake team) are assigned by
-  // their team lead; product and other team types are open to anyone.
-  const openToEveryone = (teamType) => !!teamType && teamType !== 'Support'
-  const canAssignAgent = (agent) => {
-    if (canAssignAny) return true
-    if (openToEveryone(agent.Team_Type)) return canWork
-    return canAssignTeam && !!me?.teamId && agent.Primary_Department_Id === me.teamId
-  }
+  // Leads and above make the first assignment; after that anyone assigned
+  // to the ticket can bring in any agent, own team or cross-team. Mirrors
+  // ticket-assignment.service.js on the server.
+  const isAssignee = assignees.some((a) => a.agentId === me?.agentId)
+  const canAssign = canAssignAny || canAssignTeam || (canWork && isAssignee)
 
   useEffect(() => {
     if (!picking || agents.length) return
@@ -55,7 +52,7 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
     const byTeam = new Map()
     for (const agent of agents) {
       // Role_Key filters out the system actor and mail-sender placeholder agents.
-      if (agent.Status !== 'Active' || !agent.Role_Key || !agent.Primary_Department_Id || current.has(agent.Agent_Id) || !canAssignAgent(agent)) continue
+      if (agent.Status !== 'Active' || !agent.Role_Key || !agent.Primary_Department_Id || current.has(agent.Agent_Id)) continue
       const key = agent.Primary_Department_Id
       if (!byTeam.has(key)) {
         byTeam.set(key, { teamId: key, teamName: agent.Team_Name || 'No team', crossTeam: key !== ticket.Department_Id, agents: [] })
@@ -63,7 +60,7 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
       byTeam.get(key).agents.push(agent)
     }
     return [...byTeam.values()].sort((a, b) => Number(a.crossTeam) - Number(b.crossTeam) || a.teamName.localeCompare(b.teamName))
-  }, [agents, assignees, ticket.Department_Id, canAssignAny, canAssignTeam, canWork, me?.teamId])
+  }, [agents, assignees, ticket.Department_Id])
 
   const resourceTag = (id) => {
     if (bank?.Primary_Resources?.some((a) => a.Agent_Id === id)) return ' ★ Primary'
@@ -75,7 +72,7 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
     a.agentId === me?.agentId ||
     a.assignedBy === me?.agentId ||
     canAssignAny ||
-    (openToEveryone(a.teamType) ? canWork : canAssignTeam && a.teamId === me?.teamId)
+    (canAssignTeam && !!me?.teamId && a.teamId === me.teamId)
 
   const run = async (action) => {
     setBusy(true)
@@ -102,13 +99,11 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
     }
   }
 
-  const anyoneToPick = canAssignAny || canAssignTeam || canWork
-
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Assignees</p>
-        {anyoneToPick && !picking && (
+        {canAssign && !picking && (
           <button
             onClick={() => setPicking(true)}
             className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-primary transition hover:bg-primary/10"
@@ -120,7 +115,9 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
       </div>
 
       {assignees.length === 0 ? (
-        <p className="text-[12.5px] italic text-muted">Unassigned</p>
+        <p className="text-[12.5px] italic text-muted">
+          Unassigned{!canAssign && canWork && ' - a team lead makes the first assignment'}
+        </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {assignees.map((a) => (

@@ -57,7 +57,6 @@ router.post("/:ticketId/assignees/:agentId/worklogs", validate(assigneeParamSche
 router.delete("/:ticketId/worklogs/:worklogId", validate(worklogParamSchema, "params"), workController.deleteWorklog);
 
 router.get("/:ticketId/history", ticketController.getTicketHistory);
-router.get("/:ticketId/resolution", ticketController.getTicketResolution);
 router.get("/:ticketId/metrics", ticketController.getTicketMetrics);
 
 router.get("/:ticketId/conversations", conversationController.listConversations);

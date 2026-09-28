@@ -86,7 +86,10 @@ const criticalPath = (lanes, edges) => {
 
     let endId = null;
     for (const l of lanes) {
-        if (endId === null || solve(l.id).total > solve(endId).total) endId = l.id;
+        // solve() first: short-circuiting it on the first lane left a
+        // single-assignee ticket with no path entry.
+        const total = solve(l.id).total;
+        if (endId === null || total > best.get(endId).total) endId = l.id;
     }
     const ids = [];
     for (let cur = endId; cur; cur = best.get(cur).prev) ids.unshift(cur);

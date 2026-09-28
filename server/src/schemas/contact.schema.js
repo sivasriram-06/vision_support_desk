@@ -3,9 +3,7 @@ const Joi = require("joi");
 const createContactSchema = Joi.object({
     firstName: Joi.string().allow("", null),
     lastName: Joi.string().required(),
-    email: Joi.string().email().allow(null),
-    phone: Joi.string().allow("", null),
-    accountId: Joi.string().allow(null)
+    email: Joi.string().email().allow(null)
 });
 
 const listContactsQuerySchema = Joi.object({

@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_CONVERSATION (
     Author_Contact_Id    TEXT REFERENCES HD_CONTACT_MASTER (Contact_Id),
     Author_Agent_Id      TEXT REFERENCES HD_AGENT_MASTER (Agent_Id),
     Is_Public            TEXT NOT NULL DEFAULT 'Y' CHECK (Is_Public IN ('Y', 'N')),
-    Is_Draft             TEXT NOT NULL DEFAULT 'N' CHECK (Is_Draft IN ('Y', 'N')),
-    Is_Forward           TEXT NOT NULL DEFAULT 'N' CHECK (Is_Forward IN ('Y', 'N')),
     To_Address           TEXT,
     Cc_Address           TEXT,
     Sent_Time            TEXT NOT NULL,

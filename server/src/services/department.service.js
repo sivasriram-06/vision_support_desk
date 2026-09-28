@@ -54,10 +54,7 @@ const createDepartment = (payload, actorAgentId) => {
         Department_Name: departmentName,
         Sanitized_Name: sanitizedName,
         Team_Type: resolveTeamType(org.Organization_Id, payload.teamType) ?? null,
-        Creator_Agent_Id: actorAgentId,
         Is_Default: "N",
-        Is_Enabled: "Y",
-        Is_Visible_To_Contacts: "Y",
         Created_By: actorAgentId,
         Org_Id: org.Organization_Id
     });

@@ -36,7 +36,7 @@ function Bars({ items, start, end }) {
           <span
             key={`${item.startTime}-${item.label}`}
             title={item.title}
-            className={`absolute top-0.5 bottom-0.5 rounded ${item.className} ${item.highlight ? 'ring-2 ring-danger ring-offset-1' : ''}`}
+            className={`absolute top-0.5 bottom-0.5 ${item.className}`}
             style={{ left: `${left}%`, width: `${width}%` }}
           />
         )
@@ -48,14 +48,12 @@ function Bars({ items, start, end }) {
 /**
  * Gantt-style view: a row for the ticket's status, then one row per
  * assignee's work coloured by work state. Overlapping bars = parallel
- * work; amber = waiting on someone else. The critical path is marked and
- * the longest wait is outlined in red.
+ * work; amber = waiting on someone else. The critical path is marked.
  */
 export default function TrackingSwimlane({ tracking }) {
   const start = ms(tracking.startTime)
   const end = ms(tracking.endTime)
   const critical = new Set(tracking.summary.criticalPath.assignmentIds)
-  const longest = tracking.summary.longestWait
   const laneById = new Map(tracking.lanes.map((l) => [l.assignmentId, l]))
 
   const statusItems = tracking.statuses.map((s) => ({
@@ -64,7 +62,6 @@ export default function TrackingSwimlane({ tracking }) {
     label: s.status,
     className: STATUS_BAR[s.clock] || STATUS_BAR.NOT_STARTED,
     title: `${s.status} · ${formatMinutes(s.elapsed)} (${formatMinutes(s.support)} in support hours)\n${formatDateTime(s.startTime)} - ${formatDateTime(s.endTime)}`,
-    highlight: longest?.kind === 'STATUS' && longest.startTime === s.startTime,
   }))
 
   return (
@@ -88,7 +85,6 @@ export default function TrackingSwimlane({ tracking }) {
               label: s.state,
               className: style.bar,
               title: `${lane.name} · ${style.label}${s.note ? ` - ${s.note}` : ''}\n${formatDateTime(s.startTime)} - ${formatDateTime(s.endTime)}`,
-              highlight: longest?.kind === 'WORK' && longest.laneId === lane.assignmentId && longest.startTime === s.startTime,
             }
           })
           return (
@@ -123,10 +119,6 @@ export default function TrackingSwimlane({ tracking }) {
             {s.label}
           </span>
         ))}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-4 rounded-sm ring-2 ring-danger" />
-          Longest wait
-        </span>
         {critical.size > 1 && (
           <span className="inline-flex items-center gap-1.5">
             <Route className="h-3 w-3 text-danger" />

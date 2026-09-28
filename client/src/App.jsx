@@ -6,6 +6,8 @@ import BanksPage from './pages/BanksPage.jsx'
 import EscalationsPage from './pages/EscalationsPage.jsx'
 import MyTicketsPage from './pages/MyTicketsPage.jsx'
 import AgentsPage from './pages/AgentsPage.jsx'
+import CustomersPage from './pages/CustomersPage.jsx'
+import CustomerDetailPage from './pages/CustomerDetailPage.jsx'
 import ConfigPage from './pages/ConfigPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -38,6 +40,8 @@ function AuthenticatedApp() {
         <Route path="/escalations" element={<EscalationsPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/banks" element={<BanksPage />} />
+        <Route path="/customers" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomersPage /></Guard>} />
+        <Route path="/customers/:contactId" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomerDetailPage /></Guard>} />
         <Route path="/teams" element={<Navigate to="/banks" replace />} />
         <Route path="/config" element={<Guard permission={PERMISSIONS.CONFIG_MANAGE}><ConfigPage /></Guard>} />
         <Route path="/admin" element={<Guard permission={PERMISSIONS.ADMIN_ACCESS}><AdminPage /></Guard>} />

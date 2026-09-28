@@ -58,7 +58,7 @@ const ASSIGNEES_JSON_SQL = `(
 )`;
 
 /**
- * List/queue rows join in display names (contact, account, assignees,
+ * List/queue rows join in display names (contact, assignees,
  * department, bank) so the frontend never has to resolve raw *_Id columns
  * itself. Ticket_Id's own primary key isn't ambiguous with the joined
  * tables' ids since every SELECT column is qualified.
@@ -66,7 +66,6 @@ const ASSIGNEES_JSON_SQL = `(
 const LIST_SELECT = `
     SELECT t.*,
         c.First_Name AS Contact_First_Name, c.Last_Name AS Contact_Last_Name, c.Email AS Contact_Email,
-        acc.Account_Name AS Account_Name,
         d.Department_Name AS Department_Name,
         bk.Bank_Name AS Bank_Name,
         ${ASSIGNEES_JSON_SQL} AS Assignees_Json,
@@ -74,7 +73,6 @@ const LIST_SELECT = `
         ${NEXT_ESCALATION_TIME_SQL} AS Next_Escalation_Time
     FROM ${DB_TABLES.TICKET} t
     LEFT JOIN ${DB_TABLES.CONTACT} c ON c.Contact_Id = t.Contact_Id
-    LEFT JOIN ${DB_TABLES.ACCOUNT} acc ON acc.Account_Id = t.Account_Id
     LEFT JOIN ${DB_TABLES.DEPARTMENT} d ON d.Department_Id = t.Department_Id
     LEFT JOIN ${DB_TABLES.BANK} bk ON bk.Bank_Id = t.Bank_Id
 `;

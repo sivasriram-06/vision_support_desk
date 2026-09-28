@@ -7,8 +7,8 @@
     { "value": "In Progress - Client", "clock": "PAUSED" },
     { "value": "On Hold - Client", "clock": "PAUSED" },
     { "value": "On Hold - Dependent", "clock": "PAUSED" },
-    { "value": "Resolved", "clock": "STOPPED" },
-    { "value": "Resolved - Under Observation", "clock": "STOPPED" },
+    { "value": "Resolved", "clock": "RUNNING" },
+    { "value": "Resolved - Under Observation", "clock": "RUNNING" },
     { "value": "Closed", "clock": "STOPPED" }
   ],
   "_teamTypes": "Kinds of team (HD_DEPARTMENT_MASTER.Team_Type), managed on the Config page. Support teams own banks; other teams (e.g. Product: Java, Angular) are pulled in on a ticket by cross-team assignment. More types can be added.",
@@ -52,7 +52,8 @@
     "Vision RA",
     "Vision RegTech",
     "Vision Studio",
-    "Vision SupTech"
+    "Vision SupTech",
+    "Vision AI"
   ],
   "prioritySla": [
     {

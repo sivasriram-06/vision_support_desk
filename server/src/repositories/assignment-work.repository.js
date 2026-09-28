@@ -2,7 +2,7 @@ const { getDB } = require("../config/db");
 const DB_TABLES = require("../constants/db-tables");
 
 /**
- * State log, dependencies and work logs of assignments (0036). Raw SQL
+ * State log, dependencies and work logs of assignments (0025). Raw SQL
  * rather than base.repository: these tables are append-mostly and have no
  * Modified_* columns.
  */

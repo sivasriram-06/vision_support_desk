@@ -3,7 +3,7 @@ const authenticate = require("../../middleware/auth.middleware");
 
 const ticketRoutes = require("./ticket.route");
 const contactRoutes = require("./contact.route");
-const accountRoutes = require("./account.route");
+const customerRoutes = require("./customer.route");
 const agentRoutes = require("./agent.route");
 const departmentRoutes = require("./department.route");
 const bankRoutes = require("./bank.route");
@@ -26,7 +26,7 @@ router.use(authenticate);
 
 router.use("/tickets", ticketRoutes);
 router.use("/contacts", contactRoutes);
-router.use("/accounts", accountRoutes);
+router.use("/customers", customerRoutes);
 router.use("/agents", agentRoutes);
 router.use("/departments", departmentRoutes);
 router.use("/banks", bankRoutes);

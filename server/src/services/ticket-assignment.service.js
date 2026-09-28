@@ -18,17 +18,13 @@ const { TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../constants/
  * Who works a ticket. A ticket has any number of equal assignees
  * (HD_TICKET_ASSIGNMENT). Rules:
  *
- *   Support team member   - assignee's team is a Support team (or has no
- *                           type, e.g. the intake team): tickets.assign_any,
- *                           or tickets.assign_team for members of the
- *                           actor's own team (team lead). A team member
- *                           can't assign themselves or a teammate.
- *   Product / other team  - assignee's team type is anything but Support
- *                           (e.g. Java or Angular Team): anyone who works
- *                           tickets (tickets.edit_status) may pull them in.
+ *   Assign   - the first assignment is made by Admin / Manager / Team Lead /
+ *              Assistant TL (tickets.assign_any or tickets.assign_team).
+ *              After that, anyone assigned to the ticket may bring in any
+ *              active agent of any team, so people work in parallel.
+ *   Release  - the assignee themselves, whoever assigned them,
+ *              tickets.assign_any, or the assignee's team lead.
  *   Is_Cross_Team marks an assignee outside the ticket's own team.
- *   Release               - the assignee themselves, whoever assigned them,
- *                           or someone allowed to assign them.
  *
  * Every add/release writes a history row, so ticket tracking can show who
  * assigned whom and when.
@@ -48,29 +44,37 @@ const getAgent = (agentId) => {
 
 const isCrossTeam = (ticket, agent) => !agent.Primary_Department_Id || agent.Primary_Department_Id !== ticket.Department_Id;
 
-// Support teams (and teams without a type, e.g. the intake team) are
-// assigned by their team lead. Any other team type (Product: Java,
-// Angular...) can be pulled in by anyone working the ticket.
-const SUPPORT_TEAM_TYPE = "Support";
-const isOpenToEveryone = (agent) => !!agent.Team_Type && agent.Team_Type !== SUPPORT_TEAM_TYPE;
+/**
+ * Can `actor` assign people to `ticketId`? Throws with the reason if not.
+ *   - Admin / Manager (tickets.assign_any) and Team Lead / Assistant TL
+ *     (tickets.assign_team) always can - they make the first assignment.
+ *   - Once assigned, anyone currently assigned to the ticket can bring in
+ *     any other agent, own team or cross-team, to work in parallel.
+ */
+const assertCanAssign = (actor, ticketId) => {
+    const has = (key) => actor.permissions.includes(key);
+    if (has(PERMISSIONS.TICKETS_ASSIGN_ANY) || has(PERMISSIONS.TICKETS_ASSIGN_TEAM)) return;
+    if (!has(PERMISSIONS.TICKETS_EDIT_STATUS)) {
+        throw forbidden("You do not have permission to assign this ticket");
+    }
+    if (assignmentRepository.findOpen(ticketId, actor.agentId)) return;
+    if (assignmentRepository.countOpen(ticketId) === 0) {
+        throw forbidden("The first assignment is made by a team lead or manager - ask your team lead");
+    }
+    throw forbidden("Only people assigned to this ticket can bring others in");
+};
 
-/** Can `actor` assign `agent` to `ticket`? Throws with the reason if not. */
-const assertCanAssign = (actor, ticket, agent) => {
+/**
+ * Can `actor` take `agent` off the ticket? The assignee themselves and
+ * whoever assigned them always can; otherwise tickets.assign_any, or the
+ * team lead (tickets.assign_team) of the assignee's team.
+ */
+const assertCanRelease = (actor, agent, assignment) => {
+    if (agent.Agent_Id === actor.agentId || assignment.Assigned_By === actor.agentId) return;
     const has = (key) => actor.permissions.includes(key);
     if (has(PERMISSIONS.TICKETS_ASSIGN_ANY)) return;
-
-    if (isOpenToEveryone(agent)) {
-        if (!has(PERMISSIONS.TICKETS_EDIT_STATUS)) {
-            throw forbidden("You do not have permission to pull another team into this ticket");
-        }
-        return;
-    }
-    if (!has(PERMISSIONS.TICKETS_ASSIGN_TEAM)) {
-        throw forbidden("Only a team lead can assign support team members - ask your team lead");
-    }
-    if (!actor.teamId || agent.Primary_Department_Id !== actor.teamId) {
-        throw forbidden("You can only assign members of your own team");
-    }
+    if (has(PERMISSIONS.TICKETS_ASSIGN_TEAM) && actor.teamId && agent.Primary_Department_Id === actor.teamId) return;
+    throw forbidden("Only the assignee, whoever assigned them, or their team lead can remove them");
 };
 
 /**
@@ -93,7 +97,7 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
         if (agent.Status !== "Active") {
             throw forbidden(`${agent.First_Name} ${agent.Last_Name} is inactive and can't be assigned`);
         }
-        assertCanAssign(actor, ticket, agent);
+        assertCanAssign(actor, ticketId);
     }
 
     getDB().transaction(() => {
@@ -116,7 +120,6 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
                 Assigned_Time: time,
                 Note: note,
                 Round_No: roundNo,
-                // Assigning yourself needs no "new" flag.
                 Seen_Time: agent.Agent_Id === actor.agentId ? time : null,
                 Org_Id: org.Organization_Id
             });
@@ -138,14 +141,12 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
 
 const removeAssignee = (ticketId, agentId, actor) => {
     const org = organizationService.getDefaultOrganization();
-    const ticket = ticketService.getTicketById(ticketId);
+    ticketService.getTicketById(ticketId);
     const open = assignmentRepository.findOpen(ticketId, agentId);
     if (!open) {
         throw new ApiError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.AGENT_NOT_FOUND, "This person is not assigned to the ticket");
     }
-    const self = agentId === actor.agentId;
-    const assigner = open.Assigned_By === actor.agentId;
-    if (!self && !assigner) assertCanAssign(actor, ticket, getAgent(agentId));
+    assertCanRelease(actor, getAgent(agentId), open);
 
     getDB().transaction(() => {
         const time = nowIso();

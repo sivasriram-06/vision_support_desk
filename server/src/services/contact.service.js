@@ -29,8 +29,6 @@ const createContact = (payload, actorAgentId) => {
         First_Name: payload.firstName || null,
         Last_Name: payload.lastName,
         Email: payload.email || null,
-        Phone: payload.phone || null,
-        Account_Id: payload.accountId || null,
         Created_By: actorAgentId,
         Org_Id: org.Organization_Id
     });

@@ -1,6 +1,5 @@
 -- HD_AGENT_CREDENTIAL: local (email + password) sign-in credential for an
--- agent. Kept apart from HD_AGENT_AUTH (external IdP subjects). Only a
--- bcrypt hash is stored. Must_Change_Password = 'Y' for temporary
+-- agent. Only a bcrypt hash is stored. Must_Change_Password = 'Y' for temporary
 -- passwords (seed default / admin reset) - every other route is refused
 -- until the agent chooses their own.
 CREATE TABLE IF NOT EXISTS HD_AGENT_CREDENTIAL (

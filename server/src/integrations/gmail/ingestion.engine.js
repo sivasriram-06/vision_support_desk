@@ -4,7 +4,7 @@ const gmailClient = require("./gmail.client");
 const { normalizeMessage } = require("./gmail.normalizer");
 const { thread: threadRepository, conversation: conversationRepository } = require("../../repositories/conversation.repository");
 const ticketRepository = require("../../repositories/ticket.repository");
-const { mailReplyAddress: mailReplyAddressRepository } = require("../../repositories/channel.repository");
+const mailReplyAddressRepository = require("../../repositories/mail-reply-address.repository");
 const gmailIngestedMessageRepository = require("../../repositories/gmail-ingested-message.repository");
 const attachmentRepository = require("../../repositories/attachment.repository");
 const ticketService = require("../../services/ticket.service");
@@ -239,6 +239,11 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
         return { status: "skipped", reason: "outbound message has no recipient to match a contact" };
     }
     const contact = contactService.findOrCreateBySender(counterpartAddress, systemAgentId);
+    // Every From address is kept on the Customers page - bank side and our
+    // own agents alike - not only the ticket's counterpart.
+    if (normalized.from.email.toLowerCase() !== counterpartAddress.email.toLowerCase()) {
+        contactService.findOrCreateBySender(normalized.from, systemAgentId);
+    }
 
     // An outbound message's author is the agent who actually sent it. Reuses
     // an existing HD_AGENT_MASTER row for that From address if one exists,
@@ -278,7 +283,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
         let isNewTicket = false;
 
         if (!ticketId) {
-            const mailReplyAddress = mailReplyAddressRepository.findMailReplyAddressByEmail(mailboxAddress);
+            const mailReplyAddress = mailReplyAddressRepository.findByEmail(mailboxAddress);
             if (!mailReplyAddress) {
                 throw new ApiError(
                     HTTP_STATUS.INTERNAL_SERVER_ERROR,
@@ -293,7 +298,8 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
                 channel: CHANNEL.EMAIL,
                 status: NEW_EMAIL_TICKET_STATUS,
                 departmentId: mailReplyAddress.Department_Id,
-                contactId: contact.Contact_Id
+                contactId: contact.Contact_Id,
+                createdTime: normalized.sentTime
             }, systemAgentId);
             ticketId = ticket.Ticket_Id;
             isNewTicket = true;
@@ -363,7 +369,8 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
                 ticketId,
                 eventName: TICKET_HISTORY_EVENT.CONVERSATION_ADDED,
                 actorAgentId: systemAgentId,
-                orgId: org.Organization_Id
+                orgId: org.Organization_Id,
+                eventTime: normalized.sentTime
             });
         }
 

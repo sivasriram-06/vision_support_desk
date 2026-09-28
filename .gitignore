@@ -21,3 +21,9 @@ npm-debug.log*
 
 
 *.xlsx
+
+
+
+.vscode/
+
+.claude/

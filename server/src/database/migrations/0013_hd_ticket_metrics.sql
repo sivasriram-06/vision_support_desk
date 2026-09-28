@@ -2,13 +2,8 @@
 CREATE TABLE IF NOT EXISTS HD_TICKET_METRICS (
     Metric_Id                   TEXT PRIMARY KEY,
     Ticket_Id                   TEXT NOT NULL REFERENCES HD_TICKET_MASTER (Ticket_Id),
-    First_Response_Time_Mins     INTEGER,
-    Total_Response_Time_Mins     INTEGER,
     Resolution_Time_Mins         INTEGER,
     Reopen_Count                INTEGER NOT NULL DEFAULT 0,
-    Reassign_Count               INTEGER NOT NULL DEFAULT 0,
-    Response_Count              INTEGER NOT NULL DEFAULT 0,
-    Handled_By_Agent_Ids          TEXT,
     Created_By                  TEXT NOT NULL,
     Created_Time                TEXT NOT NULL DEFAULT (datetime('now')),
     Modified_By                 TEXT,

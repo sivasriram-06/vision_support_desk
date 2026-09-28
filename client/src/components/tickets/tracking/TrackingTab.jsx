@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Timer, Gauge, Users, Send } from 'lucide-react'
+import { Timer, Gauge, Users, Send } from 'lucide-react'
 import Avatar from '../../ui/Avatar.jsx'
 import Badge from '../../ui/Badge.jsx'
 import Button from '../../ui/Button.jsx'
@@ -140,17 +140,6 @@ export default function TrackingTab({ ticket, onChanged }) {
           <Stat label="Work logged" value={formatMinutes(s.loggedMinutes)} sub={`${t.worklogs.length} entr${t.worklogs.length === 1 ? 'y' : 'ies'}`} />
         </div>
 
-        {s.longestWait && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-danger/25 bg-danger/5 px-3.5 py-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-ink">
-                Stayed longest: {s.longestWait.label} · {formatMinutes(s.longestWait.minutes)}
-              </p>
-              <p className="text-[11.5px] text-muted">Outlined in red on the timeline below.</p>
-            </div>
-          </div>
-        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Holding now</span>

@@ -1,6 +1,6 @@
 const { getDB } = require("../config/db");
 const ticketRepository = require("../repositories/ticket.repository");
-const { history: historyRepository, resolution: resolutionRepository, metrics: metricsRepository } = require("../repositories/history.repository");
+const { history: historyRepository, metrics: metricsRepository } = require("../repositories/history.repository");
 const departmentRepository = require("../repositories/department.repository");
 const bankRepository = require("../repositories/bank.repository");
 const contactRepository = require("../repositories/contact.repository");
@@ -18,7 +18,7 @@ const { buildPaging } = require("../utils/pagination");
 
 const nowIso = () => new Date().toISOString();
 
-const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null, newValue = null, actorAgentId, orgId }) => {
+const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null, newValue = null, actorAgentId, orgId, eventTime = null }) => {
     historyRepository.insert({
         History_Id: generateId(),
         Ticket_Id: ticketId,
@@ -27,7 +27,7 @@ const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null,
         Old_Value: oldValue !== null ? String(oldValue) : null,
         New_Value: newValue !== null ? String(newValue) : null,
         Actor_Agent_Id: actorAgentId,
-        Event_Time: nowIso(),
+        Event_Time: eventTime || nowIso(),
         Created_By: actorAgentId,
         Org_Id: orgId
     });
@@ -96,7 +96,11 @@ const createTicket = (payload, actorAgentId) => {
     const createTxn = db.transaction(() => {
         const ticketId = generateId();
         const ticketNumber = ticketRepository.findNextTicketNumber(org.Organization_Id);
-        const createdTime = nowIso();
+        // Email tickets are born when Gmail received the mail, not when the
+        // sync ran (internal callers only - the API schema doesn't accept
+        // it). Clamped to now so clock skew can't put it in the future.
+        const sourceMs = payload.createdTime ? new Date(payload.createdTime).getTime() : NaN;
+        const createdTime = Number.isNaN(sourceMs) ? nowIso() : new Date(Math.min(sourceMs, Date.now())).toISOString();
         const statusType = payload.statusType || STATUS_TYPE.OPEN;
         const status = payload.status || DEFAULT_STATUS_BY_TYPE[statusType];
         const dueDate = computeSlaDueDate({ createdTime, priority: payload.priority, bankId: payload.bankId, orgId: org.Organization_Id });
@@ -113,7 +117,6 @@ const createTicket = (payload, actorAgentId) => {
             Department_Id: departmentForBank(payload.bankId) || payload.departmentId,
             Bank_Id: payload.bankId || null,
             Contact_Id: payload.contactId,
-            Account_Id: payload.accountId || null,
             Response_Due_Date: dueDate,
             // Stored explicitly as ISO-8601 UTC (same instant the SLA was
             // computed from). The column default, datetime('now'), writes
@@ -128,15 +131,14 @@ const createTicket = (payload, actorAgentId) => {
             ticketId,
             eventName: TICKET_HISTORY_EVENT.CREATED,
             actorAgentId,
-            orgId: org.Organization_Id
+            orgId: org.Organization_Id,
+            eventTime: createdTime
         });
 
         metricsRepository.insert({
             Metric_Id: generateId(),
             Ticket_Id: ticketId,
             Reopen_Count: 0,
-            Reassign_Count: 0,
-            Response_Count: 0,
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id
         });
@@ -284,11 +286,6 @@ const getTicketHistory = (ticketId) => {
     return historyRepository.findByTicketId(ticketId);
 };
 
-const getTicketResolution = (ticketId) => {
-    getTicketById(ticketId);
-    return resolutionRepository.findResolutionByTicketId(ticketId) || null;
-};
-
 /** Stored metrics plus the live resolution clock (an open segment keeps counting) and escalation level. */
 const getTicketMetrics = (ticketId) => {
     const ticket = getTicketById(ticketId);
@@ -315,7 +312,6 @@ module.exports = {
     createTicket,
     updateTicket,
     getTicketHistory,
-    getTicketResolution,
     getTicketMetrics,
     listEscalatedTickets,
     recordHistory

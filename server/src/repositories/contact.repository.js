@@ -13,7 +13,7 @@ const base = createRepository({
 const findByEmail = (orgId, email) => {
     const db = getDB();
     return db.prepare(
-        `SELECT * FROM ${DB_TABLES.CONTACT} WHERE Org_Id = ? AND Email = ? AND Is_Deleted = 'N'`
+        `SELECT * FROM ${DB_TABLES.CONTACT} WHERE Org_Id = ? AND Email = ? COLLATE NOCASE AND Is_Deleted = 'N'`
     ).get(orgId, email);
 };
 

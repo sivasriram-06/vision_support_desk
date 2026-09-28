@@ -6,12 +6,6 @@ const logger = require("../utils/logger");
 let intervalHandle = null;
 let isRunning = false;
 let tickCount = 0;
-
-// Deletion-sync has to re-list the WHOLE matching query every run (no
-// early-stop is possible for a diff), so it rides along on the same
-// interval as the main sync but only actually runs every Nth tick instead
-// of every tick - the main sync's incremental, early-stopping walk is cheap
-// enough to run every time; a full re-list isn't worth doing that often.
 const DELETION_SYNC_EVERY_N_TICKS = 20;
 
 const runDeletionSyncTick = async () => {

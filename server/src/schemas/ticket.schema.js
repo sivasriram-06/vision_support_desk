@@ -16,7 +16,6 @@ const createTicketSchema = Joi.object({
     departmentId: Joi.string().required(),
     bankId: Joi.string().allow(null),
     contactId: Joi.string().required(),
-    accountId: Joi.string().allow(null),
     status: Joi.string().allow(null),
     statusType: Joi.string().valid(...Object.values(STATUS_TYPE)),
     priority: Joi.string().max(30).allow(null)

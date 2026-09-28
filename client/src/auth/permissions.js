@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   TICKETS_EDIT_PROPERTIES: 'tickets.edit_properties',
   TICKETS_ASSIGN_TEAM: 'tickets.assign_team',
   TICKETS_ASSIGN_ANY: 'tickets.assign_any',
+  CUSTOMERS_MANAGE: 'customers.manage',
   AGENTS_MANAGE: 'agents.manage',
   TEAMS_MANAGE: 'teams.manage',
   CONFIG_MANAGE: 'config.manage',

@@ -134,9 +134,11 @@ export const getContacts = (params) => unwrap(axiosClient.get('/api/v1/contacts'
 export const getContact = (contactId) => unwrap(axiosClient.get(`/api/v1/contacts/${contactId}`))
 export const createContact = (data) => unwrap(axiosClient.post('/api/v1/contacts', data))
 
-// Accounts
-export const getAccounts = (params) => unwrap(axiosClient.get('/api/v1/accounts', { params }))
-export const getAccount = (accountId) => unwrap(axiosClient.get(`/api/v1/accounts/${accountId}`))
+// Customers page (customers.manage)
+export const getCustomers = (params) => unwrap(axiosClient.get('/api/v1/customers', { params }))
+export const getCustomer = (contactId) => unwrap(axiosClient.get(`/api/v1/customers/${contactId}`))
+export const updateCustomer = (contactId, data) => unwrap(axiosClient.patch(`/api/v1/customers/${contactId}`, data))
+
 
 // Agents
 export const getAgents = (params) => unwrap(axiosClient.get('/api/v1/agents', { params }))

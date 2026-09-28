@@ -69,15 +69,6 @@ const getTicketHistory = (req, res, next) => {
     }
 };
 
-const getTicketResolution = (req, res, next) => {
-    try {
-        const resolution = ticketService.getTicketResolution(req.params.ticketId);
-        ok(res, HTTP_STATUS.OK, resolution);
-    } catch (error) {
-        next(error);
-    }
-};
-
 const getTicketMetrics = (req, res, next) => {
     try {
         const metrics = ticketService.getTicketMetrics(req.params.ticketId);
@@ -104,6 +95,5 @@ module.exports = {
     createTicket,
     updateTicket,
     getTicketHistory,
-    getTicketResolution,
     getTicketMetrics
 };

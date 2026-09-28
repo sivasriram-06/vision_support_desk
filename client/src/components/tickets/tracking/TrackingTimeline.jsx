@@ -29,13 +29,9 @@ const EVENT_STYLE = {
   EMAIL: { icon: Mail, className: 'bg-sky/10 text-sky-dark' },
 }
 
-// A gap this long before the next event gets called out as "sat for ...".
-const LONG_GAP_MINUTES = 8 * 60
-
 /**
  * Every event on the ticket in time order, each with how long the ticket
- * sat until the next thing happened. Filter chips narrow it down; long
- * gaps are highlighted so slow spots stand out.
+ * sat until the next thing happened. Filter chips narrow it down.
  */
 export default function TrackingTimeline({ events }) {
   const [filter, setFilter] = useState('ALL')
@@ -78,7 +74,6 @@ export default function TrackingTimeline({ events }) {
             const style = EVENT_STYLE[e.type] || EVENT_STYLE.FIELD
             const Icon = style.icon
             const work = e.type === 'WORK' && e.state ? getWorkStyle(e.state) : null
-            const longGap = e.minutesUntilNext >= LONG_GAP_MINUTES
             return (
               <li key={`${e.time}-${i}`} className="relative flex gap-3 pb-4 last:pb-0">
                 {i < ordered.length - 1 && <span className="absolute left-[13px] top-7 bottom-0 w-px bg-border" />}
@@ -106,8 +101,7 @@ export default function TrackingTimeline({ events }) {
                     <p className="text-[11px] text-muted">by {e.actor}</p>
                   )}
                   {e.minutesUntilNext > 0 && (
-                    <p className={`mt-1 text-[11px] ${longGap ? 'font-semibold text-danger' : 'text-muted'}`}>
-                      {longGap ? 'Sat for ' : ''}
+                    <p className="mt-1 text-[11px] text-muted">
                       {formatMinutes(e.minutesUntilNext)} until the next event
                     </p>
                   )}
