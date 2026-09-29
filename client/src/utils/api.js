@@ -103,6 +103,12 @@ export const addTicketAssignees = (ticketId, agentIds, note) =>
   unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees`, { agentIds, note }))
 export const removeTicketAssignee = (ticketId, agentId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}/assignees/${agentId}`))
 export const markTicketSeen = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/assignees/seen`))
+
+// Customer reply on a Closed ticket: reopen / new issue / no action
+export const getReopenInfo = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/reopens`))
+export const reopenTicket = (ticketId, reason) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/reopen`, { reason }))
+export const splitTicket = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/split`))
+export const dismissCloseReplies = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/close-replies/dismiss`))
 // Tracking tab: work states, dependencies, work logs
 export const getTicketTracking = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/tracking`))
 export const setWorkState = (ticketId, agentId, state, note) =>

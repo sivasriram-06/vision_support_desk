@@ -49,6 +49,7 @@ const listTicketsQuerySchema = Joi.object({
     sortOrder: Joi.string().valid("asc", "desc", "ASC", "DESC"),
     unassignedOnly: Joi.string().valid("true", "false"),
     slaBreached: Joi.string().valid("true", "false"),
+    closeReplies: Joi.string().valid("true", "false"),
     escalationLevel: Joi.alternatives().try(Joi.string().valid("any"), Joi.number().integer().min(1))
 });
 
@@ -93,6 +94,10 @@ const myTicketsQuerySchema = Joi.object({
     includeClosed: Joi.string().valid("true", "false")
 });
 
+const reopenSchema = Joi.object({
+    reason: Joi.string().trim().min(3).max(500).required()
+});
+
 const myTicketCountsQuerySchema = Joi.object({
     includeClosed: Joi.string().valid("true", "false")
 });
@@ -113,6 +118,7 @@ module.exports = {
     assigneeParamSchema,
     myTicketsQuerySchema,
     myTicketCountsQuerySchema,
+    reopenSchema,
     workStateSchema,
     dependencySchema,
     dependencyParamSchema,

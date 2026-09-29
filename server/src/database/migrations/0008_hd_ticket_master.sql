@@ -8,6 +8,10 @@
 -- Who works the ticket is not a column here: a ticket can have several
 -- equal assignees, including cross-team (product team) members, kept with
 -- their history in HD_TICKET_ASSIGNMENT.
+-- Sla_Start_Time is what the SLA due date counts from: Created_Time, reset
+-- to the reopen time when a closed ticket is reopened (HD_TICKET_REOPEN).
+-- Split_From_Ticket_Id links a ticket created from a customer's reply on a
+-- closed ticket ("Create as new issue") back to that ticket.
 -- Product_Id is plain TEXT: HD_PRODUCT_MASTER is created later in the
 -- migration order.
 CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
@@ -26,6 +30,8 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_MASTER (
     Bank_Id                    TEXT REFERENCES HD_BANK_MASTER (Bank_Id),
     Contact_Id                 TEXT NOT NULL REFERENCES HD_CONTACT_MASTER (Contact_Id),
     Product_Id                 TEXT,
+    Split_From_Ticket_Id       TEXT REFERENCES HD_TICKET_MASTER (Ticket_Id),
+    Sla_Start_Time             TEXT,
     Response_Due_Date            TEXT,
     Closed_Time                 TEXT,
     Clock_State                 TEXT NOT NULL DEFAULT 'NOT_STARTED' CHECK (Clock_State IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),

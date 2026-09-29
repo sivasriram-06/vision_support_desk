@@ -4,6 +4,7 @@ const bankRepository = require("../../repositories/bank.repository");
 const ticketRepository = require("../../repositories/ticket.repository");
 const { metrics: metricsRepository } = require("../../repositories/history.repository");
 const generateId = require("../../utils/generate-id");
+const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
 const { getCalendar, supportMinutesBetween } = require("./business-calendar");
 
@@ -52,7 +53,7 @@ const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now
 
     if (newState === CLOCK_BEHAVIOUR.RUNNING && !openSegment) {
         clockSegmentRepository.insert({
-            Segment_Id: generateId(),
+            Segment_Id: generateId(DB_TABLES.TICKET_CLOCK_SEGMENT),
             Ticket_Id: ticket.Ticket_Id,
             Started_Time: nowIso,
             Status_At_Start: newStatus,
@@ -82,8 +83,9 @@ const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now
     const metrics = metricsRepository.findMetricsByTicketId(ticket.Ticket_Id);
     if (metrics) {
         metricsRepository.updateById(metrics.Metric_Id, {
+            // Reopen_Count is not bumped here: only an explicit Reopen
+            // (ticket-reopen.service.js) counts.
             Resolution_Time_Mins: computeResolutionMinutes(ticket.Ticket_Id, calendarForBankId(bankId), now),
-            Reopen_Count: (metrics.Reopen_Count || 0) + (reopened ? 1 : 0),
             Modified_By: actorAgentId
         });
     }

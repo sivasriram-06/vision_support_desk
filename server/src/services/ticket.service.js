@@ -9,18 +9,20 @@ const { computeSlaDueDate } = require("./sla/sla.service");
 const resolutionClock = require("./sla/resolution-clock.service");
 const escalationService = require("./sla/escalation.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
 const assignmentRepository = require("../repositories/ticket-assignment.repository");
+const reopenRepository = require("../repositories/ticket-reopen.repository");
 const { buildPaging } = require("../utils/pagination");
 
 const nowIso = () => new Date().toISOString();
 
 const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null, newValue = null, actorAgentId, orgId, eventTime = null }) => {
     historyRepository.insert({
-        History_Id: generateId(),
+        History_Id: generateId(DB_TABLES.TICKET_HISTORY),
         Ticket_Id: ticketId,
         Event_Name: eventName,
         Field_Name: fieldName,
@@ -94,7 +96,7 @@ const createTicket = (payload, actorAgentId) => {
 
     const db = getDB();
     const createTxn = db.transaction(() => {
-        const ticketId = generateId();
+        const ticketId = generateId(DB_TABLES.TICKET);
         const ticketNumber = ticketRepository.findNextTicketNumber(org.Organization_Id);
         // Email tickets are born when Gmail received the mail, not when the
         // sync ran (internal callers only - the API schema doesn't accept
@@ -117,6 +119,14 @@ const createTicket = (payload, actorAgentId) => {
             Department_Id: departmentForBank(payload.bankId) || payload.departmentId,
             Bank_Id: payload.bankId || null,
             Contact_Id: payload.contactId,
+            // Copied from the old ticket on "Create as new issue"
+            // (internal callers only - not in the API schema).
+            Classification: payload.classification || null,
+            Category: payload.category || null,
+            Sub_Category: payload.subCategory || null,
+            Product_Id: payload.productId || null,
+            Split_From_Ticket_Id: payload.splitFromTicketId || null,
+            Sla_Start_Time: createdTime,
             Response_Due_Date: dueDate,
             // Stored explicitly as ISO-8601 UTC (same instant the SLA was
             // computed from). The column default, datetime('now'), writes
@@ -136,7 +146,7 @@ const createTicket = (payload, actorAgentId) => {
         });
 
         metricsRepository.insert({
-            Metric_Id: generateId(),
+            Metric_Id: generateId(DB_TABLES.TICKET_METRICS),
             Ticket_Id: ticketId,
             Reopen_Count: 0,
             Created_By: actorAgentId,
@@ -217,13 +227,14 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     }
 
     // SLA due date (Response_Due_Date) is derived, never sent: priority SLA
-    // hours from Created_Time on the bank's working-day calendar. Recomputed
-    // when priority or bank changes (clearing priority clears the SLA);
-    // status changes never move it - the SLA does not pause.
+    // hours from Sla_Start_Time (Created_Time, or the last reopen) on the
+    // bank's working-day calendar. Recomputed when priority or bank changes
+    // (clearing priority clears the SLA); status changes never move it -
+    // the SLA does not pause.
     const effectiveBankId = changes.Bank_Id !== undefined ? changes.Bank_Id : existing.Bank_Id;
     if (changes.Priority !== undefined || changes.Bank_Id !== undefined) {
         changes.Response_Due_Date = computeSlaDueDate({
-            createdTime: existing.Created_Time,
+            createdTime: existing.Sla_Start_Time || existing.Created_Time,
             priority: changes.Priority !== undefined ? changes.Priority : existing.Priority,
             bankId: effectiveBankId,
             orgId: org.Organization_Id
@@ -234,10 +245,17 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         return getTicketDetail(ticketId);
     }
 
+    // A Closed ticket comes back only through Reopen (ticket-reopen.service.js),
+    // which records the reason and counts it - never via the status list.
+    const closingNow = changes.Status !== undefined && resolutionClock.clockBehaviourForStatus(org.Organization_Id, changes.Status) === CLOCK_BEHAVIOUR.STOPPED;
+    if (changes.Status !== undefined && existing.Clock_State === CLOCK_BEHAVIOUR.STOPPED && !closingNow) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, "This ticket is Closed - use Reopen to open it again");
+    }
+
     // Resolving/closing needs every current assignee's work Done (or the
     // assignee released), so tracking never shows open work on a closed
     // ticket.
-    if (changes.Status !== undefined && resolutionClock.clockBehaviourForStatus(org.Organization_Id, changes.Status) === CLOCK_BEHAVIOUR.STOPPED) {
+    if (closingNow) {
         const unfinished = assignmentRepository.findOpenUnfinished(ticketId);
         if (unfinished.length > 0) {
             const names = unfinished.map((a) => [a.First_Name, a.Last_Name].filter(Boolean).join(" ")).join(", ");
@@ -260,6 +278,10 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         }
         changes.Modified_By = actorAgentId;
         const updated = ticketRepository.updateById(ticketId, changes);
+        // A reopened round ends when the ticket closes again.
+        if (closingNow && existing.Clock_State !== CLOCK_BEHAVIOUR.STOPPED) {
+            reopenRepository.markClosedAgain(ticketId, changes.Closed_Time || nowIso());
+        }
         // Escalation triggers hang off the due date, so they move with it.
         if (changes.Response_Due_Date !== undefined) {
             escalationService.rebuildTriggers(updated, org.Organization_Id);

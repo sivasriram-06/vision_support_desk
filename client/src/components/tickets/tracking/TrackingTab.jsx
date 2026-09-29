@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Timer, Gauge, Users, Send } from 'lucide-react'
+import { Timer, Gauge, Users, Send, RotateCcw } from 'lucide-react'
 import Avatar from '../../ui/Avatar.jsx'
 import Badge from '../../ui/Badge.jsx'
 import Button from '../../ui/Button.jsx'
@@ -139,6 +139,28 @@ export default function TrackingTab({ ticket, onChanged }) {
           <Stat label="Nobody working" value={`${idlePct}%`} sub={`${formatMinutes(s.idleMinutes)} idle`} tone={idlePct > 60 ? 'text-danger' : 'text-ink'} />
           <Stat label="Work logged" value={formatMinutes(s.loggedMinutes)} sub={`${t.worklogs.length} entr${t.worklogs.length === 1 ? 'y' : 'ies'}`} />
         </div>
+
+        {/* Rounds: the original work, then each reopen - only once it was reopened. */}
+        {s.rounds?.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Rounds · reopened {s.rounds.length - 1}×</span>
+            <div className="flex flex-wrap gap-2">
+              {s.rounds.map((r) => (
+                <div key={r.roundNo} className={`min-w-[170px] rounded-lg border px-3 py-2 ${r.roundNo > 1 ? 'border-warn/40 bg-warn/5' : 'border-border bg-slate-50/60'}`}>
+                  <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-ink">
+                    {r.roundNo > 1 && <RotateCcw className="h-3.5 w-3.5 text-warn" />}
+                    {r.label}
+                    <span className="font-normal text-muted">· {formatMinutes(r.minutes)}{r.endTime ? '' : ' so far'}</span>
+                  </p>
+                  {r.reason && <p className="mt-0.5 text-[11.5px] text-slate-600">&ldquo;{r.reason}&rdquo; - {r.reopenedByName}</p>}
+                  {r.prevSlaMet !== null && r.prevSlaMet !== undefined && (
+                    <p className="mt-0.5 text-[11px] text-muted">Previous round SLA {r.prevSlaMet ? 'met' : 'missed'}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
 
         <div className="flex flex-wrap items-center gap-2">

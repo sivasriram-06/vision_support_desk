@@ -1,6 +1,7 @@
 const env = require("../config/env");
 const { connectDB, closeDB } = require("../config/db");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const logger = require("../utils/logger");
 const organizationRepository = require("../repositories/organization.repository");
 const departmentRepository = require("../repositories/department.repository");
@@ -35,7 +36,7 @@ const seed = () => {
 
     let org = organizationRepository.findFirst();
     if (!org) {
-        const orgId = generateId();
+        const orgId = generateId(DB_TABLES.ORGANIZATION);
         organizationRepository.insert({
             Organization_Id: orgId,
             Company_Name: "Sunoida"
@@ -46,7 +47,7 @@ const seed = () => {
 
     let department = departmentRepository.findBySanitizedName(org.Organization_Id, "sunoida");
     if (!department) {
-        const departmentId = generateId();
+        const departmentId = generateId(DB_TABLES.DEPARTMENT);
         departmentRepository.insert({
             Department_Id: departmentId,
             Department_Name: "Sunoida Support",
@@ -60,7 +61,7 @@ const seed = () => {
 
     let systemAgent = agentRepository.findByEmail(org.Organization_Id, SYSTEM_AGENT_EMAIL);
     if (!systemAgent) {
-        const agentId = generateId();
+        const agentId = generateId(DB_TABLES.AGENT);
         agentRepository.insert({
             Agent_Id: agentId,
             First_Name: "System",
@@ -86,7 +87,7 @@ const seed = () => {
 
     let mailReplyAddress = mailReplyAddressRepository.findByEmail(SUPPORT_MAILBOX);
     if (!mailReplyAddress) {
-        const mailReplyAddressId = generateId();
+        const mailReplyAddressId = generateId(DB_TABLES.MAIL_REPLY_ADDRESS);
         mailReplyAddressRepository.insert({
             Mail_Reply_Address_Id: mailReplyAddressId,
             Department_Id: department.Department_Id,
@@ -117,7 +118,7 @@ const seedRoles = (orgId, systemAgentId) => {
     for (const def of DEFAULT_ROLES) {
         let role = roleRepository.findByKey(orgId, def.key);
         if (!role) {
-            const roleId = generateId();
+            const roleId = generateId(DB_TABLES.ROLE);
             roleRepository.insert({
                 Role_Id: roleId,
                 Role_Name: def.name,
@@ -147,7 +148,7 @@ const seedSupportTeams = (orgId, systemAgentId) => {
     for (const team of [...supportOrg.teams, ...productTeamSeed.teams]) {
         let department = departmentRepository.findBySanitizedName(orgId, team.sanitizedName);
         if (!department) {
-            const departmentId = generateId();
+            const departmentId = generateId(DB_TABLES.DEPARTMENT);
             departmentRepository.insert({
                 Department_Id: departmentId,
                 Department_Name: team.name,
@@ -203,7 +204,7 @@ const seedSupportAgents = (orgId, systemAgentId, roleIdByKey, teamIdByName) => {
 
         let agent = agentRepository.findByEmail(orgId, email);
         if (!agent) {
-            const agentId = generateId();
+            const agentId = generateId(DB_TABLES.AGENT);
             agentRepository.insert({
                 Agent_Id: agentId,
                 First_Name: entry.firstName,
@@ -260,7 +261,7 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
             throw new Error(`Seed bank "${bank.name}" references unknown support team "${bank.team}"`);
         }
 
-        const bankId = generateId();
+        const bankId = generateId(DB_TABLES.BANK);
         bankRepository.insert({
             Bank_Id: bankId,
             Bank_Name: bank.name,
@@ -313,7 +314,7 @@ const seedConfig = (orgId, systemAgentId) => {
     const addPicklist = (field, value, sortOrder, parentValue = null, clockBehaviour = null) => {
         if (picklistRepository.findByValue(orgId, field, value, parentValue)) return;
         picklistRepository.insert({
-            Picklist_Value_Id: generateId(),
+            Picklist_Value_Id: generateId(DB_TABLES.PICKLIST_VALUE),
             Field: field,
             Value: value,
             Parent_Value: parentValue,
@@ -334,14 +335,14 @@ const seedConfig = (orgId, systemAgentId) => {
 
     for (const productName of configSeed.products) {
         if (productRepository.findByName(orgId, productName)) continue;
-        productRepository.insert({ Product_Id: generateId(), Product_Name: productName, Created_By: systemAgentId, Org_Id: orgId });
+        productRepository.insert({ Product_Id: generateId(DB_TABLES.PRODUCT), Product_Name: productName, Created_By: systemAgentId, Org_Id: orgId });
         created += 1;
     }
 
     for (const { priority, slaHours } of configSeed.prioritySla) {
         if (prioritySlaRepository.findByPriority(orgId, priority)) continue;
         prioritySlaRepository.insert({
-            Priority_Sla_Config_Id: generateId(),
+            Priority_Sla_Config_Id: generateId(DB_TABLES.PRIORITY_SLA_CONFIG),
             Priority: priority,
             Sla_Hours: slaHours,
             Created_By: systemAgentId,
@@ -353,7 +354,7 @@ const seedConfig = (orgId, systemAgentId) => {
     for (const { priority, levelNo, offsetHours } of configSeed.escalationLevels) {
         if (escalationLevelRepository.findByPriorityAndLevel(orgId, priority, levelNo)) continue;
         escalationLevelRepository.insert({
-            Escalation_Level_Id: generateId(),
+            Escalation_Level_Id: generateId(DB_TABLES.ESCALATION_LEVEL),
             Priority: priority,
             Level_No: levelNo,
             Offset_Hours: offsetHours,

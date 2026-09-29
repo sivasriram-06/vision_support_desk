@@ -4,6 +4,7 @@ const organizationService = require("./organization.service");
 const { rebuildTriggersForPriority } = require("./sla/escalation.service");
 const { getDB } = require("../config/db");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -62,7 +63,7 @@ const createLevel = ({ priority, levelNo, offsetHours }, actorAgentId) => {
     }
     assertOrdered(orgId, priorityKey, { Level_No: levelNo, Offset_Hours: offsetHours });
 
-    const id = generateId();
+    const id = generateId(DB_TABLES.ESCALATION_LEVEL);
     getDB().transaction(() => {
         escalationLevelRepository.insert({
             Escalation_Level_Id: id,

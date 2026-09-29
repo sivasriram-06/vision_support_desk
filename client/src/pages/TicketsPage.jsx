@@ -8,7 +8,7 @@ import TicketTable from '../components/tickets/TicketTable.jsx'
 import QueueBoard from '../components/tickets/QueueBoard.jsx'
 import { getTickets, ApiError } from '../utils/api.js'
 
-const DEFAULT_FILTERS = { search: '', status: '', priority: '', slaBreached: false, sortBy: 'Created_Time', sortOrder: 'desc' }
+const DEFAULT_FILTERS = { search: '', status: '', priority: '', slaBreached: false, closeReplies: false, sortBy: 'Created_Time', sortOrder: 'desc' }
 
 // All Cases has three views: the flat list, a support team's queue and a
 // bank's queue. View + selected queue live in the URL (?view=team&id=...)
@@ -36,7 +36,7 @@ export default function TicketsPage() {
   // Reset to page 1 whenever a filter changes (not on plain pagination).
   useEffect(() => {
     setPage(1)
-  }, [filters.search, filters.status, filters.priority, filters.slaBreached, filters.sortBy, filters.sortOrder])
+  }, [filters.search, filters.status, filters.priority, filters.slaBreached, filters.closeReplies, filters.sortBy, filters.sortOrder])
 
   useEffect(() => {
     let cancelled = false
@@ -51,6 +51,7 @@ export default function TicketsPage() {
             search: filters.search || undefined,
             status: filters.status || undefined,
             slaBreached: filters.slaBreached ? 'true' : undefined,
+            closeReplies: filters.closeReplies ? 'true' : undefined,
             priority: filters.priority || undefined,
             sortBy: filters.sortBy,
             sortOrder: filters.sortOrder,

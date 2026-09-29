@@ -1,14 +1,14 @@
 const TICKET_COLUMNS = [
     "Ticket_Id", "Ticket_Number", "Subject", "Description", "Status", "Status_Type",
     "Priority", "Classification", "Category", "Sub_Category", "Channel",
-    "Department_Id", "Bank_Id", "Contact_Id", "Product_Id",
+    "Department_Id", "Bank_Id", "Contact_Id", "Product_Id", "Split_From_Ticket_Id", "Sla_Start_Time",
     "Response_Due_Date", "Closed_Time", "Clock_State", "Resolution_Started_Time", "Resolved_Time",
     "Thread_Count", "Comment_Count", "Attachment_Count",
     "Created_By", "Created_Time", "Modified_By", "Modified_Time", "Org_Id"
 ];
 
 const TICKET_CONVERSATION_COLUMNS = [
-    "Conversation_Id", "Ticket_Id", "Direction", "Channel", "Content", "Content_Html",
+    "Conversation_Id", "Ticket_Id", "Direction", "Channel", "Subject", "Post_Close_Decision", "Content", "Content_Html",
     "Author_Contact_Id", "Author_Agent_Id", "Is_Public",
     "To_Address", "Cc_Address", "Sent_Time", "Created_By", "Modified_By",
     "Modified_Time", "Org_Id"

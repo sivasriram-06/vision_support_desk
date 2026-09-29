@@ -63,6 +63,11 @@ const env = {
         mailbox: requireEnv("GMAIL_MAILBOX"),
         syncEnabled: requireEnvBool("GMAIL_SYNC_ENABLED"),
         syncIntervalMs: requireEnvInt("GMAIL_SYNC_INTERVAL_MS")
+    },
+
+    passwordPolicy:{
+        maxFailedAttempts: requireEnvInt("MAX_FAILED_ATTEMPTS"),
+        lockMinutes: requireEnvInt("LOCK_MINUTES")
     }
 };
 

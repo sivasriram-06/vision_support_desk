@@ -99,7 +99,7 @@ const replaceResources = (bankId, resourceType, agentIds, { actorAgentId, orgId 
         db.prepare(
             `INSERT INTO ${DB_TABLES.BANK_RESOURCE_MAP} (Bank_Resource_Id, Bank_Id, Agent_Id, Resource_Type, Created_By, Org_Id)
              VALUES (?, ?, ?, ?, ?, ?)`
-        ).run(generateId(), bankId, agentId, resourceType, actorAgentId, orgId);
+        ).run(generateId(DB_TABLES.BANK_RESOURCE_MAP), bankId, agentId, resourceType, actorAgentId, orgId);
     }
 };
 

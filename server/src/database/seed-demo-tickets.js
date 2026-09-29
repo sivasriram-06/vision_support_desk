@@ -93,7 +93,7 @@ const resetTicketActivity = (db, ticketId) => {
 
 const logHistory = ({ ticketId, eventName, fieldName, oldValue, newValue, actorAgentId, at, orgId }) => {
     historyRepository.insert({
-        History_Id: generateId(),
+        History_Id: generateId(DB_TABLES.TICKET_HISTORY),
         Ticket_Id: ticketId,
         Event_Name: eventName,
         Field_Name: fieldName,
@@ -136,7 +136,7 @@ const seedDemoTickets = () => {
          WHERE a.Is_Deleted = 'N' AND a.Status = 'Active'`
     ).all();
     const assign = ({ ticketId, agentId, teamId, crossTeam, by, at }) => {
-        const assignmentId = generateId();
+        const assignmentId = generateId(DB_TABLES.TICKET_ASSIGNMENT);
         assignmentRepository.insert({
             Assignment_Id: assignmentId,
             Ticket_Id: ticketId,
@@ -164,7 +164,7 @@ const seedDemoTickets = () => {
             db.prepare(
                 `INSERT INTO ${DB_TABLES.ASSIGNMENT_STATE_LOG} (State_Log_Id, Assignment_Id, Ticket_Id, Work_State, Started_Time, Ended_Time, Actor_Agent_Id, Note, Org_Id)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            ).run(generateId(), assignment.assignmentId, ticketId, p.state, new Date(p.time).toISOString(), next ? new Date(next.time).toISOString() : null, assignment.agentId, p.note || null, orgId);
+            ).run(generateId(DB_TABLES.ASSIGNMENT_STATE_LOG), assignment.assignmentId, ticketId, p.state, new Date(p.time).toISOString(), next ? new Date(next.time).toISOString() : null, assignment.agentId, p.note || null, orgId);
             if (i > 0) {
                 logHistory({
                     ticketId,
@@ -184,7 +184,7 @@ const seedDemoTickets = () => {
                 db.prepare(
                     `INSERT INTO ${DB_TABLES.TICKET_WORKLOG} (Worklog_Id, Ticket_Id, Assignment_Id, Agent_Id, Minutes, Work_Date, Note, Logged_By, Logged_Time, Org_Id)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                ).run(generateId(), ticketId, assignment.assignmentId, assignment.agentId, minutes, loggedAt.toISOString().slice(0, 10), pick(WORKLOG_NOTES), assignment.agentId, loggedAt.toISOString(), orgId);
+                ).run(generateId(DB_TABLES.TICKET_WORKLOG), ticketId, assignment.assignmentId, assignment.agentId, minutes, loggedAt.toISOString().slice(0, 10), pick(WORKLOG_NOTES), assignment.agentId, loggedAt.toISOString(), orgId);
                 logHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.WORKLOG_ADDED, fieldName: assignment.agentId, oldValue: null, newValue: minutes, actorAgentId: assignment.agentId, at: loggedAt, orgId });
             }
         });
@@ -238,7 +238,7 @@ const seedDemoTickets = () => {
                 db.prepare(
                     `INSERT INTO ${DB_TABLES.ASSIGNMENT_DEPENDENCY} (Dependency_Id, Ticket_Id, Assignment_Id, Depends_On_Assignment_Id, Created_By, Created_Time, Org_Id)
                      VALUES (?, ?, ?, ?, ?, ?, ?)`
-                ).run(generateId(), ticketId, assignment.assignmentId, product.assignmentId, assignment.agentId, new Date(product.at).toISOString(), orgId);
+                ).run(generateId(DB_TABLES.ASSIGNMENT_DEPENDENCY), ticketId, assignment.assignmentId, product.assignmentId, assignment.agentId, new Date(product.at).toISOString(), orgId);
                 logHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.DEPENDENCY_ADDED, fieldName: assignment.agentId, oldValue: null, newValue: product.agentId, actorAgentId: assignment.agentId, at: new Date(product.at), orgId });
             }
             writeWork(ticketId, assignment, timeline);

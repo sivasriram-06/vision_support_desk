@@ -1,6 +1,7 @@
 const productRepository = require("../repositories/product.repository");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -27,7 +28,7 @@ const createProduct = (payload, actorAgentId) => {
         throw new ApiError(HTTP_STATUS.CONFLICT, ERROR_CODES.PRODUCT_DUPLICATE, "A product with this name already exists");
     }
 
-    const productId = generateId();
+    const productId = generateId(DB_TABLES.PRODUCT);
     productRepository.insert({
         Product_Id: productId,
         Product_Name: productName,

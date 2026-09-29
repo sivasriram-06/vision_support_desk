@@ -5,6 +5,7 @@ const departmentRepository = require("../repositories/department.repository");
 const resolutionClock = require("./sla/resolution-clock.service");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -52,7 +53,7 @@ const createValue = (payload, actorAgentId) => {
         throw new ApiError(HTTP_STATUS.CONFLICT, ERROR_CODES.PICKLIST_VALUE_DUPLICATE, "This value already exists for the field");
     }
 
-    const picklistValueId = generateId();
+    const picklistValueId = generateId(DB_TABLES.PICKLIST_VALUE);
     picklistRepository.insert({
         Picklist_Value_Id: picklistValueId,
         Field: payload.field,

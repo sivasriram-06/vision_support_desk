@@ -11,6 +11,8 @@ import {
   Mail,
   PencilLine,
   ArrowDownUp,
+  RotateCcw,
+  GitBranchPlus,
 } from 'lucide-react'
 import { EVENT_FILTERS, getWorkStyle } from '../../../utils/workMeta.js'
 import { formatMinutes } from '../../../utils/clockMeta.js'
@@ -27,6 +29,8 @@ const EVENT_STYLE = {
   WORKLOG: { icon: Clock3, className: 'bg-review/10 text-review' },
   COMMENT: { icon: MessageSquareText, className: 'bg-slate-100 text-slate-700' },
   EMAIL: { icon: Mail, className: 'bg-sky/10 text-sky-dark' },
+  REOPEN: { icon: RotateCcw, className: 'bg-warn/15 text-warn' },
+  SPLIT: { icon: GitBranchPlus, className: 'bg-review/10 text-review' },
 }
 
 /**

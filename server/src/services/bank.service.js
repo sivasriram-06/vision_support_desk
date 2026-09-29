@@ -4,6 +4,7 @@ const departmentService = require("./department.service");
 const organizationService = require("./organization.service");
 const { getDB } = require("../config/db");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -119,7 +120,7 @@ const createBank = (payload, actorAgentId) => {
     assertUniqueName(org.Organization_Id, bankName, null);
     assertSupportWindow(payload.supportStartIst, payload.supportEndIst);
 
-    const bankId = generateId();
+    const bankId = generateId(DB_TABLES.BANK);
     getDB().transaction(() => {
         bankRepository.insert({
             Bank_Id: bankId,

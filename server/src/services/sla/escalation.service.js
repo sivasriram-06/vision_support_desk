@@ -3,6 +3,7 @@ const ticketEscalationRepository = require("../../repositories/ticket-escalation
 const bankRepository = require("../../repositories/bank.repository");
 const ticketRepository = require("../../repositories/ticket.repository");
 const generateId = require("../../utils/generate-id");
+const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
 const { getCalendar, addWorkingHours } = require("./business-calendar");
 
@@ -36,7 +37,7 @@ const rebuildTriggers = (ticket, orgId) => {
     const dueDate = toDate(ticket.Response_Due_Date);
     for (const level of levels) {
         ticketEscalationRepository.insert({
-            Ticket_Escalation_Id: generateId(),
+            Ticket_Escalation_Id: generateId(DB_TABLES.TICKET_ESCALATION),
             Ticket_Id: ticket.Ticket_Id,
             Level_No: level.Level_No,
             Trigger_Time: addWorkingHours(dueDate, level.Offset_Hours, calendar).toISOString(),

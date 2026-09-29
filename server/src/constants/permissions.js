@@ -13,6 +13,7 @@ const PERMISSIONS = {
     TICKETS_EDIT_PROPERTIES: "tickets.edit_properties",
     TICKETS_ASSIGN_TEAM: "tickets.assign_team",
     TICKETS_ASSIGN_ANY: "tickets.assign_any",
+    TICKETS_REOPEN: "tickets.reopen",
     CUSTOMERS_MANAGE: "customers.manage",
     AGENTS_MANAGE: "agents.manage",
     TEAMS_MANAGE: "teams.manage",
@@ -28,6 +29,7 @@ const PERMISSION_CATALOG = [
     { key: PERMISSIONS.TICKETS_EDIT_PROPERTIES, group: "Tickets", label: "Edit properties", description: "Change bank, priority, department, product, classification, category and due date." },
     { key: PERMISSIONS.TICKETS_ASSIGN_TEAM, group: "Assignment", label: "Assign within own team", description: "Assign tickets to members of their own team." },
     { key: PERMISSIONS.TICKETS_ASSIGN_ANY, group: "Assignment", label: "Assign to anyone", description: "Assign tickets to any agent in any team." },
+    { key: PERMISSIONS.TICKETS_REOPEN, group: "Tickets", label: "Reopen / split closed tickets", description: "Decide on a customer reply to a Closed ticket: reopen it (counted as a reopen), create it as a new issue, or mark no action." },
     { key: PERMISSIONS.CUSTOMERS_MANAGE, group: "Customers", label: "Customers page", description: "Open the Customers page (Gmail senders), see their ticket counts and edit name and bank." },
     { key: PERMISSIONS.AGENTS_MANAGE, group: "Administration", label: "Manage agents", description: "Add, edit and deactivate agents and move them between teams." },
     { key: PERMISSIONS.TEAMS_MANAGE, group: "Administration", label: "Manage banks & teams", description: "Add and edit banks (support team, level, hours, primary / secondary resources) and support teams." },
@@ -58,14 +60,14 @@ const DEFAULT_ROLES = [
         key: ROLE_KEYS.TEAM_LEAD,
         name: "Team Lead",
         sortOrder: 3,
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.CUSTOMERS_MANAGE]
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.TICKETS_REOPEN, PERMISSIONS.CUSTOMERS_MANAGE]
     },
     {
         key: ROLE_KEYS.ASSISTANT_TEAM_LEAD,
         name: "Assistant Team Lead",
         sortOrder: 4,
         // Team Lead and Assistant Team Lead both pick up new tickets and assign them within the team.
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.CUSTOMERS_MANAGE]
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.TICKETS_REOPEN, PERMISSIONS.CUSTOMERS_MANAGE]
     },
     { key: ROLE_KEYS.TEAM_MEMBER, name: "Team Member", sortOrder: 5, permissions: MEMBER_PERMISSIONS }
 ];

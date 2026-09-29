@@ -1,6 +1,7 @@
 const contactRepository = require("../repositories/contact.repository");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -22,7 +23,7 @@ const getContactById = (contactId) => {
 
 const createContact = (payload, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
-    const contactId = generateId();
+    const contactId = generateId(DB_TABLES.CONTACT);
 
     contactRepository.insert({
         Contact_Id: contactId,

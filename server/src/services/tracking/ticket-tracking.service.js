@@ -3,6 +3,7 @@ const assignmentRepository = require("../../repositories/ticket-assignment.repos
 const workRepository = require("../../repositories/assignment-work.repository");
 const agentRepository = require("../../repositories/agent.repository");
 const bankRepository = require("../../repositories/bank.repository");
+const reopenRepository = require("../../repositories/ticket-reopen.repository");
 const departmentRepository = require("../../repositories/department.repository");
 const { history: historyRepository } = require("../../repositories/history.repository");
 const { conversation: conversationRepository, comment: commentRepository } = require("../../repositories/conversation.repository");
@@ -70,6 +71,7 @@ const getTracking = (ticketId, now = new Date()) => {
     const worklogs = workRepository.findWorklogsByTicketId(ticketId);
     const comments = commentRepository.findCommentsByTicketId(ticketId);
     const conversations = conversationRepository.findByTicketId(ticketId);
+    const reopens = reopenRepository.findByTicketId(ticketId);
 
     // --- lanes: one per assignment -------------------------------------
     const lanes = assignments.map((a) => {
@@ -191,6 +193,24 @@ const getTracking = (ticketId, now = new Date()) => {
                 push(h.Event_Time, "FIELD", value ? `${label} set to ${value}` : `${label} cleared`, { actor });
                 break;
             }
+            case TICKET_HISTORY_EVENT.REOPENED: {
+                const r = reopens.find((x) => String(x.Reopen_No) === String(h.New_Value));
+                push(h.Event_Time, "REOPEN", `${actor} reopened the ticket - Reopen #${h.New_Value}`, { actor, note: r?.Reason || null, reopenNo: Number(h.New_Value) });
+                break;
+            }
+            case TICKET_HISTORY_EVENT.SPLIT_TO: {
+                const child = ticketRepository.findById(h.New_Value);
+                push(h.Event_Time, "SPLIT", `${actor} created the customer's reply as a new issue #${child?.Ticket_Number || "?"}`, { actor, ticketId: h.New_Value });
+                break;
+            }
+            case TICKET_HISTORY_EVENT.SPLIT_FROM: {
+                const parent = ticketRepository.findById(h.New_Value);
+                push(h.Event_Time, "SPLIT", `Split by ${actor} from a reply on closed ticket #${parent?.Ticket_Number || "?"}`, { actor, ticketId: h.New_Value });
+                break;
+            }
+            case TICKET_HISTORY_EVENT.CLOSE_REPLY_DISMISSED:
+                push(h.Event_Time, "STATUS", `${actor} marked the reply after close as no action needed - stays Closed`, { actor });
+                break;
             default:
                 break; // COMMENT_ADDED / CONVERSATION_ADDED come from their own rows below
         }
@@ -204,7 +224,8 @@ const getTracking = (ticketId, now = new Date()) => {
         const author = inbound
             ? [conv.Author_Contact_First_Name, conv.Author_Contact_Last_Name].filter(Boolean).join(" ") || conv.Author_Contact_Email || "Customer"
             : [conv.Author_Agent_First_Name, conv.Author_Agent_Last_Name].filter(Boolean).join(" ") || "Support";
-        push(conv.Sent_Time, "EMAIL", inbound ? `Email received from ${author}` : `Reply sent by ${author}`, { actor: author, inbound });
+        const afterClose = conv.Post_Close_Decision ? " - after the ticket was Closed" : "";
+        push(conv.Sent_Time, "EMAIL", inbound ? `Email received from ${author}${afterClose}` : `Reply sent by ${author}`, { actor: author, inbound, afterClose: Boolean(conv.Post_Close_Decision) });
     }
 
     events.sort((a, b) => toMs(a.time) - toMs(b.time));
@@ -286,7 +307,20 @@ const getTracking = (ticketId, now = new Date()) => {
             perStatus: Object.entries(statusTotals).map(([status, minutes]) => ({ status, minutes, clock: clockBehaviourForStatus(orgId, status) })).sort((a, b) => b.minutes - a.minutes),
             longestWait: longest,
             criticalPath: { assignmentIds: path.ids, slowestAssignmentId: path.slowestId, totalMinutes: path.totalMinutes },
-            loggedMinutes: worklogs.reduce((sum, w) => sum + w.Minutes, 0)
+            loggedMinutes: worklogs.reduce((sum, w) => sum + w.Minutes, 0),
+            // Round 1 = created -> first close; round n+1 = reopen #n -> closed again (or now).
+            rounds: [
+                { roundNo: 1, label: "Original", startTime: ticket.Created_Time, endTime: reopens[0]?.Prev_Closed_Time || (reopens.length ? null : ticket.Closed_Time) },
+                ...reopens.map((r) => ({
+                    roundNo: r.Reopen_No + 1,
+                    label: `Reopen #${r.Reopen_No}`,
+                    reason: r.Reason,
+                    reopenedByName: agentName(r.Reopened_By),
+                    startTime: r.Reopened_Time,
+                    endTime: r.Closed_Again_Time,
+                    prevSlaMet: r.Prev_Sla_Met === null ? null : r.Prev_Sla_Met === "Y"
+                }))
+            ].map((round) => ({ ...round, minutes: elapsedMinutes(toMs(round.startTime), round.endTime ? toMs(round.endTime) : now.getTime()) }))
         },
         worklogs: worklogs.map((w) => ({
             worklogId: w.Worklog_Id,

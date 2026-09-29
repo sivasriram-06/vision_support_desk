@@ -3,6 +3,7 @@ const picklistRepository = require("../repositories/picklist.repository");
 const { PICKLIST_FIELD } = require("../constants/picklist.constants");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -48,7 +49,7 @@ const createDepartment = (payload, actorAgentId) => {
         throw new ApiError(HTTP_STATUS.CONFLICT, ERROR_CODES.DEPARTMENT_DUPLICATE, "A department with this name already exists");
     }
 
-    const departmentId = generateId();
+    const departmentId = generateId(DB_TABLES.DEPARTMENT);
     departmentRepository.insert({
         Department_Id: departmentId,
         Department_Name: departmentName,

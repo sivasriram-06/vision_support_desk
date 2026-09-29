@@ -11,7 +11,7 @@ const record = ({ agentId = null, eventType, loginEmail = null, failureCode = nu
         `INSERT INTO ${DB_TABLES.AUTH_LOGIN_EVENT}
             (Login_Event_Id, Agent_Id, Event_Type, Login_Email, Failure_Code, Ip_Address, User_Agent, Org_Id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(generateId(), agentId, eventType, loginEmail, failureCode, ipAddress, userAgent ? userAgent.slice(0, 300) : null, orgId);
+    ).run(generateId(DB_TABLES.AUTH_LOGIN_EVENT), agentId, eventType, loginEmail, failureCode, ipAddress, userAgent ? userAgent.slice(0, 300) : null, orgId);
 };
 
 const findRecent = (orgId, limit = 100) => {

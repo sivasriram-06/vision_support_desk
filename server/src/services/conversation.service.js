@@ -4,6 +4,7 @@ const ticketRepository = require("../repositories/ticket.repository");
 const ticketService = require("./ticket.service");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const { DIRECTION, TICKET_HISTORY_EVENT } = require("../constants/ticket.constants");
 
 const nowIso = () => new Date().toISOString();
@@ -24,7 +25,7 @@ const addReply = (ticketId, payload, actorAgentId) => {
 
     const db = getDB();
     const txn = db.transaction(() => {
-        const conversationId = generateId();
+        const conversationId = generateId(DB_TABLES.TICKET_CONVERSATION);
         conversationRepository.insert({
             Conversation_Id: conversationId,
             Ticket_Id: ticketId,
@@ -66,7 +67,7 @@ const addComment = (ticketId, payload, actorAgentId) => {
 
     const db = getDB();
     const txn = db.transaction(() => {
-        const commentId = generateId();
+        const commentId = generateId(DB_TABLES.TICKET_COMMENT);
         commentRepository.insert({
             Comment_Id: commentId,
             Ticket_Id: ticketId,

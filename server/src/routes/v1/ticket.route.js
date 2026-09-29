@@ -14,6 +14,7 @@ const {
     assigneeParamSchema,
     myTicketsQuerySchema,
     myTicketCountsQuerySchema,
+    reopenSchema,
     workStateSchema,
     dependencySchema,
     dependencyParamSchema,
@@ -23,6 +24,7 @@ const {
 } = require("../../schemas/ticket.schema");
 const assignmentController = require("../../controllers/ticket-assignment.controller");
 const workController = require("../../controllers/ticket-work.controller");
+const reopenController = require("../../controllers/ticket-reopen.controller");
 const { addReplySchema, addCommentSchema } = require("../../schemas/conversation.schema");
 
 const router = express.Router();
@@ -58,6 +60,12 @@ router.post("/:ticketId/assignees/:agentId/worklogs", validate(assigneeParamSche
 router.delete("/:ticketId/worklogs/:worklogId", validate(worklogParamSchema, "params"), workController.deleteWorklog);
 
 router.get("/:ticketId/history", ticketController.getTicketHistory);
+
+// Customer reply on a Closed ticket: reopen / new issue / no action (tickets.reopen, checked in the service).
+router.get("/:ticketId/reopens", reopenController.getReopenInfo);
+router.post("/:ticketId/reopen", validate(reopenSchema), reopenController.reopenTicket);
+router.post("/:ticketId/split", reopenController.splitTicket);
+router.post("/:ticketId/close-replies/dismiss", reopenController.dismissCloseReplies);
 router.get("/:ticketId/metrics", ticketController.getTicketMetrics);
 
 router.get("/:ticketId/conversations", conversationController.listConversations);

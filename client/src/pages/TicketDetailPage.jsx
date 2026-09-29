@@ -6,6 +6,7 @@ import ConversationThread from '../components/tickets/ConversationThread.jsx'
 import TicketPropertyPanel from '../components/tickets/TicketPropertyPanel.jsx'
 import AttachmentList from '../components/tickets/AttachmentList.jsx'
 import TrackingTab from '../components/tickets/tracking/TrackingTab.jsx'
+import CloseReplyBanner from '../components/tickets/CloseReplyBanner.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import {
   ApiError,
@@ -145,6 +146,8 @@ export default function TicketDetailPage() {
           <h1 className="text-[21px] font-extrabold leading-tight tracking-tight text-ink-strong">{ticket.Subject}</h1>
         </div>
       </div>
+
+      <CloseReplyBanner ticket={ticket} onChanged={() => setRefreshKey((k) => k + 1)} />
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_400px]">
         <div className="flex min-w-0 flex-col gap-4">

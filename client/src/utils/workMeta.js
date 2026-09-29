@@ -25,6 +25,7 @@ export const EVENT_FILTERS = [
   { value: 'ASSIGNMENT', label: 'Assignment', types: ['ASSIGNMENT', 'DEPENDENCY'] },
   { value: 'WORK', label: 'Work state', types: ['WORK'] },
   { value: 'STATUS', label: 'Status', types: ['STATUS', 'PRIORITY', 'FIELD', 'CREATED'] },
+  { value: 'REOPEN', label: 'Reopen / split', types: ['REOPEN', 'SPLIT'] },
   { value: 'COMMENT', label: 'Comments', types: ['COMMENT'] },
   { value: 'EMAIL', label: 'Email', types: ['EMAIL'] },
   { value: 'WORKLOG', label: 'Work log', types: ['WORKLOG'] },

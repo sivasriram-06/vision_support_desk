@@ -3,11 +3,16 @@
 -- src/utils/sanitize-email-html.js) alongside plain-text Content, so a
 -- message renders as the sender formatted it; NULL when the source had no
 -- HTML part. Renderers must still treat it as untrusted.
+-- Post_Close_Decision is set on a customer mail that arrived while the
+-- ticket was Closed: PENDING until a lead decides, then REOPENED, SPLIT
+-- (moved to a new ticket) or DISMISSED (no action, e.g. a thank-you).
 CREATE TABLE IF NOT EXISTS HD_TICKET_CONVERSATION (
     Conversation_Id      TEXT PRIMARY KEY,
     Ticket_Id            TEXT NOT NULL REFERENCES HD_TICKET_MASTER (Ticket_Id),
     Direction            TEXT CHECK (Direction IN ('in', 'out')),
     Channel              TEXT,
+    Subject              TEXT,
+    Post_Close_Decision  TEXT CHECK (Post_Close_Decision IN ('PENDING', 'REOPENED', 'SPLIT', 'DISMISSED')),
     Content              TEXT NOT NULL,
     Content_Html         TEXT,
     Author_Contact_Id    TEXT REFERENCES HD_CONTACT_MASTER (Contact_Id),
@@ -26,3 +31,4 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_CONVERSATION (
 
 CREATE INDEX IF NOT EXISTS idx_conversation_ticket ON HD_TICKET_CONVERSATION (Ticket_Id);
 CREATE INDEX IF NOT EXISTS idx_conversation_sent_time ON HD_TICKET_CONVERSATION (Sent_Time);
+CREATE INDEX IF NOT EXISTS idx_conversation_post_close ON HD_TICKET_CONVERSATION (Ticket_Id, Post_Close_Decision) WHERE Post_Close_Decision IS NOT NULL;

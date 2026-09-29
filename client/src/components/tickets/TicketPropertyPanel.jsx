@@ -422,7 +422,9 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
                   // Keep a status that was since removed from Config selectable as-is.
                   ...(form.status && !options.statuses.some((s) => s.Value === form.status) ? [{ value: form.status, label: form.status }] : []),
                 ]}
-                disabled={!canEditStatus}
+                // A Closed ticket comes back only through Reopen (banner at the top).
+                disabled={!canEditStatus || ticket.Clock_State === 'STOPPED'}
+                title={ticket.Clock_State === 'STOPPED' ? 'Closed - use Reopen at the top of the ticket' : undefined}
               />
             </Field>
             <Field label="Priority">

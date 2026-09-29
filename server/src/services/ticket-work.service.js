@@ -4,6 +4,7 @@ const workRepository = require("../repositories/assignment-work.repository");
 const organizationService = require("./organization.service");
 const ticketService = require("./ticket.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -63,7 +64,7 @@ const getOpenAssignment = (ticketId, agentId) => {
 const setState = (assignment, state, { actorAgentId, note = null, time = nowIso(), orgId, eventName = TICKET_HISTORY_EVENT.WORK_STATE_CHANGE }) => {
     workRepository.closeOpenStateLog(assignment.Assignment_Id, time);
     workRepository.openStateLog({
-        stateLogId: generateId(),
+        stateLogId: generateId(DB_TABLES.ASSIGNMENT_STATE_LOG),
         assignmentId: assignment.Assignment_Id,
         ticketId: assignment.Ticket_Id,
         workState: state,
@@ -97,7 +98,7 @@ const unblockDependents = (assignmentId, { actorAgentId, time, orgId }) => {
 /** A new assignment starts PENDING (waiting for handover). Called by ticket-assignment.service in its transaction. */
 const startWork = (assignmentId, { actorAgentId, time, orgId }) => {
     workRepository.openStateLog({
-        stateLogId: generateId(),
+        stateLogId: generateId(DB_TABLES.ASSIGNMENT_STATE_LOG),
         assignmentId,
         ticketId: assignmentRepository.findById(assignmentId).Ticket_Id,
         workState: WORK_STATE.PENDING,
@@ -170,7 +171,7 @@ const addDependency = (ticketId, agentId, blockerAgentId, actor) => {
         const time = nowIso();
         try {
             workRepository.insertDependency({
-                dependencyId: generateId(),
+                dependencyId: generateId(DB_TABLES.ASSIGNMENT_DEPENDENCY),
                 ticketId,
                 assignmentId: dependent.Assignment_Id,
                 dependsOnAssignmentId: blocker.Assignment_Id,
@@ -231,7 +232,7 @@ const addWorklog = (ticketId, agentId, { minutes, workDate, note }, actor) => {
     const assignment = getOpenAssignment(ticketId, agentId);
     assertCanManage(actor, ticket, assignment);
 
-    const worklogId = generateId();
+    const worklogId = generateId(DB_TABLES.TICKET_WORKLOG);
     getDB().transaction(() => {
         workRepository.insertWorklog({
             Worklog_Id: worklogId,

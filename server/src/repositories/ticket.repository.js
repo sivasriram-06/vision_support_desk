@@ -57,6 +57,12 @@ const ASSIGNEES_JSON_SQL = `(
     ) x
 )`;
 
+// Customer mails on a Closed ticket still waiting for a lead's decision.
+const PENDING_CLOSE_REPLIES_SQL = `(
+    SELECT COUNT(*) FROM ${DB_TABLES.TICKET_CONVERSATION} pc
+    WHERE pc.Ticket_Id = t.Ticket_Id AND pc.Post_Close_Decision = 'PENDING' AND pc.Is_Deleted = 'N'
+)`;
+
 /**
  * List/queue rows join in display names (contact, assignees,
  * department, bank) so the frontend never has to resolve raw *_Id columns
@@ -70,11 +76,16 @@ const LIST_SELECT = `
         bk.Bank_Name AS Bank_Name,
         ${ASSIGNEES_JSON_SQL} AS Assignees_Json,
         ${ESCALATION_LEVEL_SQL} AS Escalation_Level,
-        ${NEXT_ESCALATION_TIME_SQL} AS Next_Escalation_Time
+        ${NEXT_ESCALATION_TIME_SQL} AS Next_Escalation_Time,
+        ${PENDING_CLOSE_REPLIES_SQL} AS Pending_Close_Replies,
+        COALESCE(mt.Reopen_Count, 0) AS Reopen_Count,
+        sp.Ticket_Number AS Split_From_Ticket_Number
     FROM ${DB_TABLES.TICKET} t
     LEFT JOIN ${DB_TABLES.CONTACT} c ON c.Contact_Id = t.Contact_Id
     LEFT JOIN ${DB_TABLES.DEPARTMENT} d ON d.Department_Id = t.Department_Id
     LEFT JOIN ${DB_TABLES.BANK} bk ON bk.Bank_Id = t.Bank_Id
+    LEFT JOIN ${DB_TABLES.TICKET_METRICS} mt ON mt.Ticket_Id = t.Ticket_Id
+    LEFT JOIN ${DB_TABLES.TICKET} sp ON sp.Ticket_Id = t.Split_From_Ticket_Id
 `;
 const LIST_COUNT_SELECT = `SELECT COUNT(*) AS total FROM ${DB_TABLES.TICKET} t`;
 
@@ -130,6 +141,10 @@ const findAll = (orgId, query = {}) => {
         params.push(new Date().toISOString());
     }
     // Escalation: "any" = level 1 or above, or an exact level number.
+    // Replies after close: Closed tickets with a customer mail awaiting a decision.
+    if (query.closeReplies === "true") {
+        where += ` AND ${PENDING_CLOSE_REPLIES_SQL} > 0`;
+    }
     if (query.escalationLevel === "any") {
         where += ` AND ${ESCALATION_LEVEL_SQL} >= 1`;
     } else if (query.escalationLevel) {
@@ -326,6 +341,35 @@ const incrementCounter = (ticketId, column, delta = 1) => {
     ).run(delta, ticketId);
 };
 
+/** Tickets split off `ticketId` ("Create as new issue"), oldest first. */
+const findSplitChildren = (ticketId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT Ticket_Id, Ticket_Number, Subject, Status, Created_Time FROM ${DB_TABLES.TICKET}
+         WHERE Split_From_Ticket_Id = ? AND Is_Deleted = 'N' ORDER BY Created_Time ASC`
+    ).all(ticketId);
+};
+
+/**
+ * Follows "split into" links forward: the newest ticket split off
+ * `ticketId`, then the newest split off that one, and so on. Returns
+ * `ticketId` itself when nothing was split off.
+ */
+const findLatestSplitDescendantId = (ticketId) => {
+    const db = getDB();
+    const next = db.prepare(
+        `SELECT Ticket_Id FROM ${DB_TABLES.TICKET} WHERE Split_From_Ticket_Id = ? AND Is_Deleted = 'N'
+         ORDER BY Created_Time DESC LIMIT 1`
+    );
+    let current = ticketId;
+    for (let hops = 0; hops < 50; hops += 1) {
+        const row = next.get(current);
+        if (!row) break;
+        current = row.Ticket_Id;
+    }
+    return current;
+};
+
 /** Tickets on a bank whose SLA still matters (has a priority, not resolved/closed). */
 const findOpenWithPriorityByBankId = (bankId) => {
     const db = getDB();
@@ -364,6 +408,8 @@ module.exports = {
     findOpenByPriority,
     findStoppedByBankId,
     findNextTicketNumber,
+    findSplitChildren,
+    findLatestSplitDescendantId,
     incrementCounter,
     findOpenWithPriorityByBankId,
     findByStatus,

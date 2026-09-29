@@ -1,25 +1,22 @@
-const crypto = require("crypto");
+const { getDB } = require("../config/db");
 
-const BASE36_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
-
-const randomBase36 = (length) => {
-    let out = "";
-    const bytes = crypto.randomBytes(length);
-    for (let i = 0; i < length; i += 1) {
-        out += BASE36_ALPHABET[bytes[i] % BASE36_ALPHABET.length];
-    }
-    return out;
-};
+const FIRST_ID = 100000;
 
 /**
- * Generates a short, sortable, unique-enough identifier that fits every
- * HD_* primary key column (VARCHAR2(15)): 8 base36 timestamp chars +
- * 6 random base36 chars = 14 chars, always <= 15.
+ * Next primary key for `table` (a DB_TABLES value): a per-table running
+ * number starting at 100000 (HD_ID_SEQUENCE), returned as a string to fit
+ * the TEXT *_Id columns. better-sqlite3 is synchronous and single-writer,
+ * so the upsert + RETURNING is atomic; inside a caller's transaction the
+ * counter rolls back with it.
  */
-const generateId = () => {
-    const timePart = Date.now().toString(36).padStart(8, "0");
-    const randomPart = randomBase36(6);
-    return `${timePart}${randomPart}`;
+const generateId = (table) => {
+    if (!table) throw new Error("generateId(table) needs the table name");
+    const row = getDB().prepare(
+        `INSERT INTO HD_ID_SEQUENCE (Table_Name, Last_Id) VALUES (?, ?)
+         ON CONFLICT (Table_Name) DO UPDATE SET Last_Id = Last_Id + 1
+         RETURNING Last_Id`
+    ).get(table, FIRST_ID);
+    return String(row.Last_Id);
 };
 
 module.exports = generateId;

@@ -66,6 +66,13 @@ const TICKET_HISTORY_EVENT = {
     DEPENDENCY_REMOVED: "DEPENDENCY_REMOVED",
     WORKLOG_ADDED: "WORKLOG_ADDED",
     CONVERSATION_ADDED: "CONVERSATION_ADDED",
+    // Replies on a Closed ticket (ticket-reopen.service.js). REOPENED:
+    // New_Value = reopen no. SPLIT_TO / SPLIT_FROM: New_Value = the other
+    // ticket id. CLOSE_REPLY_DISMISSED: New_Value = replies cleared.
+    REOPENED: "REOPENED",
+    SPLIT_TO: "SPLIT_TO",
+    SPLIT_FROM: "SPLIT_FROM",
+    CLOSE_REPLY_DISMISSED: "CLOSE_REPLY_DISMISSED",
     COMMENT_ADDED: "COMMENT_ADDED"
 };
 
@@ -79,8 +86,17 @@ const WORK_STATE = {
     DONE: "DONE"
 };
 
+// HD_TICKET_CONVERSATION.Post_Close_Decision - a customer mail on a Closed ticket.
+const POST_CLOSE_DECISION = {
+    PENDING: "PENDING",
+    REOPENED: "REOPENED",
+    SPLIT: "SPLIT",
+    DISMISSED: "DISMISSED"
+};
+
 module.exports = {
     WORK_STATE,
+    POST_CLOSE_DECISION,
     STATUS_TYPE,
     DEFAULT_STATUS_BY_TYPE,
     NEW_EMAIL_TICKET_STATUS,

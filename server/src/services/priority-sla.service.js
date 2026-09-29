@@ -1,6 +1,7 @@
 const prioritySlaRepository = require("../repositories/priority-sla.repository");
 const organizationService = require("./organization.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -19,7 +20,7 @@ const createConfig = (priority, slaHours, actorAgentId) => {
         throw new ApiError(HTTP_STATUS.CONFLICT, ERROR_CODES.PRIORITY_DUPLICATE, "This priority already exists");
     }
 
-    const id = generateId();
+    const id = generateId(DB_TABLES.PRIORITY_SLA_CONFIG);
     prioritySlaRepository.insert({
         Priority_Sla_Config_Id: id,
         Priority: priorityKey,

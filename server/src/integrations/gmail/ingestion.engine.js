@@ -12,12 +12,13 @@ const contactService = require("../../services/contact.service");
 const agentService = require("../../services/agent.service");
 const organizationService = require("../../services/organization.service");
 const generateId = require("../../utils/generate-id");
+const DB_TABLES = require("../../constants/db-tables");
 const { saveAttachmentBuffer } = require("../../utils/file-storage");
 const logger = require("../../utils/logger");
 const ApiError = require("../../utils/api-error");
 const ERROR_CODES = require("../../constants/error-codes");
 const HTTP_STATUS = require("../../constants/http-status");
-const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../../constants/ticket.constants");
+const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS, CLOCK_BEHAVIOUR, POST_CLOSE_DECISION } = require("../../constants/ticket.constants");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -177,17 +178,23 @@ const embedRemoteImages = async (html) => {
     return resolved;
 };
 
-/** Matches a reply to its parent ticket via In-Reply-To / References headers. */
+/**
+ * Matches a reply to its parent ticket via In-Reply-To / References headers:
+ * In-Reply-To first, then References newest-first (the header lists the
+ * chain oldest-first). If that ticket had a reply split off into a new
+ * issue, the rest of the thread belongs to the newest such ticket, even
+ * when the customer answers an older message.
+ */
 const findTicketIdForReply = (normalized) => {
     const references = normalized.referencesHeader
-        ? normalized.referencesHeader.split(/\s+/).filter(Boolean)
+        ? normalized.referencesHeader.split(/\s+/).filter(Boolean).reverse()
         : [];
     const candidates = [normalized.inReplyToHeader, ...references].filter(Boolean);
 
     for (const messageId of candidates) {
         const thread = threadRepository.findThreadByInReplyTo(messageId);
         if (thread) {
-            return thread.Ticket_Id;
+            return ticketRepository.findLatestSplitDescendantId(thread.Ticket_Id);
         }
     }
     return null;
@@ -305,12 +312,18 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
             isNewTicket = true;
         }
 
-        const conversationId = generateId();
+        // A customer mail on a Closed ticket waits for a lead's decision:
+        // reopen, create as a new issue, or no action (ticket-reopen.service.js).
+        const closedTicket = !isNewTicket && !isOutbound && ticketRepository.findById(ticketId)?.Clock_State === CLOCK_BEHAVIOUR.STOPPED;
+
+        const conversationId = generateId(DB_TABLES.TICKET_CONVERSATION);
         conversationRepository.insert({
             Conversation_Id: conversationId,
             Ticket_Id: ticketId,
             Direction: direction,
             Channel: CHANNEL.EMAIL,
+            Subject: normalized.subject,
+            Post_Close_Decision: closedTicket ? POST_CLOSE_DECISION.PENDING : null,
             Content: normalized.bodyText,
             Content_Html: resolvedBodyHtml,
             Author_Contact_Id: isOutbound ? null : contact.Contact_Id,
@@ -323,7 +336,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
             Org_Id: org.Organization_Id
         });
 
-        const threadId = generateId();
+        const threadId = generateId(DB_TABLES.TICKET_THREAD);
         threadRepository.insert({
             Thread_Id: threadId,
             Ticket_Id: ticketId,
@@ -339,7 +352,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
         ticketRepository.incrementCounter(ticketId, "Thread_Count");
 
         for (const file of realAttachmentFiles) {
-            const attachmentId = generateId();
+            const attachmentId = generateId(DB_TABLES.TICKET_ATTACHMENT);
             const storagePath = saveAttachmentBuffer({
                 ticketId,
                 attachmentId,

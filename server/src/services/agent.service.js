@@ -5,6 +5,7 @@ const permissionService = require("./permission.service");
 const authService = require("./auth.service");
 const { PERMISSIONS, ROLE_KEYS } = require("../constants/permissions");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -70,7 +71,7 @@ const createAgent = (payload, actor) => {
     assertTeam(payload.departmentId);
     const role = payload.roleId ? assertCanSetRole(null, null, payload.roleId, actor) : null;
 
-    const agentId = generateId();
+    const agentId = generateId(DB_TABLES.AGENT);
     agentRepository.insert({
         Agent_Id: agentId,
         First_Name: payload.firstName.trim(),
@@ -158,7 +159,7 @@ const findOrCreateBySender = ({ email, name }, actorAgentId) => {
     const [firstName, ...rest] = (name || normalizedEmail).trim().split(" ");
     const lastName = rest.join(" ") || firstName;
 
-    const agentId = generateId();
+    const agentId = generateId(DB_TABLES.AGENT);
     agentRepository.insert({
         Agent_Id: agentId,
         First_Name: firstName,

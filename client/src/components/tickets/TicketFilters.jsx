@@ -67,6 +67,15 @@ export default function TicketFilters({ filters, onChange }) {
         />
         <span title="Open tickets past their SLA due date, and tickets resolved or closed after it">SLA breached only</span>
       </label>
+      <label className="flex cursor-pointer items-center gap-2 rounded-[9px] border border-border bg-white px-3 py-2 text-[13px] font-medium text-ink">
+        <input
+          type="checkbox"
+          checked={filters.closeReplies}
+          onChange={(e) => set({ closeReplies: e.target.checked })}
+          className="h-4 w-4 accent-warn"
+        />
+        <span title="Closed tickets where the customer mailed again - reopen, new issue or no action">Replies after close</span>
+      </label>
       <Select
         options={SORT_OPTIONS}
         value={`${filters.sortBy}:${filters.sortOrder}`}

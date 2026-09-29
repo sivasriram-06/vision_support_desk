@@ -6,6 +6,9 @@ import { formatDateTime } from '../../utils/format.js'
 import { sanitizeEmailHtml } from '../../utils/sanitizeHtml.js'
 import { splitEmailQuote } from '../../utils/splitEmailQuote.js'
 
+// Post_Close_Decision of a customer mail that arrived after the ticket was Closed.
+const POST_CLOSE_LABEL = { PENDING: 'Awaiting decision', REOPENED: 'Reopened', SPLIT: 'New issue', DISMISSED: 'No action' }
+
 const HTML_BODY_CLASSES =
   'email-html-body max-w-none text-[13px] leading-relaxed text-slate-700 [&_a]:text-primary [&_img]:max-w-full [&_img]:rounded'
 
@@ -27,6 +30,14 @@ function MessageCard({ message, authorName }) {
           <p className="truncate text-[13px] font-semibold text-ink">{authorName}</p>
           <p className="text-[11.5px] text-muted">{formatDateTime(message.Sent_Time)}</p>
         </div>
+        {message.Post_Close_Decision && (
+          <span
+            title="Arrived after the ticket was Closed"
+            className="shrink-0 rounded-full bg-warn/15 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-warn"
+          >
+            After close · {POST_CLOSE_LABEL[message.Post_Close_Decision]}
+          </span>
+        )}
         {/* <span
           className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${
             isInbound ? 'bg-sky/10 text-sky-dark' : 'bg-primary/10 text-primary-dark'

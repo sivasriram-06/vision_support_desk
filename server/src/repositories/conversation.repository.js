@@ -70,8 +70,53 @@ const findCommentsByTicketId = (ticketId) => {
     `).all(ticketId);
 };
 
+/** Customer mails on a Closed ticket still waiting for a decision, oldest first. */
+const findPendingCloseReplies = (ticketId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT * FROM ${DB_TABLES.TICKET_CONVERSATION}
+         WHERE Ticket_Id = ? AND Post_Close_Decision = 'PENDING' AND Is_Deleted = 'N'
+         ORDER BY Sent_Time ASC`
+    ).all(ticketId);
+};
+
+/** Sets the decision on every pending reply of a ticket; returns how many changed. */
+const decidePendingCloseReplies = (ticketId, decision) => {
+    const db = getDB();
+    return db.prepare(
+        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Post_Close_Decision = ?, Modified_Time = datetime('now')
+         WHERE Ticket_Id = ? AND Post_Close_Decision = 'PENDING'`
+    ).run(decision, ticketId).changes;
+};
+
+/**
+ * "Create as new issue": moves the mails from `fromTime` on (the first
+ * pending reply and everything after it) with their threads and
+ * attachments to `toTicketId`. Returns { conversations, threads, attachments }
+ * moved, for the tickets' counters.
+ */
+const moveFromTime = (fromTicketId, toTicketId, fromTime) => {
+    const db = getDB();
+    const ids = db.prepare(
+        `SELECT Conversation_Id FROM ${DB_TABLES.TICKET_CONVERSATION}
+         WHERE Ticket_Id = ? AND Sent_Time >= ? AND Is_Deleted = 'N'`
+    ).all(fromTicketId, fromTime).map((r) => r.Conversation_Id);
+    if (ids.length === 0) return { conversations: 0, threads: 0, attachments: 0 };
+    const inList = ids.map(() => "?").join(", ");
+    const conversations = db.prepare(
+        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList})`
+    ).run(toTicketId, ...ids).changes;
+    const threads = db.prepare(
+        `UPDATE ${DB_TABLES.TICKET_THREAD} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList})`
+    ).run(toTicketId, ...ids).changes;
+    const attachments = db.prepare(
+        `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList}) AND Is_Deleted = 'N'`
+    ).run(toTicketId, ...ids).changes;
+    return { conversations, threads, attachments };
+};
+
 module.exports = {
-    conversation: { ...conversationBase, findByTicketId },
+    conversation: { ...conversationBase, findByTicketId, findPendingCloseReplies, decidePendingCloseReplies, moveFromTime },
     thread: { ...threadBase, findThreadByMessageId, findThreadByInReplyTo },
     comment: { ...commentBase, findCommentsByTicketId }
 };

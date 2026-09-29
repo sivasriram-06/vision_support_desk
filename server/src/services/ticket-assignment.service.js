@@ -7,6 +7,7 @@ const organizationService = require("./organization.service");
 const ticketService = require("./ticket.service");
 const workService = require("./ticket-work.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
@@ -109,7 +110,7 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
             // back after leaving starts the next round.
             const teamId = agent.Primary_Department_Id || null;
             const roundNo = assignmentRepository.findOpenTeamRound(ticketId, teamId) || assignmentRepository.countTeamRounds(ticketId, teamId) + 1;
-            const assignmentId = generateId();
+            const assignmentId = generateId(DB_TABLES.TICKET_ASSIGNMENT);
             assignmentRepository.insert({
                 Assignment_Id: assignmentId,
                 Ticket_Id: ticketId,

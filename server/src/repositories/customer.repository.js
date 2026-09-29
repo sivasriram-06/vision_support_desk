@@ -4,8 +4,8 @@ const { parsePagination } = require("../utils/pagination");
 
 /**
  * Customers = HD_CONTACT_MASTER rows (every Gmail From address) with
- * their bank and ticket counts. Open / closed use
- * the ticket's Status_Type; overdue = not closed and past its SLA due date
+ * their bank and ticket counts. Closed = a stopped clock (the Closed
+ * status); overdue = not closed and past its SLA due date
  * (ISO-8601 UTC, so text comparison orders correctly).
  */
 
@@ -16,9 +16,9 @@ const SELECT_SQL = `
         c.Contact_Id, c.First_Name, c.Last_Name, ${NAME_SQL} AS Full_Name, c.Email, c.Created_Time,
         c.Bank_Id, b.Bank_Name,
         COUNT(t.Ticket_Id) AS Total_Tickets,
-        COALESCE(SUM(CASE WHEN t.Ticket_Id IS NOT NULL AND t.Status_Type <> 'Closed' THEN 1 ELSE 0 END), 0) AS Open_Tickets,
-        COALESCE(SUM(CASE WHEN t.Status_Type = 'Closed' THEN 1 ELSE 0 END), 0) AS Closed_Tickets,
-        COALESCE(SUM(CASE WHEN t.Status_Type <> 'Closed' AND t.Response_Due_Date < @now THEN 1 ELSE 0 END), 0) AS Overdue_Tickets
+        COALESCE(SUM(CASE WHEN t.Ticket_Id IS NOT NULL AND t.Clock_State <> 'STOPPED' THEN 1 ELSE 0 END), 0) AS Open_Tickets,
+        COALESCE(SUM(CASE WHEN t.Clock_State = 'STOPPED' THEN 1 ELSE 0 END), 0) AS Closed_Tickets,
+        COALESCE(SUM(CASE WHEN t.Clock_State <> 'STOPPED' AND t.Response_Due_Date < @now THEN 1 ELSE 0 END), 0) AS Overdue_Tickets
     FROM ${DB_TABLES.CONTACT} c
     LEFT JOIN ${DB_TABLES.BANK} b ON b.Bank_Id = c.Bank_Id
     LEFT JOIN ${DB_TABLES.TICKET} t ON t.Contact_Id = c.Contact_Id AND t.Is_Deleted = 'N'

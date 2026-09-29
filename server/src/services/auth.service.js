@@ -7,16 +7,16 @@ const loginEventRepository = require("../repositories/auth-login-event.repositor
 const organizationService = require("./organization.service");
 const permissionService = require("./permission.service");
 const generateId = require("../utils/generate-id");
+const DB_TABLES = require("../constants/db-tables");
 const { hashPassword, verifyPassword, getPasswordPolicyError } = require("../utils/password");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
+const env=require("../config/env")
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_MINUTES = 15;
+const MAX_FAILED_ATTEMPTS = env.passwordPolicy.maxFailedAttempts;
+const LOCK_MINUTES = env.passwordPolicy.lockMinutes;
 
-// Same message for unknown email, wrong password and no credential, so the
-// login form can't be used to discover which emails have accounts.
 const invalidCredentials = () =>
     new ApiError(HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.INVALID_CREDENTIALS, "Invalid email or password");
 
@@ -107,16 +107,6 @@ const logout = (principal, { ipAddress, userAgent }) => {
     loginEventRepository.record({ agentId: principal.agentId, eventType: "LOGOUT", loginEmail: principal.email, ipAddress, userAgent, orgId: org.Organization_Id });
 };
 
-/**
- * Creates or replaces an agent's password. Used by seeding, the admin
- * "set temporary password" action (mustChange = true) and self-service
- * change-password (mustChange = false).
- *
- * The strength policy applies only to passwords a user chooses for
- * themselves. Temporary passwords (the shared seed default, admin resets)
- * are exempt - they can't be used for anything but choosing a real one,
- * because mustChange blocks every other route until then.
- */
 const setPassword = (agentId, password, { mustChange, actorAgentId }) => {
     const policyError = mustChange ? (password ? null : "Password is required") : getPasswordPolicyError(password);
     if (policyError) {
@@ -136,7 +126,7 @@ const setPassword = (agentId, password, { mustChange, actorAgentId }) => {
         credentialRepository.updateById(existing.Agent_Credential_Id, fields);
     } else {
         credentialRepository.insert({
-            Agent_Credential_Id: generateId(),
+            Agent_Credential_Id: generateId(DB_TABLES.AGENT_CREDENTIAL),
             Agent_Id: agentId,
             ...fields,
             Created_By: actorAgentId,
