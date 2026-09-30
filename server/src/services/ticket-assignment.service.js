@@ -24,7 +24,8 @@ const { TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../constants/
  *              After that, anyone assigned to the ticket may bring in any
  *              active agent of any team, so people work in parallel.
  *   Release  - the assignee themselves, whoever assigned them,
- *              tickets.assign_any, or the assignee's team lead.
+ *              tickets.assign_any, or a team lead of the ticket's team
+ *              (anyone on it, cross-team included) or of the assignee's team.
  *   Is_Cross_Team marks an assignee outside the ticket's own team.
  *
  * Every add/release writes a history row, so ticket tracking can show who
@@ -66,16 +67,19 @@ const assertCanAssign = (actor, ticketId) => {
 };
 
 /**
- * Can `actor` take `agent` off the ticket? The assignee themselves and
- * whoever assigned them always can; otherwise tickets.assign_any, or the
- * team lead (tickets.assign_team) of the assignee's team.
+ * Can `actor` take `agent` off `ticket`? The assignee themselves and
+ * whoever assigned them always can; otherwise tickets.assign_any, or a
+ * team lead (tickets.assign_team) of the ticket's team - they answer for
+ * the ticket, so they can remove anyone on it, cross-team people included -
+ * or of the assignee's own team.
  */
-const assertCanRelease = (actor, agent, assignment) => {
+const assertCanRelease = (actor, ticket, agent, assignment) => {
     if (agent.Agent_Id === actor.agentId || assignment.Assigned_By === actor.agentId) return;
     const has = (key) => actor.permissions.includes(key);
     if (has(PERMISSIONS.TICKETS_ASSIGN_ANY)) return;
-    if (has(PERMISSIONS.TICKETS_ASSIGN_TEAM) && actor.teamId && agent.Primary_Department_Id === actor.teamId) return;
-    throw forbidden("Only the assignee, whoever assigned them, or their team lead can remove them");
+    if (has(PERMISSIONS.TICKETS_ASSIGN_TEAM) && actor.teamId &&
+        (ticket.Department_Id === actor.teamId || agent.Primary_Department_Id === actor.teamId)) return;
+    throw forbidden("Only the assignee, whoever assigned them, or a team lead of this ticket's team can remove them");
 };
 
 /**
@@ -142,12 +146,12 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
 
 const removeAssignee = (ticketId, agentId, actor) => {
     const org = organizationService.getDefaultOrganization();
-    ticketService.getTicketById(ticketId);
+    const ticket = ticketService.getTicketById(ticketId);
     const open = assignmentRepository.findOpen(ticketId, agentId);
     if (!open) {
         throw new ApiError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.AGENT_NOT_FOUND, "This person is not assigned to the ticket");
     }
-    assertCanRelease(actor, getAgent(agentId), open);
+    assertCanRelease(actor, ticket, getAgent(agentId), open);
 
     getDB().transaction(() => {
         const time = nowIso();

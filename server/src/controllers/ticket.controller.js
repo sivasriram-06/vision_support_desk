@@ -49,6 +49,14 @@ const createTicket = (req, res, next) => {
     }
 };
 
+const deleteTicket = (req, res, next) => {
+    try {
+        ok(res, HTTP_STATUS.OK, ticketService.deleteTicket(req.params.ticketId, getActorAgentId(req)));
+    } catch (error) {
+        next(error);
+    }
+};
+
 const updateTicket = (req, res, next) => {
     try {
         const existing = ticketService.getTicketById(req.params.ticketId);
@@ -94,6 +102,7 @@ module.exports = {
     getTicketById,
     createTicket,
     updateTicket,
+    deleteTicket,
     getTicketHistory,
     getTicketMetrics
 };

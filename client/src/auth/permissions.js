@@ -9,6 +9,7 @@ export const PERMISSIONS = {
   TICKETS_ASSIGN_TEAM: 'tickets.assign_team',
   TICKETS_ASSIGN_ANY: 'tickets.assign_any',
   TICKETS_REOPEN: 'tickets.reopen',
+  TICKETS_DELETE: 'tickets.delete',
   CUSTOMERS_MANAGE: 'customers.manage',
   AGENTS_MANAGE: 'agents.manage',
   TEAMS_MANAGE: 'teams.manage',

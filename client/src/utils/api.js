@@ -94,6 +94,7 @@ export const getTickets = (params) => unwrap(axiosClient.get('/api/v1/tickets', 
 export const getTicket = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}`))
 export const createTicket = (data) => unwrap(axiosClient.post('/api/v1/tickets', data))
 export const updateTicket = (ticketId, data) => unwrap(axiosClient.patch(`/api/v1/tickets/${ticketId}`, data))
+export const deleteTicket = (ticketId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}`))
 export const getTicketHistory = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/history`))
 export const getTicketResolution = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/resolution`))
 export const getTicketMetrics = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/metrics`))

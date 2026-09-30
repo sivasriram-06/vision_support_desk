@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, MessagesSquare, Route } from 'lucide-react'
+import { ArrowLeft, MessagesSquare, Route, Trash2 } from 'lucide-react'
 import ErrorState from '../components/ui/ErrorState.jsx'
+import Button from '../components/ui/Button.jsx'
+import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
+import { PERMISSIONS } from '../auth/permissions.js'
 import ConversationThread from '../components/tickets/ConversationThread.jsx'
 import TicketPropertyPanel from '../components/tickets/TicketPropertyPanel.jsx'
 import AttachmentList from '../components/tickets/AttachmentList.jsx'
@@ -18,6 +21,7 @@ import {
   getDepartment,
   getBank,
   markTicketSeen,
+  deleteTicket,
   getProduct,
 } from '../utils/api.js'
 
@@ -31,7 +35,23 @@ const fetchIfPresent = (id, fn) => (id ? fn(id) : Promise.resolve(null))
 export default function TicketDetailPage() {
   const { ticketId } = useParams()
   const navigate = useNavigate()
-  const { agent: me } = useAuth()
+  const { agent: me, can } = useAuth()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
+
+  const confirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteTicket(ticketId)
+      window.dispatchEvent(new Event('vsd:my-tickets-changed'))
+      navigate('/tickets', { replace: true })
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete the ticket.')
+      setDeleting(false)
+    }
+  }
   // Conversation (emails + comments) or the internal Tracking tab; kept in the URL.
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams.get('tab') === 'tracking' ? 'tracking' : 'conversation'
@@ -141,11 +161,34 @@ export default function TicketDetailPage() {
 
       <div className="flex items-start gap-3">
         <span className="w-[5px] min-h-[34px] self-stretch rounded-[3px] bg-gradient-to-b from-primary-light to-primary shadow-[0_2px_6px_rgba(232,99,43,0.45)]" />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-mono text-[12px] font-semibold text-muted">#{ticket.Ticket_Number}</p>
           <h1 className="text-[21px] font-extrabold leading-tight tracking-tight text-ink-strong">{ticket.Subject}</h1>
         </div>
+        {can(PERMISSIONS.TICKETS_DELETE) && (
+          <Button variant="ghost" icon={Trash2} onClick={() => setConfirmingDelete(true)} className="shrink-0 hover:!bg-danger/10 hover:!text-danger">
+            Delete ticket
+          </Button>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`Delete ticket #${ticket.Ticket_Number}`}
+        message={
+          <>
+            <strong>{ticket.Subject}</strong> will be removed from every list, queue and My Tickets. A new mail in its thread opens a
+            new ticket.
+          </>
+        }
+        loading={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setConfirmingDelete(false)
+          setDeleteError(null)
+        }}
+      />
 
       <CloseReplyBanner ticket={ticket} onChanged={() => setRefreshKey((k) => k + 1)} />
 

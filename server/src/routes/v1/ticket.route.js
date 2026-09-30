@@ -42,6 +42,8 @@ router.post("/", requirePermission(PERMISSIONS.TICKETS_CREATE), validate(createT
 
 router.get("/:ticketId", validate(ticketIdParamSchema, "params"), ticketController.getTicketById);
 router.patch("/:ticketId", validate(ticketIdParamSchema, "params"), validate(updateTicketSchema), ticketController.updateTicket);
+// Admin, Manager, Team Lead only (tickets.delete). Soft delete - see ticket.service.deleteTicket.
+router.delete("/:ticketId", requirePermission(PERMISSIONS.TICKETS_DELETE), validate(ticketIdParamSchema, "params"), ticketController.deleteTicket);
 
 // Assignees: permission rules live in ticket-assignment.service.js (same
 // team = team lead, cross team = anyone working tickets).

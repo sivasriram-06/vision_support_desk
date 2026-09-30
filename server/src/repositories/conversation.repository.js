@@ -112,6 +112,11 @@ const moveFromTime = (fromTicketId, toTicketId, fromTime) => {
     const attachments = db.prepare(
         `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList}) AND Is_Deleted = 'N'`
     ).run(toTicketId, ...ids).changes;
+    // The Gmail sync's own record of each mail follows it too.
+    db.prepare(
+        `UPDATE _GMAIL_INGESTED_MESSAGE SET Ticket_Id = ?
+         WHERE Thread_Id IN (SELECT Thread_Id FROM ${DB_TABLES.TICKET_THREAD} WHERE Conversation_Id IN (${inList}))`
+    ).run(toTicketId, ...ids);
     return { conversations, threads, attachments };
 };
 

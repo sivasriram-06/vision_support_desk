@@ -71,6 +71,9 @@ const TICKET_HISTORY_EVENT = {
     // ticket id. CLOSE_REPLY_DISMISSED: New_Value = replies cleared.
     REOPENED: "REOPENED",
     SPLIT_TO: "SPLIT_TO",
+    // A person deleted the ticket (tickets.delete) - never written by the
+    // Gmail deletion sync, so ingestion can tell the two apart.
+    TICKET_DELETED: "TICKET_DELETED",
     SPLIT_FROM: "SPLIT_FROM",
     CLOSE_REPLY_DISMISSED: "CLOSE_REPLY_DISMISSED",
     COMMENT_ADDED: "COMMENT_ADDED"

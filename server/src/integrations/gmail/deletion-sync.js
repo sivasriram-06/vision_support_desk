@@ -6,6 +6,7 @@ const ticketRepository = require("../../repositories/ticket.repository");
 const attachmentRepository = require("../../repositories/attachment.repository");
 const gmailIngestedMessageRepository = require("../../repositories/gmail-ingested-message.repository");
 const organizationService = require("../../services/organization.service");
+const DB_TABLES = require("../../constants/db-tables");
 const logger = require("../../utils/logger");
 
 /**
@@ -40,32 +41,30 @@ const listAllLiveMessageIds = async (gmail, query) => {
 const removeIngestedMessage = (row, actorAgentId) => {
     const db = getDB();
     const txn = db.transaction(() => {
-        const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id) : null;
+        // The thread row knows the ticket the mail is on NOW - a "Create as
+        // new issue" split moves mails, so the ingested row's Ticket_Id can
+        // be stale.
+        const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id, { includeDeleted: true }) : null;
+        const ticketId = thread ? thread.Ticket_Id : row.Ticket_Id;
 
-        if (thread) {
+        if (thread && thread.Is_Deleted === "N") {
             threadRepository.softDeleteById(thread.Thread_Id, actorAgentId);
-
             const conversation = conversationRepository.findById(thread.Conversation_Id);
             if (conversation) {
                 conversationRepository.softDeleteById(conversation.Conversation_Id, actorAgentId);
-                ticketRepository.incrementCounter(row.Ticket_Id, "Thread_Count", -1);
-
-                const attachments = attachmentRepository.findByConversationId(conversation.Conversation_Id);
-                for (const attachment of attachments) {
+                for (const attachment of attachmentRepository.findByConversationId(conversation.Conversation_Id)) {
                     attachmentRepository.softDeleteById(attachment.Attachment_Id, actorAgentId);
-                }
-                if (attachments.length > 0) {
-                    ticketRepository.incrementCounter(row.Ticket_Id, "Attachment_Count", -attachments.length);
                 }
             }
         }
 
         gmailIngestedMessageRepository.deleteByGmailMessageId(row.Gmail_Message_Id);
+        recountTicket(ticketId);
 
-        const remainingConversations = conversationRepository.findByTicketId(row.Ticket_Id);
+        const remainingConversations = conversationRepository.findByTicketId(ticketId);
         let ticketRemoved = false;
         if (remainingConversations.length === 0) {
-            ticketRepository.softDeleteById(row.Ticket_Id, actorAgentId);
+            ticketRepository.softDeleteById(ticketId, actorAgentId);
             ticketRemoved = true;
         }
 
@@ -73,6 +72,47 @@ const removeIngestedMessage = (row, actorAgentId) => {
     });
 
     return txn();
+};
+
+/**
+ * Thread / attachment counters from the rows themselves, so a delete and a
+ * later restore (or a split moving mails) can never drift them negative.
+ */
+const recountTicket = (ticketId) => {
+    getDB().prepare(
+        `UPDATE ${DB_TABLES.TICKET} SET
+            Thread_Count = (SELECT COUNT(*) FROM ${DB_TABLES.TICKET_THREAD} WHERE Ticket_Id = @ticketId AND Is_Deleted = 'N'),
+            Attachment_Count = (SELECT COUNT(*) FROM ${DB_TABLES.TICKET_ATTACHMENT} WHERE Ticket_Id = @ticketId AND Is_Deleted = 'N')
+         WHERE Ticket_Id = @ticketId`
+    ).run({ ticketId });
+};
+
+/**
+ * A mail the owner deleted in Gmail came back (moved out of Trash): brings
+ * back its thread, conversation and attachments - and the ticket, if the
+ * delete had removed it. Returns the ticket id the mail is on. Runs in the
+ * caller's transaction when there is one.
+ */
+const restoreIngestedThread = (thread, actorAgentId) => {
+    const db = getDB();
+    return db.transaction(() => {
+        const undelete = (table, key, id) =>
+            db.prepare(`UPDATE ${table} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = datetime('now') WHERE ${key} = ?`).run(actorAgentId, id);
+        undelete(DB_TABLES.TICKET_THREAD, "Thread_Id", thread.Thread_Id);
+        if (thread.Conversation_Id) {
+            undelete(DB_TABLES.TICKET_CONVERSATION, "Conversation_Id", thread.Conversation_Id);
+            db.prepare(
+                `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = datetime('now') WHERE Conversation_Id = ?`
+            ).run(actorAgentId, thread.Conversation_Id);
+        }
+        // Only a ticket the Gmail delete removed comes back - not one a person deleted.
+        const deletedByUser = db.prepare(
+            `SELECT 1 FROM ${DB_TABLES.TICKET_HISTORY} WHERE Ticket_Id = ? AND Event_Name = 'TICKET_DELETED' LIMIT 1`
+        ).get(thread.Ticket_Id);
+        if (!deletedByUser) undelete(DB_TABLES.TICKET, "Ticket_Id", thread.Ticket_Id);
+        recountTicket(thread.Ticket_Id);
+        return thread.Ticket_Id;
+    })();
 };
 
 /**
@@ -90,10 +130,22 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
     const liveIds = await listAllLiveMessageIds(gmail, `{to:${mailbox} from:${mailbox}}`);
     const ingestedRows = gmailIngestedMessageRepository.findAll();
 
-    const results = { checked: ingestedRows.length, removed: 0, ticketsRemoved: 0, errors: [] };
+    const results = { checked: ingestedRows.length, removed: 0, ticketsRemoved: 0, restored: 0, errors: [] };
 
     for (const row of ingestedRows) {
         if (liveIds.has(row.Gmail_Message_Id)) {
+            // Live in Gmail but deleted here: it was deleted and then moved
+            // back out of Trash - bring it back.
+            const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id, { includeDeleted: true }) : null;
+            if (thread && thread.Is_Deleted === "Y") {
+                try {
+                    restoreIngestedThread(thread, systemAgent.Agent_Id);
+                    results.restored += 1;
+                } catch (error) {
+                    logger.error(`Restore failed for Gmail message ${row.Gmail_Message_Id}:`, error);
+                    results.errors.push({ gmailMessageId: row.Gmail_Message_Id, message: error.message });
+                }
+            }
             continue;
         }
         try {
@@ -111,4 +163,4 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
     return results;
 };
 
-module.exports = { runDeletionSync };
+module.exports = { runDeletionSync, restoreIngestedThread, recountTicket };

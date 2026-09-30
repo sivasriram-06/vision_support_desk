@@ -303,6 +303,27 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     return getTicketDetail(ticketId);
 };
 
+/**
+ * Deletes a ticket (tickets.delete: Admin, Manager, Team Lead). Soft
+ * delete - the row and its mails stay in the database with who deleted it
+ * (a TICKET_DELETED history row), but it leaves every list, queue, My
+ * Tickets, escalation and customer count. A later mail in its thread opens
+ * a new ticket instead of reviving this one.
+ */
+const deleteTicket = (ticketId, actorAgentId) => {
+    const org = organizationService.getDefaultOrganization();
+    getTicketById(ticketId);
+    getDB().transaction(() => {
+        ticketRepository.softDeleteById(ticketId, actorAgentId);
+        recordHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.TICKET_DELETED, actorAgentId, orgId: org.Organization_Id });
+    })();
+    return { deleted: true, ticketId };
+};
+
+/** True when a person deleted the ticket (not the Gmail deletion sync). */
+const isDeletedByUser = (ticketId) =>
+    historyRepository.findByTicketId(ticketId).some((h) => h.Event_Name === TICKET_HISTORY_EVENT.TICKET_DELETED);
+
 const getTicketHistory = (ticketId) => {
     getTicketById(ticketId);
     return historyRepository.findByTicketId(ticketId);
@@ -333,6 +354,8 @@ module.exports = {
     getTicketDetail,
     createTicket,
     updateTicket,
+    deleteTicket,
+    isDeletedByUser,
     getTicketHistory,
     getTicketMetrics,
     listEscalatedTickets,

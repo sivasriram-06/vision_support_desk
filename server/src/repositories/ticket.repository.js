@@ -353,12 +353,13 @@ const findSplitChildren = (ticketId) => {
 /**
  * Follows "split into" links forward: the newest ticket split off
  * `ticketId`, then the newest split off that one, and so on. Returns
- * `ticketId` itself when nothing was split off.
+ * `ticketId` itself when nothing was split off. `includeDeleted` also
+ * follows tickets removed because their mails were deleted in Gmail.
  */
-const findLatestSplitDescendantId = (ticketId) => {
+const findLatestSplitDescendantId = (ticketId, { includeDeleted = false } = {}) => {
     const db = getDB();
     const next = db.prepare(
-        `SELECT Ticket_Id FROM ${DB_TABLES.TICKET} WHERE Split_From_Ticket_Id = ? AND Is_Deleted = 'N'
+        `SELECT Ticket_Id FROM ${DB_TABLES.TICKET} WHERE Split_From_Ticket_Id = ? ${includeDeleted ? "" : "AND Is_Deleted = 'N'"}
          ORDER BY Created_Time DESC LIMIT 1`
     );
     let current = ticketId;
@@ -368,6 +369,14 @@ const findLatestSplitDescendantId = (ticketId) => {
         current = row.Ticket_Id;
     }
     return current;
+};
+
+/** Brings back a ticket soft-deleted because its mails were deleted in Gmail. */
+const undeleteById = (ticketId) => {
+    const db = getDB();
+    db.prepare(
+        `UPDATE ${DB_TABLES.TICKET} SET Is_Deleted = 'N', Modified_Time = datetime('now') WHERE Ticket_Id = ? AND Is_Deleted = 'Y'`
+    ).run(ticketId);
 };
 
 /** Tickets on a bank whose SLA still matters (has a priority, not resolved/closed). */
@@ -410,6 +419,7 @@ module.exports = {
     findNextTicketNumber,
     findSplitChildren,
     findLatestSplitDescendantId,
+    undeleteById,
     incrementCounter,
     findOpenWithPriorityByBankId,
     findByStatus,

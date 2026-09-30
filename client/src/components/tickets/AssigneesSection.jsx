@@ -72,7 +72,8 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
     a.agentId === me?.agentId ||
     a.assignedBy === me?.agentId ||
     canAssignAny ||
-    (canAssignTeam && !!me?.teamId && a.teamId === me.teamId)
+    // A lead of the ticket's team answers for it: can remove anyone on it, cross-team too.
+    (canAssignTeam && !!me?.teamId && (ticket.Department_Id === me.teamId || a.teamId === me.teamId))
 
   const run = async (action) => {
     setBusy(true)

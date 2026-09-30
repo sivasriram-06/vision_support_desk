@@ -11,10 +11,10 @@ const DELETION_SYNC_EVERY_N_TICKS = 20;
 const runDeletionSyncTick = async () => {
     try {
         const results = await deletionSync.runDeletionSync({ mailbox: env.google.mailbox });
-        if (results.removed > 0 || results.errors.length > 0) {
+        if (results.removed > 0 || results.restored > 0 || results.errors.length > 0) {
             logger.info(
                 `Gmail deletion-sync: checked=${results.checked} removed=${results.removed} ` +
-                `ticketsRemoved=${results.ticketsRemoved} errors=${results.errors.length}`
+                `ticketsRemoved=${results.ticketsRemoved} restored=${results.restored} errors=${results.errors.length}`
             );
         } else {
             logger.debug(`Gmail deletion-sync tick: checked=${results.checked}, nothing removed.`);

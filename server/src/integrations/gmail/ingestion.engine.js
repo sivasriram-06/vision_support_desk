@@ -5,6 +5,7 @@ const { normalizeMessage } = require("./gmail.normalizer");
 const { thread: threadRepository, conversation: conversationRepository } = require("../../repositories/conversation.repository");
 const ticketRepository = require("../../repositories/ticket.repository");
 const mailReplyAddressRepository = require("../../repositories/mail-reply-address.repository");
+const { restoreIngestedThread } = require("./deletion-sync");
 const gmailIngestedMessageRepository = require("../../repositories/gmail-ingested-message.repository");
 const attachmentRepository = require("../../repositories/attachment.repository");
 const ticketService = require("../../services/ticket.service");
@@ -191,10 +192,28 @@ const findTicketIdForReply = (normalized) => {
         : [];
     const candidates = [normalized.inReplyToHeader, ...references].filter(Boolean);
 
+    // A ticket a person deleted (Delete ticket) stays deleted: a reply in
+    // its thread opens a new ticket instead of landing on - or reviving -
+    // the hidden one.
+    const deletedByUser = (ticketId) => ticketRepository.findById(ticketId, { includeDeleted: true })?.Is_Deleted === "Y" && ticketService.isDeletedByUser(ticketId);
+
     for (const messageId of candidates) {
         const thread = threadRepository.findThreadByInReplyTo(messageId);
         if (thread) {
-            return ticketRepository.findLatestSplitDescendantId(thread.Ticket_Id);
+            const ticketId = ticketRepository.findLatestSplitDescendantId(thread.Ticket_Id);
+            return deletedByUser(ticketId) ? null : ticketId;
+        }
+    }
+    // Only a deleted mail matches (deleted in Gmail, maybe about to come
+    // back from Trash): the reply still belongs to that mail's ticket, not
+    // a new one. The ticket is brought back if the Gmail delete had removed it.
+    for (const messageId of candidates) {
+        const thread = threadRepository.findThreadByMessageId(messageId);
+        if (thread) {
+            const ticketId = ticketRepository.findLatestSplitDescendantId(thread.Ticket_Id, { includeDeleted: true });
+            if (deletedByUser(ticketId)) return null;
+            ticketRepository.undeleteById(ticketId);
+            return ticketId;
         }
     }
     return null;
@@ -223,6 +242,13 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
 
     const alreadyIngested = threadRepository.findThreadByMessageId(normalized.messageIdHeader);
     if (alreadyIngested) {
+        // Deleted in Gmail earlier (so removed here) and now moved back out
+        // of Trash: bring the mail - and its ticket - back instead of
+        // skipping it as a duplicate.
+        if (alreadyIngested.Is_Deleted === "Y") {
+            const ticketId = restoreIngestedThread(alreadyIngested, systemAgentId);
+            return { status: "restored", ticketId, threadId: alreadyIngested.Thread_Id };
+        }
         return {
             status: "skipped",
             reason: "already ingested",
