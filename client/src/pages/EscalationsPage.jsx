@@ -14,6 +14,7 @@ import {
   getBanks,
   getPrioritySlaConfig,
 } from '../utils/api.js'
+import useRealtime, { RT, TICKET_LIST_EVENTS } from '../realtime/useRealtime.js'
 
 const EMPTY_FILTERS = { departmentId: '', bankId: '', priority: '' }
 
@@ -28,6 +29,8 @@ export default function EscalationsPage() {
   const [lookups, setLookups] = useState({ teams: [], banks: [], priorities: [], levels: [] })
   const [state, setState] = useState({ loading: true, error: null, tickets: [] })
   const [reloadKey, setReloadKey] = useState(0)
+  // Live: ticket changes, and levels reached as time passes (server escalation watch).
+  useRealtime([...TICKET_LIST_EVENTS, RT.ESCALATION_CHANGED], () => setReloadKey((k) => k + 1))
   const [boardRef, boardHeight] = useFitHeight(state.loading)
 
   useEffect(() => {

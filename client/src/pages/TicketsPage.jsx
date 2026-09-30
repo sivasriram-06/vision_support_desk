@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { List, UsersRound, Landmark } from 'lucide-react'
 import PageTitle from '../components/ui/PageTitle.jsx'
@@ -7,6 +7,7 @@ import TicketFilters from '../components/tickets/TicketFilters.jsx'
 import TicketTable from '../components/tickets/TicketTable.jsx'
 import QueueBoard from '../components/tickets/QueueBoard.jsx'
 import { getTickets, ApiError } from '../utils/api.js'
+import useRealtime, { TICKET_LIST_EVENTS } from '../realtime/useRealtime.js'
 
 const DEFAULT_FILTERS = { search: '', status: '', priority: '', slaBreached: false, closeReplies: false, sortBy: 'Created_Time', sortOrder: 'desc' }
 
@@ -32,6 +33,10 @@ export default function TicketsPage() {
   const [paging, setPaging] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Live: new / changed / deleted tickets reload the list in place (no loading flash).
+  const [liveKey, setLiveKey] = useState(0)
+  const seenLiveKey = useRef(0)
+  useRealtime(TICKET_LIST_EVENTS, () => setLiveKey((k) => k + 1))
 
   // Reset to page 1 whenever a filter changes (not on plain pagination).
   useEffect(() => {
@@ -40,9 +45,11 @@ export default function TicketsPage() {
 
   useEffect(() => {
     let cancelled = false
+    const quiet = seenLiveKey.current !== liveKey
+    seenLiveKey.current = liveKey
     const timer = setTimeout(
       async () => {
-        setLoading(true)
+        if (!quiet) setLoading(true)
         setError(null)
         try {
           const res = await getTickets({
@@ -68,14 +75,14 @@ export default function TicketsPage() {
           if (!cancelled) setLoading(false)
         }
       },
-      filters.search ? 300 : 0,
+      filters.search && !quiet ? 300 : 0,
     ) // debounce only the free-text search
 
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [page, filters])
+  }, [page, filters, liveKey])
 
   return (
     <div className="flex flex-col gap-4">

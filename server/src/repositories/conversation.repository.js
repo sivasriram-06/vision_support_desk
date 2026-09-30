@@ -81,12 +81,12 @@ const findPendingCloseReplies = (ticketId) => {
 };
 
 /** Sets the decision on every pending reply of a ticket; returns how many changed. */
-const decidePendingCloseReplies = (ticketId, decision) => {
+const decidePendingCloseReplies = (ticketId, decision, actorAgentId) => {
     const db = getDB();
     return db.prepare(
-        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Post_Close_Decision = ?, Modified_Time = datetime('now')
+        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Post_Close_Decision = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')
          WHERE Ticket_Id = ? AND Post_Close_Decision = 'PENDING'`
-    ).run(decision, ticketId).changes;
+    ).run(decision, actorAgentId, ticketId).changes;
 };
 
 /**
@@ -95,7 +95,7 @@ const decidePendingCloseReplies = (ticketId, decision) => {
  * attachments to `toTicketId`. Returns { conversations, threads, attachments }
  * moved, for the tickets' counters.
  */
-const moveFromTime = (fromTicketId, toTicketId, fromTime) => {
+const moveFromTime = (fromTicketId, toTicketId, fromTime, actorAgentId) => {
     const db = getDB();
     const ids = db.prepare(
         `SELECT Conversation_Id FROM ${DB_TABLES.TICKET_CONVERSATION}
@@ -104,14 +104,14 @@ const moveFromTime = (fromTicketId, toTicketId, fromTime) => {
     if (ids.length === 0) return { conversations: 0, threads: 0, attachments: 0 };
     const inList = ids.map(() => "?").join(", ");
     const conversations = db.prepare(
-        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList})`
-    ).run(toTicketId, ...ids).changes;
+        `UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Ticket_Id = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id IN (${inList})`
+    ).run(toTicketId, actorAgentId, ...ids).changes;
     const threads = db.prepare(
-        `UPDATE ${DB_TABLES.TICKET_THREAD} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList})`
-    ).run(toTicketId, ...ids).changes;
+        `UPDATE ${DB_TABLES.TICKET_THREAD} SET Ticket_Id = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id IN (${inList})`
+    ).run(toTicketId, actorAgentId, ...ids).changes;
     const attachments = db.prepare(
-        `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Ticket_Id = ?, Modified_Time = datetime('now') WHERE Conversation_Id IN (${inList}) AND Is_Deleted = 'N'`
-    ).run(toTicketId, ...ids).changes;
+        `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Ticket_Id = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id IN (${inList}) AND Is_Deleted = 'N'`
+    ).run(toTicketId, actorAgentId, ...ids).changes;
     // The Gmail sync's own record of each mail follows it too.
     db.prepare(
         `UPDATE _GMAIL_INGESTED_MESSAGE SET Ticket_Id = ?

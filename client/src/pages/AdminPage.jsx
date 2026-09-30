@@ -11,7 +11,7 @@ import ErrorState from '../components/ui/ErrorState.jsx'
 import SkeletonRows from '../components/ui/SkeletonRows.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ROLE_KEYS, ROLE_STYLE } from '../auth/permissions.js'
-import { formatDateTime } from '../utils/format.js'
+import { formatDateTime, parseTime } from '../utils/format.js'
 import {
   ApiError,
   getRoles,
@@ -199,7 +199,7 @@ function PermissionGroup({ group, catalog, roles, draft, onToggle }) {
 /* ─── User Access: who can sign in, temporary passwords, revocation ─── */
 function loginState(user) {
   if (user.Has_Login !== 'Y') return { label: 'No sign-in', text: 'text-muted', bg: 'bg-muted/10' }
-  if (user.Locked_Until && new Date(user.Locked_Until.replace(' ', 'T') + 'Z') > new Date()) return { label: 'Locked', text: 'text-danger', bg: 'bg-danger/10' }
+  if (user.Locked_Until && parseTime(user.Locked_Until) > new Date()) return { label: 'Locked', text: 'text-danger', bg: 'bg-danger/10' }
   if (user.Status !== 'Active') return { label: 'Inactive', text: 'text-muted', bg: 'bg-muted/10' }
   if (user.Must_Change_Password === 'Y') return { label: 'Temp password', text: 'text-warn', bg: 'bg-warn/10' }
   return { label: 'Active', text: 'text-success-dark', bg: 'bg-success/10' }

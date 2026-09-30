@@ -13,6 +13,7 @@ import { getPriorityStyle } from '../utils/ticketMeta.js'
 import { getClockStyle, getSlaState, formatMinutes, getEscalationStyle } from '../utils/clockMeta.js'
 import { formatDateTime } from '../utils/format.js'
 import { ApiError, getMyTickets, getMyTicketCounts } from '../utils/api.js'
+import useRealtime, { RT } from '../realtime/useRealtime.js'
 
 const TABS = [
   { value: 'assigned', label: 'Assigned to me', icon: UserCheck, countKey: 'assigned' },
@@ -111,6 +112,8 @@ export default function MyTicketsPage() {
   const [counts, setCounts] = useState(null)
   const [state, setState] = useState({ loading: true, error: null, tickets: [] })
   const [reloadKey, setReloadKey] = useState(0)
+  // Live: assignments / seen flags for me, and changes on tickets in these lists.
+  useRealtime([RT.MY_TICKETS_CHANGED, RT.TICKET_ASSIGNMENT, RT.TICKET_CHANGED, RT.TICKET_DELETED, RT.TICKET_REOPEN], () => setReloadKey((k) => k + 1))
 
   useEffect(() => {
     // Tab badges follow the "include resolved and closed" box, like the list.

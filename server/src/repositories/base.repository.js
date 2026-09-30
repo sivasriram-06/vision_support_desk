@@ -1,4 +1,6 @@
 const { getDB } = require("../config/db");
+const { nowIst, NOW_IST_SQL } = require("../utils/time");
+
 
 /**
  * Factory that gives every HD_* table repository the same CRUD primitives
@@ -7,9 +9,31 @@ const { getDB } = require("../config/db");
  * table-specific queries.
  */
 const createRepository = ({ table, primaryKey, columns }) => {
-    const insert = (data) => {
+    // Whether the table has a Created_Time column - looked up once. The DB
+    // default (datetime('now'), UTC) is never relied on: times are IST.
+    let hasCreatedTime = null;
+    const tableHasCreatedTime = () => {
+        if (hasCreatedTime === null) {
+            hasCreatedTime = getDB().prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === "Created_Time");
+        }
+        return hasCreatedTime;
+    };
+
+    /**
+     * A new row counts as last modified when and by whom it was created, so
+     * Modified_By / Modified_Time are never empty.
+     */
+    const insert = (input) => {
         const db = getDB();
-        const cols = columns.filter((col) => data[col] !== undefined);
+        const data = { ...input };
+        if (data.Created_Time === undefined && tableHasCreatedTime()) data.Created_Time = nowIst();
+        if (columns.includes("Modified_By") && data.Modified_By === undefined && data.Created_By !== undefined) {
+            data.Modified_By = data.Created_By;
+        }
+        if (columns.includes("Modified_Time") && data.Modified_Time === undefined) {
+            data.Modified_Time = data.Created_Time || nowIst();
+        }
+        const cols = [...new Set([...columns, ...(data.Created_Time !== undefined && tableHasCreatedTime() ? ["Created_Time"] : [])])].filter((col) => data[col] !== undefined);
         const placeholders = cols.map((col) => `@${col}`).join(", ");
         const stmt = db.prepare(
             `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders})`
@@ -28,13 +52,13 @@ const createRepository = ({ table, primaryKey, columns }) => {
 
     const updateById = (id, data) => {
         const db = getDB();
-        const cols = Object.keys(data).filter((col) => columns.includes(col));
+        const cols = Object.keys(data).filter((col) => columns.includes(col) && col !== "Modified_Time");
         if (cols.length === 0) {
             return findById(id);
         }
         const setClause = cols.map((col) => `${col} = @${col}`).join(", ");
         db.prepare(
-            `UPDATE ${table} SET ${setClause}, Modified_Time = datetime('now') WHERE ${primaryKey} = @__id`
+            `UPDATE ${table} SET ${setClause}, Modified_Time = ${NOW_IST_SQL} WHERE ${primaryKey} = @__id`
         ).run({ ...data, __id: id });
         return findById(id);
     };
@@ -42,7 +66,7 @@ const createRepository = ({ table, primaryKey, columns }) => {
     const softDeleteById = (id, modifiedBy) => {
         const db = getDB();
         db.prepare(
-            `UPDATE ${table} SET Is_Deleted = 'Y', Modified_By = ?, Modified_Time = datetime('now') WHERE ${primaryKey} = ?`
+            `UPDATE ${table} SET Is_Deleted = 'Y', Modified_By = ?, Modified_Time = ${NOW_IST_SQL} WHERE ${primaryKey} = ?`
         ).run(modifiedBy, id);
     };
 
@@ -57,4 +81,5 @@ const createRepository = ({ table, primaryKey, columns }) => {
     return { table, primaryKey, columns, insert, findById, updateById, softDeleteById, count };
 };
 
+createRepository.NOW_IST_SQL = NOW_IST_SQL;
 module.exports = createRepository;

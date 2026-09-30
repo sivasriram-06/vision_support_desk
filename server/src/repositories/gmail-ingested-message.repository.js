@@ -1,4 +1,5 @@
 const { getDB } = require("../config/db");
+const { nowIst } = require("../utils/time");
 
 const TABLE = "_GMAIL_INGESTED_MESSAGE";
 
@@ -11,8 +12,8 @@ const findByGmailMessageId = (gmailMessageId) => {
 const insert = ({ gmailMessageId, ticketId, threadId }) => {
     const db = getDB();
     db.prepare(
-        `INSERT OR IGNORE INTO ${TABLE} (Gmail_Message_Id, Ticket_Id, Thread_Id) VALUES (?, ?, ?)`
-    ).run(gmailMessageId, ticketId, threadId);
+        `INSERT OR IGNORE INTO ${TABLE} (Gmail_Message_Id, Ticket_Id, Thread_Id, Created_Time) VALUES (?, ?, ?, ?)`
+    ).run(gmailMessageId, ticketId, threadId, nowIst());
 };
 
 /** Every message this mailbox has ever ingested - used by deletion-sync to diff against Gmail's current live set. */

@@ -29,7 +29,10 @@ const { TICKET_HISTORY_EVENT, WORK_STATE } = require("../constants/ticket.consta
  */
 
 const MANUAL_STATES = [WORK_STATE.IN_PROGRESS, WORK_STATE.ON_HOLD, WORK_STATE.DONE];
-const nowIso = () => new Date().toISOString();
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst } = require("../utils/time");
+
+const nowIso = () => nowIst();
 const nameOf = (a) => [a.First_Name, a.Last_Name].filter(Boolean).join(" ");
 
 const badRequest = (message) => new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, message);
@@ -270,13 +273,25 @@ const deleteWorklog = (ticketId, worklogId, actor) => {
     workRepository.softDeleteWorklog(worklogId);
 };
 
+/**
+ * Work changes someone makes on a ticket (state, blockers, work logs) tell
+ * open ticket pages / Tracking tabs and My Tickets to refresh. startWork /
+ * endWork run inside assignment and reopen flows, which publish themselves.
+ */
+const publishingWorkChange = (fn) => (ticketId, ...args) => {
+    const result = fn(ticketId, ...args);
+    const actor = args[args.length - 1];
+    publish({ type: REALTIME_EVENT.TICKET_ASSIGNMENT, ticketId, reason: "work", actorAgentId: actor?.agentId });
+    return result;
+};
+
 module.exports = {
     canManageWork,
     startWork,
     endWork,
-    changeState,
-    addDependency,
-    removeDependency,
-    addWorklog,
-    deleteWorklog
+    changeState: publishingWorkChange(changeState),
+    addDependency: publishingWorkChange(addDependency),
+    removeDependency: publishingWorkChange(removeDependency),
+    addWorklog: publishingWorkChange(addWorklog),
+    deleteWorklog: publishingWorkChange(deleteWorklog)
 };

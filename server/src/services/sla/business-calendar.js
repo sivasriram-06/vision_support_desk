@@ -164,7 +164,33 @@ const supportMinutesBetween = (fromUtc, toUtc, calendar) => {
     return Math.floor(totalMs / 60000);
 };
 
+/**
+ * Is the support clock counting at `now`, and until when? { counting,
+ * until } - `until` is the next moment that flips (end of today's window,
+ * or the next working day's window start); null = never flips (24x7).
+ * Lets the browser run a live resolution clock between server updates
+ * without polling.
+ */
+const supportClockNow = (calendar, now = new Date()) => {
+    if (!calendar.hours) return { counting: true, until: null };
+    const start = parseHhmm(calendar.hours.start);
+    const end = parseHhmm(calendar.hours.end);
+    const nowMs = now.getTime();
+    let day = DateTime.fromJSDate(now, { zone: calendar.hours.zone }).startOf("day");
+    for (let i = 0; i < 15; i += 1) {
+        const windowStart = day.set({ hour: start.hour, minute: start.minute });
+        const windowEnd = day.set({ hour: end.hour, minute: end.minute });
+        if (isWorkingDay(windowStart, calendar)) {
+            if (nowMs < windowStart.toMillis()) return { counting: false, until: windowStart.toJSDate() };
+            if (nowMs < windowEnd.toMillis()) return { counting: true, until: windowEnd.toJSDate() };
+        }
+        day = day.plus({ days: 1 });
+    }
+    return { counting: false, until: null };
+};
+
 module.exports = {
+    supportClockNow,
     WEEKDAYS,
     DEFAULT_WORKING_DAYS,
     DEFAULT_SUPPORT_START_IST,

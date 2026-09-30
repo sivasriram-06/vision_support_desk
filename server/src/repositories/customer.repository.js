@@ -1,12 +1,13 @@
 const { getDB } = require("../config/db");
 const DB_TABLES = require("../constants/db-tables");
 const { parsePagination } = require("../utils/pagination");
+const { nowIst } = require("../utils/time");
 
 /**
  * Customers = HD_CONTACT_MASTER rows (every Gmail From address) with
  * their bank and ticket counts. Closed = a stopped clock (the Closed
  * status); overdue = not closed and past its SLA due date
- * (ISO-8601 UTC, so text comparison orders correctly).
+ * (IST ISO +05:30, so text comparison orders correctly).
  */
 
 const NAME_SQL = "TRIM(COALESCE(c.First_Name || ' ', '') || COALESCE(c.Last_Name, ''))";
@@ -25,7 +26,7 @@ const SELECT_SQL = `
 `;
 
 const buildWhere = (orgId, query) => {
-    const params = { orgId, now: new Date().toISOString() };
+    const params = { orgId, now: nowIst() };
     let where = "c.Org_Id = @orgId AND c.Is_Deleted = 'N'";
 
     if (query.search) {
@@ -68,7 +69,7 @@ const findById = (contactId) => {
     const db = getDB();
     return db.prepare(
         `${SELECT_SQL} WHERE c.Contact_Id = @contactId AND c.Is_Deleted = 'N' GROUP BY c.Contact_Id`
-    ).get({ contactId, now: new Date().toISOString() });
+    ).get({ contactId, now: nowIst() });
 };
 
 

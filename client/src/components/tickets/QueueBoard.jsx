@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Layers, Flag, ListChecks } from 'lucide-react'
 import Select from '../ui/Select.jsx'
 import ErrorState from '../ui/ErrorState.jsx'
@@ -7,6 +7,7 @@ import useFitHeight from '../../utils/useFitHeight.js'
 import { getPriorityStyle } from '../../utils/ticketMeta.js'
 import { getClockStyle, getSlaState } from '../../utils/clockMeta.js'
 import { ApiError, getTickets, getDepartments, getBanks, getPicklistValues, getPrioritySlaConfig } from '../../utils/api.js'
+import useRealtime, { TICKET_LIST_EVENTS } from '../../realtime/useRealtime.js'
 
 const MODE_STORAGE_KEY = 'vsd:queue-mode'
 const MODES = [
@@ -71,9 +72,16 @@ export default function QueueBoard({ view, selectedId, onSelect }) {
   const options = isTeam
     ? scopes.teams.map((d) => ({ value: d.Department_Id, label: d.Department_Name }))
     : scopes.banks.map((b) => ({ value: b.Bank_Id, label: b.Support_Team_Name ? `${b.Bank_Name} — ${b.Support_Team_Name}` : b.Bank_Name }))
+  // Live: any ticket change reloads the board in place (no loading flash).
+  const [liveKey, setLiveKey] = useState(0)
+  const seenLiveKey = useRef(0)
+  useRealtime(TICKET_LIST_EVENTS, () => setLiveKey((k) => k + 1))
+
   useEffect(() => {
     let cancelled = false
-    setState((prev) => ({ ...prev, loading: true, error: null }))
+    const quiet = seenLiveKey.current !== liveKey // live refresh, not a new queue
+    seenLiveKey.current = liveKey
+    if (!quiet) setState((prev) => ({ ...prev, loading: true, error: null }))
     const scope = selectedId ? (isTeam ? { departmentId: selectedId } : { bankId: selectedId }) : {}
     fetchAllTickets(scope)
       // "All banks" means tickets that have a bank; not-yet-routed intake mail
@@ -83,7 +91,7 @@ export default function QueueBoard({ view, selectedId, onSelect }) {
     return () => {
       cancelled = true
     }
-  }, [selectedId, isTeam])
+  }, [selectedId, isTeam, liveKey])
 
   const columns = useMemo(() => {
     const groups = new Map()

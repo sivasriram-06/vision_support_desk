@@ -6,6 +6,7 @@ const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 const { buildPaging } = require("../utils/pagination");
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
 
 /**
  * Customers page (customers.manage). Customers are never created here -
@@ -46,6 +47,7 @@ const updateCustomer = (contactId, payload, actorAgentId) => {
     }
     if (payload.bankId !== undefined) changes.Bank_Id = payload.bankId || null;
     contactRepository.updateById(contactId, changes);
+    publish({ type: REALTIME_EVENT.CUSTOMER_CHANGED, contactId, actorAgentId });
 
     return getCustomer(contactId);
 };

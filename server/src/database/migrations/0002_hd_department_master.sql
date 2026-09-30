@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS HD_DEPARTMENT_MASTER (
     Team_Type                   TEXT,
     Is_Default                  TEXT NOT NULL DEFAULT 'N' CHECK (Is_Default IN ('Y', 'N')),
     Created_By                  TEXT,
-    Created_Time                TEXT NOT NULL DEFAULT (datetime('now')),
+    Created_Time                TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Modified_By                 TEXT,
     Modified_Time               TEXT,
     Is_Deleted                  TEXT NOT NULL DEFAULT 'N' CHECK (Is_Deleted IN ('Y', 'N')),

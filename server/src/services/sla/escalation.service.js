@@ -6,6 +6,7 @@ const generateId = require("../../utils/generate-id");
 const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
 const { getCalendar, addWorkingHours } = require("./business-calendar");
+const { toIst } = require("../../utils/time");
 
 /**
  * Escalation: how far a ticket has slipped against its SLA due date.
@@ -40,7 +41,7 @@ const rebuildTriggers = (ticket, orgId) => {
             Ticket_Escalation_Id: generateId(DB_TABLES.TICKET_ESCALATION),
             Ticket_Id: ticket.Ticket_Id,
             Level_No: level.Level_No,
-            Trigger_Time: addWorkingHours(dueDate, level.Offset_Hours, calendar).toISOString(),
+            Trigger_Time: toIst(addWorkingHours(dueDate, level.Offset_Hours, calendar)),
             Org_Id: orgId
         });
     }
@@ -55,7 +56,7 @@ const rebuildTriggersForPriority = (orgId, priority) => {
 
 /** Escalation block for the ticket panel: current level plus every level's trigger time. */
 const getTicketEscalation = (ticket, now = new Date()) => {
-    const nowIso = now.toISOString();
+    const nowIso = toIst(now);
     const stopped = ticket.Clock_State === CLOCK_BEHAVIOUR.STOPPED;
     const levels = ticketEscalationRepository.findByTicketId(ticket.Ticket_Id).map((row) => ({
         levelNo: row.Level_No,

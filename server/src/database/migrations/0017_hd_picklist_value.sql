@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS HD_PICKLIST_VALUE (
     Clock_Behaviour     TEXT CHECK (Clock_Behaviour IS NULL OR Clock_Behaviour IN ('NOT_STARTED', 'RUNNING', 'PAUSED', 'STOPPED')),
     Sort_Order          INTEGER NOT NULL DEFAULT 0,
     Created_By          TEXT,
-    Created_Time        TEXT NOT NULL DEFAULT (datetime('now')),
+    Created_Time        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Modified_By         TEXT,
     Modified_Time       TEXT,
     Is_Deleted          TEXT NOT NULL DEFAULT 'N' CHECK (Is_Deleted IN ('Y', 'N')),

@@ -13,6 +13,7 @@ const { clockBehaviourForStatus } = require("../sla/resolution-clock.service");
 const { getCalendar, supportMinutesBetween } = require("../sla/business-calendar");
 const { TICKET_HISTORY_EVENT, WORK_STATE, CLOCK_BEHAVIOUR, NEW_EMAIL_TICKET_STATUS } = require("../../constants/ticket.constants");
 const { WAIT_STATES, elapsedMinutes, unionMinutes, statusStretches, sumBy, criticalPath, longestWait } = require("./tracking-math");
+const { toIst } = require("../../utils/time");
 
 /**
  * GET /tickets/:id/tracking - the internal Tracking tab in one response:
@@ -109,7 +110,7 @@ const getTracking = (ticketId, now = new Date()) => {
             current: !a.Released_Time,
             workState: a.Work_State,
             note: a.Note,
-            stretches: stretches.map((s) => ({ ...s, startTime: new Date(s.start).toISOString(), endTime: new Date(s.end).toISOString(), open: s.end === laneEnd && !a.Released_Time && s === stretches[stretches.length - 1] })),
+            stretches: stretches.map((s) => ({ ...s, startTime: toIst(s.start), endTime: toIst(s.end), open: s.end === laneEnd && !a.Released_Time && s === stretches[stretches.length - 1] })),
             blockedBy: dependencies.filter((d) => d.Assignment_Id === a.Assignment_Id).map((d) => d.Depends_On_Assignment_Id),
             byState,
             span: measure(toMs(a.Assigned_Time), spanEnd),
@@ -127,8 +128,8 @@ const getTracking = (ticketId, now = new Date()) => {
     const statuses = statusStretches({ startMs, endMs, initialStatus, changes: statusChanges }).map((s) => ({
         status: s.status,
         clock: clockBehaviourForStatus(orgId, s.status),
-        startTime: new Date(s.start).toISOString(),
-        endTime: new Date(s.end).toISOString(),
+        startTime: toIst(s.start),
+        endTime: toIst(s.end),
         ...measure(s.start, s.end)
     }));
     const statusTotals = sumBy(
@@ -268,10 +269,10 @@ const getTracking = (ticketId, now = new Date()) => {
                 wait.state === "WAITING" && blockers.length
                     ? `${lane.name} waiting on ${blockers.map((b) => b.teamName).join(", ")}`
                     : `${lane.name} (${lane.teamName}) - ${WORK_STATE_LABEL[wait.state]}`;
-            longest = { ...wait, label, laneId: lane.assignmentId, startTime: new Date(wait.start).toISOString(), endTime: new Date(wait.end).toISOString() };
+            longest = { ...wait, label, laneId: lane.assignmentId, startTime: toIst(wait.start), endTime: toIst(wait.end) };
         } else {
             const label = wait.clock === "PAUSED" ? `Waiting on the bank - ${wait.status}` : `Waiting to be picked up - ${wait.status}`;
-            longest = { ...wait, label, startTime: new Date(wait.start).toISOString(), endTime: new Date(wait.end).toISOString() };
+            longest = { ...wait, label, startTime: toIst(wait.start), endTime: toIst(wait.end) };
         }
     }
 
@@ -282,8 +283,8 @@ const getTracking = (ticketId, now = new Date()) => {
 
     return {
         ticketId,
-        startTime: new Date(startMs).toISOString(),
-        endTime: new Date(endMs).toISOString(),
+        startTime: toIst(startMs),
+        endTime: toIst(endMs),
         resolved: Boolean(stopped),
         events,
         lanes: lanes.map(({ stretches, ...l }) => ({ ...l, stretches: stretches.map(({ start, end, ...s }) => s) })),
@@ -300,7 +301,7 @@ const getTracking = (ticketId, now = new Date()) => {
                 teamName: l.teamName,
                 crossTeam: l.crossTeam,
                 workState: l.workState,
-                sinceTime: l.stretches.length ? new Date(l.stretches[l.stretches.length - 1].start).toISOString() : l.assignedTime
+                sinceTime: l.stretches.length ? toIst(l.stretches[l.stretches.length - 1].start) : l.assignedTime
             })),
             perTeam: Object.values(perTeam).sort((a, b) => b.held - a.held),
             perPerson: Object.values(perPerson).sort((a, b) => b.held - a.held),

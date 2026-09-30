@@ -7,7 +7,10 @@ const generateId = require("../utils/generate-id");
 const DB_TABLES = require("../constants/db-tables");
 const { DIRECTION, TICKET_HISTORY_EVENT } = require("../constants/ticket.constants");
 
-const nowIso = () => new Date().toISOString();
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst } = require("../utils/time");
+
+const nowIso = () => nowIst();
 
 const listByTicket = (ticketId) => {
     ticketService.getTicketById(ticketId);
@@ -41,7 +44,7 @@ const addReply = (ticketId, payload, actorAgentId) => {
             Org_Id: org.Organization_Id
         });
 
-        ticketRepository.incrementCounter(ticketId, "Thread_Count");
+        ticketRepository.incrementCounter(ticketId, "Thread_Count", 1, actorAgentId);
         ticketService.recordHistory({
             ticketId,
             eventName: TICKET_HISTORY_EVENT.CONVERSATION_ADDED,
@@ -53,6 +56,7 @@ const addReply = (ticketId, payload, actorAgentId) => {
     });
 
     const conversationId = txn();
+    publish({ type: REALTIME_EVENT.TICKET_CONVERSATION, ticketId, reason: "reply", actorAgentId });
     return conversationRepository.findById(conversationId);
 };
 
@@ -79,7 +83,7 @@ const addComment = (ticketId, payload, actorAgentId) => {
             Org_Id: org.Organization_Id
         });
 
-        ticketRepository.incrementCounter(ticketId, "Comment_Count");
+        ticketRepository.incrementCounter(ticketId, "Comment_Count", 1, actorAgentId);
         ticketService.recordHistory({
             ticketId,
             eventName: TICKET_HISTORY_EVENT.COMMENT_ADDED,
@@ -91,6 +95,7 @@ const addComment = (ticketId, payload, actorAgentId) => {
     });
 
     const commentId = txn();
+    publish({ type: REALTIME_EVENT.TICKET_CONVERSATION, ticketId, reason: "comment", actorAgentId });
     return commentRepository.findById(commentId);
 };
 

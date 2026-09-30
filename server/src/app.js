@@ -11,6 +11,7 @@ const requestIdMiddleware = require("./middleware/request-id.middleware");
 const notFoundMiddleware = require("./middleware/not-found.middleware");
 const errorMiddleware = require("./middleware/error.middleware");
 const logger = require("./utils/logger");
+const { nowIst } = require("./utils/time");
 
 const app = express();
 
@@ -28,7 +29,7 @@ if (env.nodeEnv !== "test") {
 
 app.get("/health", (req, res) => {
   res.status(200).json({
-    data: { status: "ok", timestamp: new Date().toISOString() },
+    data: { status: "ok", timestamp: nowIst() },
   });
 });
 

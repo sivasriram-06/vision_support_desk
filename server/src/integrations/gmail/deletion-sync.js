@@ -7,6 +7,7 @@ const attachmentRepository = require("../../repositories/attachment.repository")
 const gmailIngestedMessageRepository = require("../../repositories/gmail-ingested-message.repository");
 const organizationService = require("../../services/organization.service");
 const DB_TABLES = require("../../constants/db-tables");
+const { publish, REALTIME_EVENT } = require("../../realtime/bus");
 const logger = require("../../utils/logger");
 
 /**
@@ -68,7 +69,7 @@ const removeIngestedMessage = (row, actorAgentId) => {
             ticketRemoved = true;
         }
 
-        return { ticketRemoved };
+        return { ticketRemoved, ticketId };
     });
 
     return txn();
@@ -97,12 +98,12 @@ const restoreIngestedThread = (thread, actorAgentId) => {
     const db = getDB();
     return db.transaction(() => {
         const undelete = (table, key, id) =>
-            db.prepare(`UPDATE ${table} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = datetime('now') WHERE ${key} = ?`).run(actorAgentId, id);
+            db.prepare(`UPDATE ${table} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE ${key} = ?`).run(actorAgentId, id);
         undelete(DB_TABLES.TICKET_THREAD, "Thread_Id", thread.Thread_Id);
         if (thread.Conversation_Id) {
             undelete(DB_TABLES.TICKET_CONVERSATION, "Conversation_Id", thread.Conversation_Id);
             db.prepare(
-                `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = datetime('now') WHERE Conversation_Id = ?`
+                `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id = ?`
             ).run(actorAgentId, thread.Conversation_Id);
         }
         // Only a ticket the Gmail delete removed comes back - not one a person deleted.
@@ -139,7 +140,8 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
             const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id, { includeDeleted: true }) : null;
             if (thread && thread.Is_Deleted === "Y") {
                 try {
-                    restoreIngestedThread(thread, systemAgent.Agent_Id);
+                    const ticketId = restoreIngestedThread(thread, systemAgent.Agent_Id);
+                    publish({ type: REALTIME_EVENT.TICKET_CHANGED, ticketId, reason: "restored" });
                     results.restored += 1;
                 } catch (error) {
                     logger.error(`Restore failed for Gmail message ${row.Gmail_Message_Id}:`, error);
@@ -149,7 +151,8 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
             continue;
         }
         try {
-            const { ticketRemoved } = removeIngestedMessage(row, systemAgent.Agent_Id);
+            const { ticketRemoved, ticketId } = removeIngestedMessage(row, systemAgent.Agent_Id);
+            publish({ type: ticketRemoved ? REALTIME_EVENT.TICKET_DELETED : REALTIME_EVENT.TICKET_CHANGED, ticketId, reason: "mail-deleted" });
             results.removed += 1;
             if (ticketRemoved) {
                 results.ticketsRemoved += 1;

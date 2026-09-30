@@ -7,6 +7,7 @@ import Select from '../components/ui/Select.jsx'
 import Button from '../components/ui/Button.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import { ApiError, getCustomer, updateCustomer, getBanks } from '../utils/api.js'
+import useRealtime, { RT } from '../realtime/useRealtime.js'
 
 const customerName = (c) => c.Full_Name || c.Email || 'Unknown'
 
@@ -31,6 +32,8 @@ export default function CustomerDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
+  // Live: this customer's ticket counts and edits by others.
+  useRealtime([RT.TICKET_CREATED, RT.TICKET_CHANGED, RT.TICKET_DELETED, RT.TICKET_REOPEN, RT.CUSTOMER_CHANGED], () => setReloadKey((k) => k + 1))
 
   useEffect(() => {
     getBanks().then((res) => setBanks(res.data)).catch(() => {})

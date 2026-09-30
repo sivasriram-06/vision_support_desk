@@ -30,10 +30,8 @@ const env = {
     port: Number(requireEnv("PORT")),
     databasePath: requireEnv("DATABASE_PATH"),
     // IANA zone name, e.g. "Asia/Kolkata" (IST). Used for log timestamps and
-    // as the default HD_ORGANIZATION_MASTER.Time_Zone at seed time. Database
-    // timestamps themselves stay UTC (SQLite datetime('now')) - converting
-    // storage to local time is a well-known source of DST/ambiguity bugs;
-    // this only affects display.
+    // as the default bank time zone at seed time. Stored timestamps are always
+    // IST ISO with the +05:30 offset (utils/time.js), whatever this is set to.
     timezone: requireEnv("TIMEZONE"),
 
     logging: {

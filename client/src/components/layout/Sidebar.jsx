@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { getMyTicketCounts } from '../../utils/api.js'
+import useRealtime, { RT } from '../../realtime/useRealtime.js'
 import { Inbox, UserCheck, Siren, UserCog, Landmark, Contact, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
@@ -21,26 +22,25 @@ const NAV_ITEMS = [
 
 /**
  * Tickets newly assigned to me that I haven't opened yet - the sidebar
- * badge that tells an agent the lead handed them something. Polled every
- * minute, and refreshed at once when a ticket is opened.
+ * badge that tells an agent the lead handed them something. Refreshed when
+ * the server says my tickets changed (WebSocket) and at once when a ticket
+ * is opened in this tab.
  */
 function useUnseenAssignments() {
   const [unseen, setUnseen] = useState(0)
-  useEffect(() => {
-    let cancelled = false
-    const load = () =>
+  const load = useCallback(
+    () =>
       getMyTicketCounts()
-        .then((res) => !cancelled && setUnseen(res.data.unseen || 0))
-        .catch(() => {})
+        .then((res) => setUnseen(res.data.unseen || 0))
+        .catch(() => {}),
+    []
+  )
+  useEffect(() => {
     load()
-    const timer = setInterval(load, 60000)
     window.addEventListener('vsd:my-tickets-changed', load)
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-      window.removeEventListener('vsd:my-tickets-changed', load)
-    }
-  }, [])
+    return () => window.removeEventListener('vsd:my-tickets-changed', load)
+  }, [load])
+  useRealtime([RT.MY_TICKETS_CHANGED], load)
   return unseen
 }
 

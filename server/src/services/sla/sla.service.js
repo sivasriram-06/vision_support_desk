@@ -1,6 +1,7 @@
 const bankRepository = require("../../repositories/bank.repository");
 const prioritySlaService = require("../priority-sla.service");
 const { getCalendar, addWorkingHours } = require("./business-calendar");
+const { toIst } = require("../../utils/time");
 
 /**
  * SLA due date = the ticket's Created_Time + the priority's SLA hours,
@@ -18,7 +19,7 @@ const computeSlaDueDate = ({ createdTime, priority, bankId, orgId }) => {
     const slaHours = prioritySlaService.getSlaHoursForPriority(orgId, priority);
     if (!slaHours) return null;
     const bank = bankId ? bankRepository.findById(bankId) : null;
-    return addWorkingHours(toDate(createdTime), slaHours, getCalendar(bank)).toISOString();
+    return toIst(addWorkingHours(toDate(createdTime), slaHours, getCalendar(bank)));
 };
 
 module.exports = { computeSlaDueDate };

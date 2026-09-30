@@ -45,7 +45,7 @@ const findByParentValue = (orgId, field, parentValue) => {
 const renameParentValue = (orgId, field, oldParentValue, newParentValue, modifiedBy) => {
     const db = getDB();
     db.prepare(
-        `UPDATE ${DB_TABLES.PICKLIST_VALUE} SET Parent_Value = ?, Modified_By = ?, Modified_Time = datetime('now')
+        `UPDATE ${DB_TABLES.PICKLIST_VALUE} SET Parent_Value = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')
          WHERE Org_Id = ? AND Field = ? AND Parent_Value = ? AND Is_Deleted = 'N'`
     ).run(newParentValue, modifiedBy, orgId, field, oldParentValue);
 };

@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS _GMAIL_INGESTED_MESSAGE (
     Gmail_Message_Id  TEXT PRIMARY KEY,
     Ticket_Id         TEXT NOT NULL REFERENCES HD_TICKET_MASTER (Ticket_Id),
     Thread_Id         TEXT REFERENCES HD_TICKET_THREAD (Thread_Id),
-    Created_Time      TEXT NOT NULL DEFAULT (datetime('now'))
+    Created_Time      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes'))
 );

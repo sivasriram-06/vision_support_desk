@@ -17,8 +17,10 @@ const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT, CLOCK_BEHAVIO
 const assignmentRepository = require("../repositories/ticket-assignment.repository");
 const reopenRepository = require("../repositories/ticket-reopen.repository");
 const { buildPaging } = require("../utils/pagination");
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst, toIst } = require("../utils/time");
 
-const nowIso = () => new Date().toISOString();
+const nowIso = () => nowIst();
 
 const recordHistory = ({ ticketId, eventName, fieldName = null, oldValue = null, newValue = null, actorAgentId, orgId, eventTime = null }) => {
     historyRepository.insert({
@@ -102,7 +104,7 @@ const createTicket = (payload, actorAgentId) => {
         // sync ran (internal callers only - the API schema doesn't accept
         // it). Clamped to now so clock skew can't put it in the future.
         const sourceMs = payload.createdTime ? new Date(payload.createdTime).getTime() : NaN;
-        const createdTime = Number.isNaN(sourceMs) ? nowIso() : new Date(Math.min(sourceMs, Date.now())).toISOString();
+        const createdTime = Number.isNaN(sourceMs) ? nowIso() : toIst(Math.min(sourceMs, Date.now()));
         const statusType = payload.statusType || STATUS_TYPE.OPEN;
         const status = payload.status || DEFAULT_STATUS_BY_TYPE[statusType];
         const dueDate = computeSlaDueDate({ createdTime, priority: payload.priority, bankId: payload.bankId, orgId: org.Organization_Id });
@@ -128,10 +130,8 @@ const createTicket = (payload, actorAgentId) => {
             Split_From_Ticket_Id: payload.splitFromTicketId || null,
             Sla_Start_Time: createdTime,
             Response_Due_Date: dueDate,
-            // Stored explicitly as ISO-8601 UTC (same instant the SLA was
-            // computed from). The column default, datetime('now'), writes
-            // "YYYY-MM-DD HH:MM:SS" - mixing the two formats breaks text
-            // sorting ("T" > " "), so "Newest first" put new tickets low.
+            // Stored explicitly as IST ISO (same instant the SLA was computed
+            // from) - see utils/time.js; one format keeps text sorting right.
             Created_Time: createdTime,
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id
@@ -162,7 +162,7 @@ const createTicket = (payload, actorAgentId) => {
             actorAgentId,
             orgId: org.Organization_Id
         });
-        ticketRepository.updateById(ticketId, clockChanges);
+        ticketRepository.updateById(ticketId, { ...clockChanges, Modified_By: actorAgentId });
 
         escalationService.rebuildTriggers(
             { Ticket_Id: ticketId, Priority: payload.priority, Bank_Id: payload.bankId, Response_Due_Date: dueDate },
@@ -173,6 +173,7 @@ const createTicket = (payload, actorAgentId) => {
     });
 
     const ticketId = createTxn();
+    publish({ type: REALTIME_EVENT.TICKET_CREATED, ticketId });
     return getTicketDetail(ticketId);
 };
 
@@ -300,6 +301,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     });
 
     updateTxn();
+    publish({ type: REALTIME_EVENT.TICKET_CHANGED, ticketId, reason: Object.keys(changes).filter((c) => c !== "Modified_By").join(","), actorAgentId });
     return getTicketDetail(ticketId);
 };
 
@@ -317,6 +319,7 @@ const deleteTicket = (ticketId, actorAgentId) => {
         ticketRepository.softDeleteById(ticketId, actorAgentId);
         recordHistory({ ticketId, eventName: TICKET_HISTORY_EVENT.TICKET_DELETED, actorAgentId, orgId: org.Organization_Id });
     })();
+    publish({ type: REALTIME_EVENT.TICKET_DELETED, ticketId, actorAgentId });
     return { deleted: true, ticketId };
 };
 

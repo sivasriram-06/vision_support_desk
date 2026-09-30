@@ -12,6 +12,8 @@ const { hashPassword, verifyPassword, getPasswordPolicyError } = require("../uti
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst, toIst } = require("../utils/time");
 const env=require("../config/env")
 
 const MAX_FAILED_ATTEMPTS = env.passwordPolicy.maxFailedAttempts;
@@ -20,7 +22,8 @@ const LOCK_MINUTES = env.passwordPolicy.lockMinutes;
 const invalidCredentials = () =>
     new ApiError(HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.INVALID_CREDENTIALS, "Invalid email or password");
 
-const sqliteNow = () => new Date().toISOString().replace("T", " ").slice(0, 19);
+// Stored like every other timestamp: IST ISO (utils/time.js).
+const sqliteNow = nowIst;
 
 /**
  * Loads everything a request needs to authorize the acting agent. Read
@@ -77,9 +80,10 @@ const login = ({ email, password }, { ipAddress, userAgent }) => {
 
     if (!verifyPassword(password, credential.Password_Hash)) {
         const failed = (credential.Failed_Login_Count || 0) + 1;
-        const changes = { Failed_Login_Count: failed };
+        // Failed sign-in / lockout is the agent's own action.
+        const changes = { Failed_Login_Count: failed, Modified_By: agent.Agent_Id };
         if (failed >= MAX_FAILED_ATTEMPTS) {
-            changes.Locked_Until = new Date(Date.now() + LOCK_MINUTES * 60000).toISOString().replace("T", " ").slice(0, 19);
+            changes.Locked_Until = toIst(Date.now() + LOCK_MINUTES * 60000);
             changes.Failed_Login_Count = 0;
         }
         credentialRepository.updateById(credential.Agent_Credential_Id, changes);
@@ -95,7 +99,8 @@ const login = ({ email, password }, { ipAddress, userAgent }) => {
     credentialRepository.updateById(credential.Agent_Credential_Id, {
         Failed_Login_Count: 0,
         Locked_Until: null,
-        Last_Login_Time: sqliteNow()
+        Last_Login_Time: sqliteNow(),
+        Modified_By: agent.Agent_Id
     });
     loginEventRepository.record({ agentId: agent.Agent_Id, eventType: "LOGIN_SUCCESS", loginEmail: normalizedEmail, ipAddress, userAgent, orgId: org.Organization_Id });
 
@@ -133,6 +138,9 @@ const setPassword = (agentId, password, { mustChange, actorAgentId }) => {
             Org_Id: org.Organization_Id
         });
     }
+    // A temporary password (admin reset) blocks everything until it's
+    // changed - close their live-update sockets too.
+    if (mustChange) publish({ type: REALTIME_EVENT.SESSION_REVOKED }, { toAgents: [agentId] });
 };
 
 const changePassword = (principal, { currentPassword, newPassword }) => {
@@ -152,6 +160,8 @@ const revokeLogin = (agentId, actorAgentId) => {
     if (credential) {
         credentialRepository.softDeleteById(credential.Agent_Credential_Id, actorAgentId);
     }
+    // Sign-in revoked: close their live-update sockets straight away.
+    publish({ type: REALTIME_EVENT.SESSION_REVOKED }, { toAgents: [agentId] });
 };
 
 module.exports = { buildPrincipal, toMeDto, login, logout, setPassword, changePassword, revokeLogin };

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_ESCALATION (
     Ticket_Id             TEXT NOT NULL REFERENCES HD_TICKET_MASTER (Ticket_Id),
     Level_No              INTEGER NOT NULL CHECK (Level_No >= 1),
     Trigger_Time          TEXT NOT NULL,
-    Created_Time          TEXT NOT NULL DEFAULT (datetime('now')),
+    Created_Time          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Org_Id                TEXT NOT NULL REFERENCES HD_ORGANIZATION_MASTER (Organization_Id)
 );
 

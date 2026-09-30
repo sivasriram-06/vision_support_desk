@@ -13,6 +13,7 @@ import AdminPage from './pages/AdminPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
+import RealtimeProvider from './realtime/RealtimeProvider.jsx'
 import { PERMISSIONS } from './auth/permissions.js'
 
 /** Renders the page only when the agent holds `permission`; otherwise back to the case list. */
@@ -31,6 +32,8 @@ function AuthenticatedApp() {
   if (agent?.mustChangePassword) return <ChangePasswordPage />
 
   return (
+    // Live updates over WebSocket while signed in (replaces polling).
+    <RealtimeProvider>
     <AppShell>
       <Routes>
         <Route path="/" element={<Navigate to="/tickets" replace />} />
@@ -49,6 +52,7 @@ function AuthenticatedApp() {
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
     </AppShell>
+    </RealtimeProvider>
   )
 }
 

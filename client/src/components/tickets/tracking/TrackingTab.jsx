@@ -12,6 +12,7 @@ import { PERMISSIONS } from '../../../auth/permissions.js'
 import { getWorkStyle } from '../../../utils/workMeta.js'
 import { formatMinutes } from '../../../utils/clockMeta.js'
 import { ApiError, getTicketTracking, addTicketComment } from '../../../utils/api.js'
+import useRealtime, { RT } from '../../../realtime/useRealtime.js'
 
 function Card({ title, icon: Icon, children, actions }) {
   return (
@@ -65,6 +66,8 @@ export default function TrackingTab({ ticket, onChanged }) {
   const { can, agent: me } = useAuth()
   const [state, setState] = useState({ loading: true, error: null, data: null })
   const [reloadKey, setReloadKey] = useState(0)
+  // Live: any change on this ticket (mail, comment, work, assignment) reloads the tab.
+  useRealtime([RT.TICKET_CHANGED, RT.TICKET_CONVERSATION, RT.TICKET_ASSIGNMENT, RT.TICKET_REOPEN], () => setReloadKey((k) => k + 1), { ticketId: ticket.Ticket_Id })
   const [breakdown, setBreakdown] = useState('team')
   const [comment, setComment] = useState('')
   const [commentAbout, setCommentAbout] = useState('')

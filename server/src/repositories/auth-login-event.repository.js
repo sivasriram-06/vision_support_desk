@@ -1,6 +1,7 @@
 const { getDB } = require("../config/db");
 const DB_TABLES = require("../constants/db-tables");
 const generateId = require("../utils/generate-id");
+const { nowIst } = require("../utils/time");
 
 // HD_AUTH_LOGIN_EVENT is append-only (no Is_Deleted / Modified_* columns),
 // so it doesn't use the base repository's CRUD helpers.
@@ -9,9 +10,9 @@ const record = ({ agentId = null, eventType, loginEmail = null, failureCode = nu
     const db = getDB();
     db.prepare(
         `INSERT INTO ${DB_TABLES.AUTH_LOGIN_EVENT}
-            (Login_Event_Id, Agent_Id, Event_Type, Login_Email, Failure_Code, Ip_Address, User_Agent, Org_Id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(generateId(DB_TABLES.AUTH_LOGIN_EVENT), agentId, eventType, loginEmail, failureCode, ipAddress, userAgent ? userAgent.slice(0, 300) : null, orgId);
+            (Login_Event_Id, Agent_Id, Event_Type, Login_Email, Failure_Code, Event_Time, Ip_Address, User_Agent, Org_Id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(generateId(DB_TABLES.AUTH_LOGIN_EVENT), agentId, eventType, loginEmail, failureCode, nowIst(), ipAddress, userAgent ? userAgent.slice(0, 300) : null, orgId);
 };
 
 const findRecent = (orgId, limit = 100) => {

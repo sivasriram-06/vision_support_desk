@@ -1,4 +1,5 @@
 const sanitizeEmailHtml = require("../../utils/sanitize-email-html");
+const { toIst } = require("../../utils/time");
 
 const getHeader = (headers, name) => {
     const header = (headers || []).find((h) => h.name.toLowerCase() === name.toLowerCase());
@@ -115,7 +116,7 @@ const normalizeMessage = (rawMessage) => {
         replyTo: parseAddressHeader(getHeader(headers, "Reply-To")),
         to: parseAddressHeader(getHeader(headers, "To")),
         cc: parseAddressHeader(getHeader(headers, "Cc")),
-        sentTime: new Date(Number(rawMessage.internalDate)).toISOString(),
+        sentTime: toIst(Number(rawMessage.internalDate)),
         // Plain text for search/preview/plain display. Falls back to a
         // stripped version of the HTML when no text/plain part exists at
         // all (rare, but some clients only send HTML).

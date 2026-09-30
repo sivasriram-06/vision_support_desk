@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { DateTime } = require("luxon");
-const { getCalendar, addWorkingHours, workingMinutesBetween, supportMinutesBetween } = require("./business-calendar");
+const { getCalendar, addWorkingHours, workingMinutesBetween, supportMinutesBetween, supportClockNow } = require("./business-calendar");
 
 const kenyaMonFri = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "N" });
 const kenya24x7 = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "Y" });
@@ -85,4 +85,22 @@ test("workingMinutesBetween is zero for an empty or reversed range", () => {
     const at = local("2026-09-25T18:00", "Africa/Nairobi");
     assert.equal(workingMinutesBetween(at, at, kenyaMonFri), 0);
     assert.equal(workingMinutesBetween(at, new Date(at.getTime() - 1000), kenyaMonFri), 0);
+});
+
+test("supportClockNow: inside the window counts until today's close", () => {
+    const now = local("2026-09-25T12:00", "Asia/Kolkata"); // Fri, inside 10:30-19:30 IST
+    const clock = supportClockNow(kenyaMonFri, now);
+    assert.equal(clock.counting, true);
+    assert.equal(asLocal(clock.until, "Asia/Kolkata"), "Fri 2026-09-25 19:30");
+});
+
+test("supportClockNow: after Friday close waits for Monday's window", () => {
+    const now = local("2026-09-25T20:00", "Asia/Kolkata");
+    const clock = supportClockNow(kenyaMonFri, now);
+    assert.equal(clock.counting, false);
+    assert.equal(asLocal(clock.until, "Asia/Kolkata"), "Mon 2026-09-28 10:30");
+});
+
+test("supportClockNow: 24x7 always counts and never flips", () => {
+    assert.deepEqual(supportClockNow(kenya24x7, local("2026-09-26T03:00", "Asia/Kolkata")), { counting: true, until: null });
 });

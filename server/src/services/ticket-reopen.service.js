@@ -38,7 +38,10 @@ const {
  *   No action    e.g. a thank-you: the ticket stays Closed, nothing counted.
  */
 
-const nowIso = () => new Date().toISOString();
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst } = require("../utils/time");
+
+const nowIso = () => nowIst();
 const badRequest = (message) => new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, message);
 
 const assertCanDecide = (actor) => {
@@ -84,7 +87,7 @@ const reopenTicket = (ticketId, { reason }, actor) => {
             Prev_Sla_Met: due && closed ? (closed <= due ? "Y" : "N") : null,
             Org_Id: orgId
         });
-        conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.REOPENED);
+        conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.REOPENED, actor.agentId);
 
         // Reopens unassigned: last round's people are released; the lead assigns again.
         for (const a of assignmentRepository.findByTicketId(ticketId).filter((x) => !x.Released_Time)) {
@@ -149,15 +152,15 @@ const splitTicket = (ticketId, actor) => {
             splitFromTicketId: ticketId
         }, actor.agentId);
 
-        conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.SPLIT);
-        const moved = conversationRepository.moveFromTime(ticketId, created.Ticket_Id, first.Sent_Time);
+        conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.SPLIT, actor.agentId);
+        const moved = conversationRepository.moveFromTime(ticketId, created.Ticket_Id, first.Sent_Time, actor.agentId);
         if (moved.threads) {
-            ticketRepository.incrementCounter(ticketId, "Thread_Count", -moved.threads);
-            ticketRepository.incrementCounter(created.Ticket_Id, "Thread_Count", moved.threads);
+            ticketRepository.incrementCounter(ticketId, "Thread_Count", -moved.threads, actor.agentId);
+            ticketRepository.incrementCounter(created.Ticket_Id, "Thread_Count", moved.threads, actor.agentId);
         }
         if (moved.attachments) {
-            ticketRepository.incrementCounter(ticketId, "Attachment_Count", -moved.attachments);
-            ticketRepository.incrementCounter(created.Ticket_Id, "Attachment_Count", moved.attachments);
+            ticketRepository.incrementCounter(ticketId, "Attachment_Count", -moved.attachments, actor.agentId);
+            ticketRepository.incrementCounter(created.Ticket_Id, "Attachment_Count", moved.attachments, actor.agentId);
         }
 
         const time = nowIso();
@@ -179,7 +182,7 @@ const dismissCloseReplies = (ticketId, actor) => {
     const org = organizationService.getDefaultOrganization();
     getClosedTicket(ticketId);
     getDB().transaction(() => {
-        const cleared = conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.DISMISSED);
+        const cleared = conversationRepository.decidePendingCloseReplies(ticketId, POST_CLOSE_DECISION.DISMISSED, actor.agentId);
         if (cleared === 0) throw badRequest("There is no customer reply after close waiting for a decision");
         ticketService.recordHistory({
             ticketId, eventName: TICKET_HISTORY_EVENT.CLOSE_REPLY_DISMISSED, fieldName: "Reply after close",
@@ -212,4 +215,25 @@ const getReopenInfo = (ticketId) => {
     };
 };
 
-module.exports = { reopenTicket, splitTicket, dismissCloseReplies, getReopenInfo };
+/**
+ * Reopen / split / no-action refresh the ticket page and lists; a reopen
+ * also releases people, so their My Tickets refresh (everyone ever on the
+ * ticket). A split's new ticket is announced by createTicket itself.
+ */
+const publishingDecision = (fn, reason) => (ticketId, ...args) => {
+    const result = fn(ticketId, ...args);
+    const actor = args[args.length - 1];
+    publish({ type: REALTIME_EVENT.TICKET_REOPEN, ticketId, reason, actorAgentId: actor?.agentId });
+    if (reason === "reopen") {
+        const people = assignmentRepository.findByTicketId(ticketId).map((x) => x.Agent_Id);
+        publish({ type: REALTIME_EVENT.MY_TICKETS_CHANGED, ticketId }, { toAgents: [actor?.agentId, ...people] });
+    }
+    return result;
+};
+
+module.exports = {
+    reopenTicket: publishingDecision(reopenTicket, "reopen"),
+    splitTicket: publishingDecision(splitTicket, "split"),
+    dismissCloseReplies: publishingDecision(dismissCloseReplies, "no-action"),
+    getReopenInfo
+};

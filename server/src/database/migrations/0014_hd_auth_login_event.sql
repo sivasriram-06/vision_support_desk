@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS HD_AUTH_LOGIN_EVENT (
     Event_Type          TEXT NOT NULL CHECK (Event_Type IN ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'SESSION_REVOKED')),
     Login_Email          TEXT,
     Failure_Code         TEXT,
-    Event_Time          TEXT NOT NULL DEFAULT (datetime('now')),
+    Event_Time          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Ip_Address           TEXT,
     User_Agent          TEXT,
     Org_Id               TEXT NOT NULL REFERENCES HD_ORGANIZATION_MASTER (Organization_Id)

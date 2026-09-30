@@ -27,7 +27,7 @@ const findBySanitizedName = (orgId, sanitizedName) => {
 const renameTeamType = (orgId, oldType, newType, modifiedBy) => {
     const db = getDB();
     db.prepare(
-        `UPDATE ${DB_TABLES.DEPARTMENT} SET Team_Type = ?, Modified_By = ?, Modified_Time = datetime('now')
+        `UPDATE ${DB_TABLES.DEPARTMENT} SET Team_Type = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')
          WHERE Org_Id = ? AND Team_Type = ? AND Is_Deleted = 'N'`
     ).run(newType, modifiedBy, orgId, oldType);
 };

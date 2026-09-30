@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, MessagesSquare, Route, Trash2 } from 'lucide-react'
+import { ArrowLeft, MessagesSquare, Route, Trash2, Mail } from 'lucide-react'
+import useRealtime, { RT } from '../realtime/useRealtime.js'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import Button from '../components/ui/Button.jsx'
 import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
@@ -32,6 +33,13 @@ const TABS = [
 
 const fetchIfPresent = (id, fn) => (id ? fn(id) : Promise.resolve(null))
 
+/** Name on the newest customer mail, for the live 'New mail from ...' notice. */
+const latestInboundAuthor = (conversations) => {
+  const last = [...(conversations || [])].reverse().find((c) => c.Direction === 'in')
+  if (!last) return null
+  return [last.Author_Contact_First_Name, last.Author_Contact_Last_Name].filter(Boolean).join(' ') || last.Author_Contact_Email || null
+}
+
 export default function TicketDetailPage() {
   const { ticketId } = useParams()
   const navigate = useNavigate()
@@ -59,6 +67,26 @@ export default function TicketDetailPage() {
 
   const [state, setState] = useState({ loading: true, error: null, data: null })
   const [refreshKey, setRefreshKey] = useState(0)
+  // Live updates: anything about this ticket from anyone refetches it; a new
+  // customer mail also shows a short notice; a delete elsewhere is flagged.
+  const [liveNotice, setLiveNotice] = useState(null) // 'mail' | 'deleted' | null
+  useRealtime(
+    [RT.TICKET_CHANGED, RT.TICKET_CONVERSATION, RT.TICKET_ASSIGNMENT, RT.TICKET_REOPEN, RT.TICKET_DELETED, RT.ESCALATION_CHANGED],
+    (events) => {
+      if (events.some((e) => e.type === RT.TICKET_DELETED)) {
+        setLiveNotice('deleted')
+        return
+      }
+      if (events.some((e) => e.type === RT.TICKET_CONVERSATION && e.reason === 'email' && e.inbound)) setLiveNotice('mail')
+      setRefreshKey((k) => k + 1)
+    },
+    { ticketId }
+  )
+  useEffect(() => {
+    if (liveNotice !== 'mail') return undefined
+    const timer = setTimeout(() => setLiveNotice(null), 10000)
+    return () => clearTimeout(timer)
+  }, [liveNotice])
 
   useEffect(() => {
     let cancelled = false
@@ -189,6 +217,27 @@ export default function TicketDetailPage() {
           setDeleteError(null)
         }}
       />
+
+      {liveNotice === 'deleted' && (
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-[13px] font-medium text-danger">
+          This ticket was just deleted by someone else.
+          <button onClick={() => navigate('/tickets')} className="cursor-pointer font-semibold underline">
+            Back to All Cases
+          </button>
+        </div>
+      )}
+      {liveNotice === 'mail' && (
+        <button
+          onClick={() => {
+            setTab('conversation')
+            setLiveNotice(null)
+          }}
+          className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-sky/30 bg-sky/10 px-3 py-1.5 text-[12.5px] font-semibold text-sky-dark"
+        >
+          <Mail className="h-3.5 w-3.5" />
+          New mail{latestInboundAuthor(conversations) ? ` from ${latestInboundAuthor(conversations)}` : ''} - added below
+        </button>
+      )}
 
       <CloseReplyBanner ticket={ticket} onChanged={() => setRefreshKey((k) => k + 1)} />
 

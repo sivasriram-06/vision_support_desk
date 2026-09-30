@@ -32,8 +32,23 @@ const { TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../constants/
  * assigned whom and when.
  */
 
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
+const { nowIst } = require("../utils/time");
+
+/**
+ * After an assignment change: the ticket page / queues refresh for everyone,
+ * and My Tickets (badge + lists) for the people it touches - everyone ever
+ * assigned to the ticket, whoever assigned them, and the actor.
+ */
+const publishAssignmentChange = (ticketId, actorAgentId, extraAgentIds = []) => {
+    const rows = assignmentRepository.findByTicketId(ticketId);
+    const agents = [actorAgentId, ...extraAgentIds, ...rows.map((a) => a.Agent_Id), ...rows.map((a) => a.Assigned_By)];
+    publish({ type: REALTIME_EVENT.TICKET_ASSIGNMENT, ticketId, actorAgentId });
+    publish({ type: REALTIME_EVENT.MY_TICKETS_CHANGED, ticketId }, { toAgents: agents });
+};
+
 const forbidden = (message) => new ApiError(HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN, message);
-const nowIso = () => new Date().toISOString();
+const nowIso = () => nowIst();
 
 const getAgent = (agentId) => {
     // Directory row: includes the team's Team_Type for the assign rules.
@@ -141,6 +156,7 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
         if (!hadAssignees) promoteFromIntake(ticket, actor.agentId, org.Organization_Id);
         ticketRepository.updateById(ticketId, { Modified_By: actor.agentId });
     })();
+    publishAssignmentChange(ticketId, actor.agentId);
     return listAssignments(ticketId);
 };
 
@@ -167,6 +183,7 @@ const removeAssignee = (ticketId, agentId, actor) => {
         });
         ticketRepository.updateById(ticketId, { Modified_By: actor.agentId });
     })();
+    publishAssignmentChange(ticketId, actor.agentId, [agentId]);
     return listAssignments(ticketId);
 };
 
@@ -177,7 +194,12 @@ const listAssignments = (ticketId) => {
 };
 
 /** The assignee opened the ticket - clears its "new" flag on My Tickets. */
-const markSeen = (ticketId, agentId) => ({ updated: assignmentRepository.markSeen(ticketId, agentId, nowIso()) > 0 });
+const markSeen = (ticketId, agentId) => {
+    const updated = assignmentRepository.markSeen(ticketId, agentId, nowIso()) > 0;
+    // Only the viewer's own badge changes.
+    if (updated) publish({ type: REALTIME_EVENT.MY_TICKETS_CHANGED, ticketId }, { toAgents: [agentId] });
+    return { updated };
+};
 
 const myTickets = (actor, { scope = "assigned", includeClosed = false } = {}) => {
     const org = organizationService.getDefaultOrganization();

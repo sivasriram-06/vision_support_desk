@@ -9,6 +9,7 @@ const DB_TABLES = require("../constants/db-tables");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
+const { publish, REALTIME_EVENT } = require("../realtime/bus");
 
 const listAgents = (query) => {
     const org = organizationService.getDefaultOrganization();
@@ -122,7 +123,9 @@ const updateAgent = (agentId, payload, actor) => {
         changes.Role_Id = role ? role.Role_Id : null;
     }
 
-    agentRepository.updateById(agentId, changes);
+    agentRepository.updateById(agentId, { ...changes, Modified_By: actor.agentId });
+    // Deactivated: close their live-update sockets straight away.
+    if (changes.Status && changes.Status !== "Active") publish({ type: REALTIME_EVENT.SESSION_REVOKED }, { toAgents: [agentId] });
     return agentRepository.findDirectoryById(agentId);
 };
 

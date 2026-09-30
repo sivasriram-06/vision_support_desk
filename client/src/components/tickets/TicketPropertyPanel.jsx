@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pencil, Check, X, Timer, Hourglass, Siren } from 'lucide-react'
 import Avatar from '../ui/Avatar.jsx'
 import Badge from '../ui/Badge.jsx'
@@ -22,6 +22,7 @@ import {
   DEFAULT_SUPPORT_END_IST,
 } from '../../utils/bankMeta.js'
 import { getClockStyle, getClockLabel, formatMinutes, getSlaState, getEscalationStyle } from '../../utils/clockMeta.js'
+import useRealtime, { RT } from '../../realtime/useRealtime.js'
 import {
   ApiError,
   updateTicket,
@@ -192,24 +193,65 @@ function SlaSection({ ticket, bank, escalation }) {
  * level). Refreshed every minute while the ticket is open, so a running
  * clock ticks and a new escalation level shows up.
  */
+/**
+ * Metrics (resolution clock, SLA, escalation) for the panel. No polling:
+ * refetched when the server says this ticket changed (WebSocket), and once
+ * when the support clock flips (liveClock.until - end of today's support
+ * window or the next one's start).
+ */
 function useTicketMetrics(ticket) {
   const [metrics, setMetrics] = useState(null)
+  const load = useCallback(
+    () =>
+      getTicketMetrics(ticket.Ticket_Id)
+        .then((res) => setMetrics(res.data))
+        .catch(() => {}),
+    [ticket.Ticket_Id]
+  )
 
   useEffect(() => {
-    let cancelled = false
-    const load = () =>
-      getTicketMetrics(ticket.Ticket_Id)
-        .then((res) => !cancelled && setMetrics(res.data))
-        .catch(() => {})
     load()
-    const timer = ticket.Clock_State !== 'STOPPED' ? setInterval(load, 60000) : null
-    return () => {
-      cancelled = true
-      if (timer) clearInterval(timer)
-    }
-  }, [ticket.Ticket_Id, ticket.Clock_State, ticket.Modified_Time])
+  }, [load, ticket.Clock_State, ticket.Modified_Time])
+
+  useRealtime([RT.TICKET_CHANGED, RT.TICKET_ASSIGNMENT, RT.TICKET_REOPEN, RT.ESCALATION_CHANGED], load, { ticketId: ticket.Ticket_Id })
+
+  const until = metrics?.liveClock?.until
+  useEffect(() => {
+    if (!until) return undefined
+    const wait = new Date(until).getTime() - Date.now()
+    if (wait <= 0 || wait > 2 ** 31 - 1) return undefined
+    const timer = setTimeout(load, wait + 1000)
+    return () => clearTimeout(timer)
+  }, [until, load])
 
   return metrics
+}
+
+/**
+ * Re-renders every minute on the clock while `active`, so "due in 3h" /
+ * the live resolution clock stay current. Display only - no request.
+ */
+function useMinuteTick(active) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return undefined
+    const timer = setTimeout(() => setNow(Date.now()), 60000 - (Date.now() % 60000) + 50)
+    return () => clearTimeout(timer)
+  }, [active, now])
+  return now
+}
+
+/**
+ * Resolution minutes shown live: the server's value plus the minutes since
+ * it was computed while the support clock is counting (capped at `until`).
+ */
+const liveResolutionMinutes = (metrics, now) => {
+  if (!metrics) return 0
+  const live = metrics.liveClock
+  if (!live?.counting) return metrics.resolutionMinutes ?? 0
+  const from = new Date(live.computedAt).getTime()
+  const to = live.until ? Math.min(now, new Date(live.until).getTime()) : now
+  return (metrics.resolutionMinutes ?? 0) + Math.max(0, Math.floor((to - from) / 60000))
 }
 
 /**
@@ -217,8 +259,9 @@ function useTicketMetrics(ticket) {
  * in "In Progress", pauses while waiting on the bank, stops when resolved.
  * Only the bank's support hours count (full day on 24x7 banks).
  */
-function ResolutionSection({ ticket, bank, metrics }) {
+function ResolutionSection({ ticket, bank, metrics, now }) {
   const clock = getClockStyle(ticket.Clock_State)
+  const liveMinutes = liveResolutionMinutes(metrics, now)
   return (
     <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
       <div className="flex items-center gap-1.5">
@@ -227,7 +270,7 @@ function ResolutionSection({ ticket, bank, metrics }) {
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="font-mono text-[18px] font-bold text-ink">
-          {ticket.Clock_State === 'NOT_STARTED' ? '—' : formatMinutes(metrics?.resolutionMinutes ?? 0)}
+          {ticket.Clock_State === 'NOT_STARTED' ? '—' : formatMinutes(liveMinutes)}
         </p>
         <Badge dotClass={clock.dot} textClass={clock.text} bgClass={clock.bg}>
           {getClockLabel(ticket.Clock_State)}
@@ -258,19 +301,33 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
   const [options, setOptions] = useState({ departments: [], banks: [], products: [], classifications: [], priorities: [], statuses: [] })
   const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState(null)
+  // Modified_Time the edit form was filled from: a live update from someone
+  // else must not overwrite what's being typed - it shows a Reload bar instead.
+  const [editBase, setEditBase] = useState(null)
+  const ticketRef = useRef(ticket)
+  useEffect(() => {
+    ticketRef.current = ticket
+  })
   const metrics = useTicketMetrics(ticket)
+  // Minute display tick for SLA / resolution times while the ticket is open.
+  const now = useMinuteTick(ticket.Clock_State !== 'STOPPED')
+
+  const fillForm = (t) => {
+    setForm({
+      status: t.Status || '',
+      priority: t.Priority || '',
+      departmentId: t.Department_Id || '',
+      bankId: t.Bank_Id || '',
+      productId: t.Product_Id || '',
+      classification: t.Classification || '',
+      category: t.Category || '',
+    })
+    setEditBase(t.Modified_Time)
+  }
 
   useEffect(() => {
     if (!isEditing) return
-    setForm({
-      status: ticket.Status || '',
-      priority: ticket.Priority || '',
-      departmentId: ticket.Department_Id || '',
-      bankId: ticket.Bank_Id || '',
-      productId: ticket.Product_Id || '',
-      classification: ticket.Classification || '',
-      category: ticket.Category || '',
-    })
+    fillForm(ticketRef.current)
     setError(null)
 
     let cancelled = false
@@ -299,7 +356,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
     return () => {
       cancelled = true
     }
-  }, [isEditing, ticket])
+  }, [isEditing])
 
   useEffect(() => {
     if (!isEditing || !form?.classification) {
@@ -395,6 +452,14 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
 
       {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-[12px] font-medium text-danger">{error}</p>}
 
+      {isEditing && form && editBase && ticket.Modified_Time !== editBase && (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-sky/10 px-3 py-2 text-[12.5px] text-sky-dark">
+          <span>Someone else just updated this ticket.</span>
+          <button onClick={() => fillForm(ticket)} className="cursor-pointer font-semibold underline">
+            Reload
+          </button>
+        </div>
+      )}
       {isEditing && form ? (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
@@ -509,7 +574,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
           </div>
 
           <SlaSection ticket={ticket} bank={bank} escalation={metrics?.escalation} />
-          <ResolutionSection ticket={ticket} bank={bank} metrics={metrics} />
+          <ResolutionSection ticket={ticket} bank={bank} metrics={metrics} now={now} />
           <BankSection bank={bank} />
 
           <div className="flex flex-col gap-4 border-t border-[#EEF2F8] pt-4">

@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_ASSIGNMENT (
     Seen_Time        TEXT,
     Released_By      TEXT REFERENCES HD_AGENT_MASTER (Agent_Id),
     Released_Time    TEXT,
-    Created_Time     TEXT NOT NULL DEFAULT (datetime('now')),
+    Created_Time     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Org_Id           TEXT NOT NULL REFERENCES HD_ORGANIZATION_MASTER (Organization_Id)
 );
 

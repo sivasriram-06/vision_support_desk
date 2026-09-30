@@ -10,7 +10,7 @@ const ensureMigrationsTable = (db) => {
         CREATE TABLE IF NOT EXISTS _migrations (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             name        TEXT NOT NULL UNIQUE,
-            applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            applied_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes'))
         )
     `);
 };

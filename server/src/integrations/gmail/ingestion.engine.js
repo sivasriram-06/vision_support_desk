@@ -6,6 +6,7 @@ const { thread: threadRepository, conversation: conversationRepository } = requi
 const ticketRepository = require("../../repositories/ticket.repository");
 const mailReplyAddressRepository = require("../../repositories/mail-reply-address.repository");
 const { restoreIngestedThread } = require("./deletion-sync");
+const { publish, REALTIME_EVENT } = require("../../realtime/bus");
 const gmailIngestedMessageRepository = require("../../repositories/gmail-ingested-message.repository");
 const attachmentRepository = require("../../repositories/attachment.repository");
 const ticketService = require("../../services/ticket.service");
@@ -212,7 +213,7 @@ const findTicketIdForReply = (normalized) => {
         if (thread) {
             const ticketId = ticketRepository.findLatestSplitDescendantId(thread.Ticket_Id, { includeDeleted: true });
             if (deletedByUser(ticketId)) return null;
-            ticketRepository.undeleteById(ticketId);
+            ticketRepository.undeleteById(ticketId, organizationService.getSystemAgent().Agent_Id);
             return ticketId;
         }
     }
@@ -247,6 +248,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
         // skipping it as a duplicate.
         if (alreadyIngested.Is_Deleted === "Y") {
             const ticketId = restoreIngestedThread(alreadyIngested, systemAgentId);
+            publish({ type: REALTIME_EVENT.TICKET_CHANGED, ticketId, reason: "restored" });
             return { status: "restored", ticketId, threadId: alreadyIngested.Thread_Id };
         }
         return {
@@ -375,7 +377,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
             Org_Id: org.Organization_Id
         });
 
-        ticketRepository.incrementCounter(ticketId, "Thread_Count");
+        ticketRepository.incrementCounter(ticketId, "Thread_Count", 1, systemAgentId);
 
         for (const file of realAttachmentFiles) {
             const attachmentId = generateId(DB_TABLES.TICKET_ATTACHMENT);
@@ -400,7 +402,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
             });
         }
         if (realAttachmentFiles.length > 0) {
-            ticketRepository.incrementCounter(ticketId, "Attachment_Count", realAttachmentFiles.length);
+            ticketRepository.incrementCounter(ticketId, "Attachment_Count", realAttachmentFiles.length, systemAgentId);
         }
 
         if (!isNewTicket) {
@@ -417,6 +419,8 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
     });
 
     const { ticketId, threadId, isNewTicket } = txn();
+    // A new ticket is announced by createTicket; a mail on an existing one here.
+    if (!isNewTicket) publish({ type: REALTIME_EVENT.TICKET_CONVERSATION, ticketId, reason: "email", inbound: !isOutbound });
     return { status: "ingested", ticketId, threadId, isNewTicket, attachmentsSaved: realAttachmentFiles.length };
 };
 

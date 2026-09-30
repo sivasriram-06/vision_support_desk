@@ -6,7 +6,8 @@ const { metrics: metricsRepository } = require("../../repositories/history.repos
 const generateId = require("../../utils/generate-id");
 const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
-const { getCalendar, supportMinutesBetween } = require("./business-calendar");
+const { getCalendar, supportMinutesBetween, supportClockNow } = require("./business-calendar");
+const { toIst } = require("../../utils/time");
 
 /**
  * Resolution time = how long our side actually worked a ticket - distinct
@@ -45,7 +46,7 @@ const computeResolutionMinutes = (ticketId, calendar, now = new Date()) =>
  * `ticket` is the row before the change; `bankId` the bank after it.
  */
 const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now = new Date() }) => {
-    const nowIso = now.toISOString();
+    const nowIso = toIst(now);
     const oldState = ticket.Clock_State || CLOCK_BEHAVIOUR.NOT_STARTED;
     const newState = clockBehaviourForStatus(orgId, newStatus);
     const openSegment = clockSegmentRepository.findOpenByTicketId(ticket.Ticket_Id);
@@ -133,6 +134,11 @@ const recomputeStoppedResolutionForBank = (bankId, actorAgentId) => {
 const getResolutionSummary = (ticket, now = new Date()) => ({
     clockState: ticket.Clock_State,
     resolutionMinutes: computeResolutionMinutes(ticket.Ticket_Id, calendarForBankId(ticket.Bank_Id), now),
+    // For a live display in the browser: while RUNNING, add the minutes since
+    // computedAt when `counting`, up to `until` (then refetch once).
+    liveClock: ticket.Clock_State === CLOCK_BEHAVIOUR.RUNNING
+        ? (({ counting, until }) => ({ counting, until: until ? toIst(until) : null, computedAt: toIst(now) }))(supportClockNow(calendarForBankId(ticket.Bank_Id), now))
+        : null,
     resolutionStartedTime: ticket.Resolution_Started_Time,
     resolvedTime: ticket.Resolved_Time,
     segments: clockSegmentRepository.findByTicketId(ticket.Ticket_Id)

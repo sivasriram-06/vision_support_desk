@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS HD_TICKET_THREAD (
     Channel               TEXT NOT NULL DEFAULT 'EMAIL',
     Direction             TEXT CHECK (Direction IN ('in', 'out')),
     Created_By            TEXT NOT NULL,
-    Created_Time          TEXT NOT NULL DEFAULT (datetime('now')),
+    Created_Time          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')),
     Modified_By           TEXT,
     Modified_Time         TEXT,
     Is_Deleted             TEXT NOT NULL DEFAULT 'N' CHECK (Is_Deleted IN ('Y', 'N')),

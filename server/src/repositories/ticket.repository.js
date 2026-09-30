@@ -3,6 +3,7 @@ const createRepository = require("./base.repository");
 const DB_TABLES = require("../constants/db-tables");
 const { TICKET_COLUMNS } = require("../models/ticket.model");
 const { parsePagination } = require("../utils/pagination");
+const { nowIst, NOW_IST_SQL } = require("../utils/time");
 
 const base = createRepository({
     table: DB_TABLES.TICKET,
@@ -17,19 +18,18 @@ const SORTABLE_FIELDS = new Set([
 /**
  * Current escalation level of `t`: the highest level whose trigger time
  * has passed, 0 when none has or the ticket is resolved/closed. Trigger
- * times are ISO-8601 UTC, matching strftime's format, so text comparison
- * orders correctly.
+ * times and NOW_IST_SQL are both IST ISO (+05:30), so text comparison is
+ * time order.
  */
-const NOW_ISO_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 const ESCALATION_LEVEL_SQL = `
     CASE WHEN t.Clock_State = 'STOPPED' THEN 0 ELSE COALESCE((
         SELECT MAX(e.Level_No) FROM ${DB_TABLES.TICKET_ESCALATION} e
-        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time <= ${NOW_ISO_SQL}
+        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time <= ${NOW_IST_SQL}
     ), 0) END`;
 const NEXT_ESCALATION_TIME_SQL = `
     CASE WHEN t.Clock_State = 'STOPPED' THEN NULL ELSE (
         SELECT MIN(e.Trigger_Time) FROM ${DB_TABLES.TICKET_ESCALATION} e
-        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time > ${NOW_ISO_SQL}
+        WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time > ${NOW_IST_SQL}
     ) END`;
 
 /**
@@ -132,13 +132,13 @@ const findAll = (orgId, query = {}) => {
     // SLA breached: either still open and past its due date (overdue now),
     // or resolved/closed after its due date - a breach stays a breach once
     // the ticket is closed. Response_Due_Date and Resolved_Time are both
-    // ISO-8601 UTC, so string comparison orders correctly.
+    // IST ISO (+05:30), so string comparison orders correctly.
     if (query.slaBreached === "true") {
         where += ` AND t.Response_Due_Date IS NOT NULL AND (
             (t.Clock_State <> 'STOPPED' AND t.Response_Due_Date < ?)
             OR (t.Clock_State = 'STOPPED' AND t.Resolved_Time > t.Response_Due_Date)
         )`;
-        params.push(new Date().toISOString());
+        params.push(nowIst());
     }
     // Escalation: "any" = level 1 or above, or an exact level number.
     // Replies after close: Closed tickets with a customer mail awaiting a decision.
@@ -334,11 +334,11 @@ const findNextTicketNumber = (orgId) => {
     return String(row.total + 1).padStart(6, "0");
 };
 
-const incrementCounter = (ticketId, column, delta = 1) => {
+const incrementCounter = (ticketId, column, delta = 1, actorAgentId = null) => {
     const db = getDB();
     db.prepare(
-        `UPDATE ${DB_TABLES.TICKET} SET ${column} = ${column} + ?, Modified_Time = datetime('now') WHERE Ticket_Id = ?`
-    ).run(delta, ticketId);
+        `UPDATE ${DB_TABLES.TICKET} SET ${column} = ${column} + ?, Modified_By = COALESCE(?, Modified_By), Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Ticket_Id = ?`
+    ).run(delta, actorAgentId, ticketId);
 };
 
 /** Tickets split off `ticketId` ("Create as new issue"), oldest first. */
@@ -372,11 +372,11 @@ const findLatestSplitDescendantId = (ticketId, { includeDeleted = false } = {}) 
 };
 
 /** Brings back a ticket soft-deleted because its mails were deleted in Gmail. */
-const undeleteById = (ticketId) => {
+const undeleteById = (ticketId, actorAgentId) => {
     const db = getDB();
     db.prepare(
-        `UPDATE ${DB_TABLES.TICKET} SET Is_Deleted = 'N', Modified_Time = datetime('now') WHERE Ticket_Id = ? AND Is_Deleted = 'Y'`
-    ).run(ticketId);
+        `UPDATE ${DB_TABLES.TICKET} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Ticket_Id = ? AND Is_Deleted = 'Y'`
+    ).run(actorAgentId, ticketId);
 };
 
 /** Tickets on a bank whose SLA still matters (has a priority, not resolved/closed). */
@@ -400,7 +400,7 @@ const findByStatus = (orgId, status) => {
 const renameStatus = (orgId, oldStatus, newStatus, modifiedBy) => {
     const db = getDB();
     db.prepare(
-        `UPDATE ${DB_TABLES.TICKET} SET Status = ?, Modified_By = ?, Modified_Time = datetime('now')
+        `UPDATE ${DB_TABLES.TICKET} SET Status = ?, Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes')
          WHERE Org_Id = ? AND Status = ? AND Is_Deleted = 'N'`
     ).run(newStatus, modifiedBy, orgId, oldStatus);
 };

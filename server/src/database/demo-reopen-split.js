@@ -41,6 +41,7 @@ const reopenService = require("../services/ticket-reopen.service");
 const organizationService = require("../services/organization.service");
 const { ingestMessage } = require("../integrations/gmail/ingestion.engine");
 const logger = require("../utils/logger");
+const { toIst } = require("../utils/time");
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -73,7 +74,7 @@ const actorFor = (agentId) => {
 const shiftTicket = (ticket, firstMs) => {
     const first = one(`SELECT MIN(Sent_Time) AS t FROM ${DB_TABLES.TICKET_CONVERSATION} WHERE Ticket_Id = ?`, ticket.Ticket_Id).t;
     const offsetSec = Math.round((firstMs - new RealDate(first).getTime()) / 1000);
-    const shift = (col) => `strftime('%Y-%m-%dT%H:%M:%fZ', ${col}, '${offsetSec >= 0 ? "+" : ""}${offsetSec} seconds')`;
+    const shift = (col) => `strftime('%Y-%m-%dT%H:%M:%f+05:30', ${col}, '${offsetSec >= 0 ? "+" : ""}${offsetSec} seconds', '+330 minutes')`;
     db.prepare(`UPDATE ${DB_TABLES.TICKET_CONVERSATION} SET Sent_Time = ${shift("Sent_Time")} WHERE Ticket_Id = ?`).run(ticket.Ticket_Id);
     db.prepare(`UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Uploaded_Time = ${shift("Uploaded_Time")} WHERE Ticket_Id = ?`).run(ticket.Ticket_Id);
     db.prepare(`UPDATE ${DB_TABLES.TICKET_HISTORY} SET Event_Time = ${shift("Event_Time")} WHERE Ticket_Id = ?`).run(ticket.Ticket_Id);
@@ -104,7 +105,7 @@ const customerMail = async ({ ticket, sentMs, inReplyTo, references, text, key }
         replyTo: [],
         to: [{ email: env.google.mailbox, name: "Support" }],
         cc: [],
-        sentTime: new RealDate(sentMs).toISOString(),
+        sentTime: toIst(new RealDate(sentMs)),
         bodyText: text,
         bodyHtml: null,
         attachments: []

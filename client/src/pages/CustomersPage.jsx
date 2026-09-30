@@ -9,6 +9,7 @@ import EmptyState from '../components/ui/EmptyState.jsx'
 import ErrorState from '../components/ui/ErrorState.jsx'
 import Pagination from '../components/ui/Pagination.jsx'
 import { ApiError, getCustomers, getBanks } from '../utils/api.js'
+import useRealtime, { RT } from '../realtime/useRealtime.js'
 
 const PAGE_SIZE = 48
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
@@ -28,6 +29,8 @@ export default function CustomersPage() {
   const [banks, setBanks] = useState([])
   const [state, setState] = useState({ loading: true, error: null, rows: [], paging: null })
   const [reloadKey, setReloadKey] = useState(0)
+  // Live: new senders (new tickets), ticket counts and customer edits.
+  useRealtime([RT.TICKET_CREATED, RT.TICKET_CHANGED, RT.TICKET_DELETED, RT.TICKET_REOPEN, RT.CUSTOMER_CHANGED], () => setReloadKey((k) => k + 1))
 
   useEffect(() => {
     getBanks().then((res) => setBanks(res.data)).catch(() => {})

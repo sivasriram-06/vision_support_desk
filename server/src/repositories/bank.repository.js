@@ -89,7 +89,7 @@ const replaceResources = (bankId, resourceType, agentIds, { actorAgentId, orgId 
     for (const row of current) {
         if (!wanted.has(row.Agent_Id)) {
             db.prepare(
-                `UPDATE ${DB_TABLES.BANK_RESOURCE_MAP} SET Is_Deleted = 'Y', Modified_By = ?, Modified_Time = datetime('now') WHERE Bank_Resource_Id = ?`
+                `UPDATE ${DB_TABLES.BANK_RESOURCE_MAP} SET Is_Deleted = 'Y', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Bank_Resource_Id = ?`
             ).run(actorAgentId, row.Bank_Resource_Id);
         }
     }
@@ -97,9 +97,9 @@ const replaceResources = (bankId, resourceType, agentIds, { actorAgentId, orgId 
     for (const agentId of wanted) {
         if (existing.has(agentId)) continue;
         db.prepare(
-            `INSERT INTO ${DB_TABLES.BANK_RESOURCE_MAP} (Bank_Resource_Id, Bank_Id, Agent_Id, Resource_Type, Created_By, Org_Id)
-             VALUES (?, ?, ?, ?, ?, ?)`
-        ).run(generateId(DB_TABLES.BANK_RESOURCE_MAP), bankId, agentId, resourceType, actorAgentId, orgId);
+            `INSERT INTO ${DB_TABLES.BANK_RESOURCE_MAP} (Bank_Resource_Id, Bank_Id, Agent_Id, Resource_Type, Created_By, Created_Time, Modified_By, Modified_Time, Org_Id)
+             VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes'), ?, strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes'), ?)`
+        ).run(generateId(DB_TABLES.BANK_RESOURCE_MAP), bankId, agentId, resourceType, actorAgentId, actorAgentId, orgId);
     }
 };
 

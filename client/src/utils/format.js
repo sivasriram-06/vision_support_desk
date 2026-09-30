@@ -1,9 +1,22 @@
-/** Formats an ISO/SQL timestamp string as e.g. "21 Sep, 2:42 PM". Returns "-" for empty input. */
+// The server stores and returns every time as IST ISO with its offset
+// (2026-09-30T17:53:00.123+05:30); times are also shown in IST, whatever the
+// browser's own zone.
+export const IST_ZONE = 'Asia/Kolkata'
+
+/** A stored timestamp -> Date (or null). Old 'YYYY-MM-DD HH:MM:SS' values are UTC. */
+export const parseTime = (value) => {
+  if (!value) return null
+  if (value instanceof Date) return value
+  const date = new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z')
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/** Formats a timestamp as e.g. "21 Sep, 2:42 PM" (IST). Returns "-" for empty input. */
 export const formatDateTime = (value) => {
-  if (!value) return '-'
-  const date = value instanceof Date ? value : new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z')
-  if (Number.isNaN(date.getTime())) return '-'
+  const date = parseTime(value)
+  if (!date) return '-'
   return date.toLocaleString(undefined, {
+    timeZone: IST_ZONE,
     day: 'numeric',
     month: 'short',
     hour: 'numeric',
@@ -11,12 +24,11 @@ export const formatDateTime = (value) => {
   })
 }
 
-/** Formats an ISO/SQL timestamp as a relative-ish short date, e.g. "21 Sep 2026". */
+/** Formats a timestamp as a short date, e.g. "21 Sep 2026" (IST). */
 export const formatDate = (value) => {
-  if (!value) return '-'
-  const date = new Date(value.includes('T') ? value : value.replace(' ', 'T') + 'Z')
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  const date = parseTime(value)
+  if (!date) return '-'
+  return date.toLocaleDateString(undefined, { timeZone: IST_ZONE, day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /** "John Doe" -> "JD", "Support Ticket" -> "S". Used for avatar initials. */
