@@ -128,7 +128,7 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
     const gmail = gmailClient.getGmailClient();
     const systemAgent = organizationService.getSystemAgent();
 
-    const liveIds = await listAllLiveMessageIds(gmail, `{to:${mailbox} from:${mailbox}}`);
+    const liveIds = await listAllLiveMessageIds(gmail, gmailClient.mailboxQuery(mailbox));
     const ingestedRows = gmailIngestedMessageRepository.findAll();
 
     const results = { checked: ingestedRows.length, removed: 0, ticketsRemoved: 0, restored: 0, errors: [] };

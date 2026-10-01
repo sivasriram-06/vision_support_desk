@@ -439,7 +439,7 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
     // `from:` (an agent's own reply sent straight from Gmail) - so a reply
     // typed directly in Gmail still shows up in its ticket's thread instead
     // of being invisible to the app.
-    const messageIds = (await listMessageIdsToProcess(gmail, `{to:${mailbox} from:${mailbox}}`)).reverse();
+    const messageIds = (await listMessageIdsToProcess(gmail, gmailClient.mailboxQuery(mailbox))).reverse();
     const results = { fetched: messageIds.length, ingested: 0, skipped: 0, ticketsCreated: 0, attachmentsSaved: 0, errors: [] };
 
     for (const id of messageIds) {

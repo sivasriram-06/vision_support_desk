@@ -51,4 +51,14 @@ const getGmailClient = () => {
     return google.gmail({ version: "v1", auth: client });
 };
 
-module.exports = { getAuthUrl, exchangeCodeForTokens, getGmailClient, SCOPES };
+/**
+ * The mail the support desk mirrors: everything Gmail DELIVERED to the
+ * mailbox (direct, Cc, Bcc, and mail to a group the mailbox belongs to - the
+ * address need not be in To/Cc), anything addressed to it (Gmail-generated
+ * bounces carry no Delivered-To), and everything the mailbox sent. Shared by
+ * the import sync and the deletion sync, which must see the same set or a
+ * message would look deleted.
+ */
+const mailboxQuery = (mailbox) => `{deliveredto:${mailbox} to:${mailbox} from:${mailbox}}`;
+
+module.exports = { getAuthUrl, exchangeCodeForTokens, getGmailClient, mailboxQuery, SCOPES };
