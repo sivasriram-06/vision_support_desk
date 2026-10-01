@@ -16,6 +16,8 @@ const HTTP_STATUS = require("../constants/http-status");
 const { STATUS_TYPE, DEFAULT_STATUS_BY_TYPE, TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
 const assignmentRepository = require("../repositories/ticket-assignment.repository");
 const reopenRepository = require("../repositories/ticket-reopen.repository");
+const holidayRepository = require("../repositories/holiday.repository");
+const { isHolidayDate } = require("./sla/business-calendar");
 const { buildPaging } = require("../utils/pagination");
 const { publish, REALTIME_EVENT } = require("../realtime/bus");
 const { nowIst, toIst } = require("../utils/time");
@@ -339,8 +341,23 @@ const getTicketMetrics = (ticketId) => {
     return {
         ...(metrics || {}),
         ...resolutionClock.getResolutionSummary(ticket),
-        escalation: escalationService.getTicketEscalation(ticket)
+        escalation: escalationService.getTicketEscalation(ticket),
+        holidaysInSla: holidaysInSla(ticket)
     };
+};
+
+/**
+ * Company holidays inside this ticket's SLA window (Sla_Start_Time ->
+ * due date) that its calendar skips - "Skips Christmas (25 Dec)".
+ */
+const holidaysInSla = (ticket) => {
+    if (!ticket.Response_Due_Date) return [];
+    const from = (ticket.Sla_Start_Time || ticket.Created_Time).slice(0, 10);
+    const to = ticket.Response_Due_Date.slice(0, 10);
+    const calendar = resolutionClock.calendarForBankId(ticket.Bank_Id);
+    return holidayRepository.findAll(ticket.Org_Id)
+        .filter((h) => h.Holiday_Date >= from && h.Holiday_Date <= to && isHolidayDate(h.Holiday_Date, calendar))
+        .map((h) => ({ date: h.Holiday_Date, name: h.Holiday_Name }));
 };
 
 /** Escalation queue: open tickets at level 1 or above, filterable by team / bank / priority. */

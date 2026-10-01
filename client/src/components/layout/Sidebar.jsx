@@ -15,7 +15,8 @@ const NAV_ITEMS = [
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
   { to: '/banks', label: 'Banks', icon: Landmark, live: true },
   { to: '/customers', label: 'Customers', icon: Contact, live: true, permission: PERMISSIONS.CUSTOMERS_MANAGE },
-  { to: '/config', label: 'Config', icon: Settings, live: true, permission: PERMISSIONS.CONFIG_MANAGE },
+  // Team Leads reach Config for the Holiday Calendar only (holidays.manage).
+  { to: '/config', label: 'Config', icon: Settings, live: true, permission: [PERMISSIONS.CONFIG_MANAGE, PERMISSIONS.HOLIDAYS_MANAGE] },
   { to: '/admin', label: 'Admin', icon: ShieldCheck, live: true, permission: PERMISSIONS.ADMIN_ACCESS },
 ]
 
@@ -48,7 +49,7 @@ export default function Sidebar({ pinned, onTogglePin }) {
   const [hovered, setHovered] = useState(false)
   const { can } = useAuth()
   const expanded = pinned || hovered
-  const navItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission))
+  const navItems = NAV_ITEMS.filter((item) => !item.permission || (Array.isArray(item.permission) ? item.permission.some(can) : can(item.permission)))
   const unseen = useUnseenAssignments()
 
   return (

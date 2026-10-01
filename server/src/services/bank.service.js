@@ -107,7 +107,8 @@ const assertSupportWindow = (start, end) => {
  */
 const recomputeOpenTicketSlas = (bankId, orgId, actorAgentId) => {
     for (const ticket of ticketRepository.findOpenWithPriorityByBankId(bankId)) {
-        const dueDate = computeSlaDueDate({ createdTime: ticket.Created_Time, priority: ticket.Priority, bankId, orgId });
+        // From Sla_Start_Time: a reopened ticket's SLA restarts at the reopen.
+        const dueDate = computeSlaDueDate({ createdTime: ticket.Sla_Start_Time || ticket.Created_Time, priority: ticket.Priority, bankId, orgId });
         ticketRepository.updateById(ticket.Ticket_Id, { Response_Due_Date: dueDate, Modified_By: actorAgentId });
         escalationService.rebuildTriggers({ ...ticket, Bank_Id: bankId, Response_Due_Date: dueDate }, orgId);
     }

@@ -1,6 +1,8 @@
 const bankRepository = require("../../repositories/bank.repository");
 const prioritySlaService = require("../priority-sla.service");
 const { getCalendar, addWorkingHours } = require("./business-calendar");
+// Company holidays feed every calendar (registers the provider once).
+require("./holiday-calendar");
 const { toIst } = require("../../utils/time");
 
 /**

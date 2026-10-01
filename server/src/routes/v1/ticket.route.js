@@ -25,6 +25,8 @@ const {
 const assignmentController = require("../../controllers/ticket-assignment.controller");
 const workController = require("../../controllers/ticket-work.controller");
 const reopenController = require("../../controllers/ticket-reopen.controller");
+const holidayWorkService = require("../../services/holiday-work.service");
+const { ok } = require("../../utils/api-response");
 const { addReplySchema, addCommentSchema } = require("../../schemas/conversation.schema");
 
 const router = express.Router();
@@ -65,6 +67,17 @@ router.get("/:ticketId/history", ticketController.getTicketHistory);
 
 // Customer reply on a Closed ticket: reopen / new issue / no action (tickets.reopen, checked in the service).
 router.get("/:ticketId/reopens", reopenController.getReopenInfo);
+
+// Holiday timer: log work done on a company holiday (adds to resolution time only).
+const timer = (fn) => (req, res, next) => {
+    try {
+        ok(res, 200, fn(req.params.ticketId, req.agent));
+    } catch (error) {
+        next(error);
+    }
+};
+router.post("/:ticketId/holiday-timer/start", requirePermission(PERMISSIONS.TICKETS_EDIT_STATUS), timer(holidayWorkService.startTimer));
+router.post("/:ticketId/holiday-timer/stop", requirePermission(PERMISSIONS.TICKETS_EDIT_STATUS), timer(holidayWorkService.stopTimer));
 router.post("/:ticketId/reopen", validate(reopenSchema), reopenController.reopenTicket);
 router.post("/:ticketId/split", reopenController.splitTicket);
 router.post("/:ticketId/close-replies/dismiss", reopenController.dismissCloseReplies);

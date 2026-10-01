@@ -28,5 +28,5 @@ export const EVENT_FILTERS = [
   { value: 'REOPEN', label: 'Reopen / split', types: ['REOPEN', 'SPLIT'] },
   { value: 'COMMENT', label: 'Comments', types: ['COMMENT'] },
   { value: 'EMAIL', label: 'Email', types: ['EMAIL'] },
-  { value: 'WORKLOG', label: 'Work log', types: ['WORKLOG'] },
+  { value: 'WORKLOG', label: 'Work log', types: ['WORKLOG', 'HOLIDAY'] },
 ]

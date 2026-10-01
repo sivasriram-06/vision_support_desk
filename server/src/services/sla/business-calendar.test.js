@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { DateTime } = require("luxon");
-const { getCalendar, addWorkingHours, workingMinutesBetween, supportMinutesBetween, supportClockNow } = require("./business-calendar");
+const { getCalendar, addWorkingHours, workingMinutesBetween, supportMinutesBetween, supportClockNow, setHolidayProvider } = require("./business-calendar");
 
 const kenyaMonFri = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "N" });
 const kenya24x7 = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "Y" });
@@ -103,4 +103,56 @@ test("supportClockNow: after Friday close waits for Monday's window", () => {
 
 test("supportClockNow: 24x7 always counts and never flips", () => {
     assert.deepEqual(supportClockNow(kenya24x7, local("2026-09-26T03:00", "Asia/Kolkata")), { counting: true, until: null });
+});
+
+// --- Company holidays (IST days) ------------------------------------------
+const withHolidays = (dates, applyTo24x7, fn) => {
+    setHolidayProvider(() => ({ dates: new Set(dates), applyTo24x7 }));
+    try {
+        fn();
+    } finally {
+        setHolidayProvider(null);
+    }
+};
+const bank = (is24x7) => ({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Asia/Kolkata", Is_24x7: is24x7 ? "Y" : "N" });
+
+test("holiday: SLA due date skips the holiday like a weekend", () => {
+    withHolidays(["2026-12-25"], false, () => {
+        // Thu 24 Dec 10:00 IST + 24h -> Christmas (Fri) skipped -> Sat/Sun off -> Mon 28 Dec 10:00.
+        const due = addWorkingHours(local("2026-12-24T10:00", "Asia/Kolkata"), 24, getCalendar(bank(false)));
+        assert.equal(asLocal(due, "Asia/Kolkata"), "Mon 2026-12-28 10:00");
+    });
+});
+
+test("holiday: resolution time skips the holiday's support window", () => {
+    withHolidays(["2026-12-25"], false, () => {
+        const cal = getCalendar(bank(false));
+        // Thu 24 Dec 10:30 -> Mon 28 Dec 10:30: only Thu's 9h window counts (Fri holiday, weekend off).
+        assert.equal(supportMinutesBetween(local("2026-12-24T10:30", "Asia/Kolkata"), local("2026-12-28T10:30", "Asia/Kolkata"), cal), 9 * 60);
+    });
+});
+
+test("holiday: 24x7 bank keeps counting unless the setting applies holidays to 24x7", () => {
+    const from = local("2026-12-25T00:00", "Asia/Kolkata");
+    const to = local("2026-12-26T00:00", "Asia/Kolkata");
+    withHolidays(["2026-12-25"], false, () => assert.equal(supportMinutesBetween(from, to, getCalendar(bank(true))), 24 * 60));
+    withHolidays(["2026-12-25"], true, () => assert.equal(supportMinutesBetween(from, to, getCalendar(bank(true))), 0));
+});
+
+test("holiday: an IST holiday cuts a bank-local day by its IST hours (Kenya bank)", () => {
+    withHolidays(["2026-12-25"], false, () => {
+        // Nairobi is 2.5h behind IST: 25 Dec IST = 24 Dec 21:30 -> 25 Dec 21:30 Nairobi.
+        // Thu 12:00-21:30 (9.5h) + Fri 21:30-24:00 (2.5h) = 12h -> Sat 00:00 Nairobi.
+        const kenya = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "N" });
+        const due = addWorkingHours(local("2026-12-24T12:00", "Africa/Nairobi"), 12, kenya);
+        assert.equal(asLocal(due, "Africa/Nairobi"), "Sat 2026-12-26 00:00");
+    });
+});
+
+test("holiday: live clock is paused on a holiday until the next working window", () => {
+    withHolidays(["2026-12-25"], false, () => {
+        const clock = supportClockNow(getCalendar(bank(false)), local("2026-12-25T12:00", "Asia/Kolkata"));
+        assert.equal(clock.counting, false);
+        assert.equal(asLocal(clock.until, "Asia/Kolkata"), "Mon 2026-12-28 10:30");
+    });
 });

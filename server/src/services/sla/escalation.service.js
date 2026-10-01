@@ -6,6 +6,8 @@ const generateId = require("../../utils/generate-id");
 const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
 const { getCalendar, addWorkingHours } = require("./business-calendar");
+// Company holidays feed every calendar (registers the provider once).
+require("./holiday-calendar");
 const { toIst } = require("../../utils/time");
 
 /**

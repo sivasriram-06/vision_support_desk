@@ -4,6 +4,7 @@ const workRepository = require("../../repositories/assignment-work.repository");
 const agentRepository = require("../../repositories/agent.repository");
 const bankRepository = require("../../repositories/bank.repository");
 const reopenRepository = require("../../repositories/ticket-reopen.repository");
+const holidayRepository = require("../../repositories/holiday.repository");
 const departmentRepository = require("../../repositories/department.repository");
 const { history: historyRepository } = require("../../repositories/history.repository");
 const { conversation: conversationRepository, comment: commentRepository } = require("../../repositories/conversation.repository");
@@ -73,6 +74,8 @@ const getTracking = (ticketId, now = new Date()) => {
     const comments = commentRepository.findCommentsByTicketId(ticketId);
     const conversations = conversationRepository.findByTicketId(ticketId);
     const reopens = reopenRepository.findByTicketId(ticketId);
+    const holidayWork = holidayRepository.work.findWorkByTicketId(ticketId);
+    const holidayNames = new Map(holidayRepository.findAll(orgId).map((h) => [h.Holiday_Date, h.Holiday_Name]));
 
     // --- lanes: one per assignment -------------------------------------
     const lanes = assignments.map((a) => {
@@ -215,6 +218,12 @@ const getTracking = (ticketId, now = new Date()) => {
             default:
                 break; // COMMENT_ADDED / CONVERSATION_ADDED come from their own rows below
         }
+    }
+    // Work done on company holidays (holiday timer) - counted in resolution time.
+    for (const w of holidayWork) {
+        const mins = w.Ended_Time ? (w.Minutes || 0) : elapsedMinutes(toMs(w.Started_Time), now.getTime());
+        const who = [w.First_Name, w.Last_Name].filter(Boolean).join(" ") || "Agent";
+        push(w.Started_Time, "HOLIDAY", `${who} worked on holiday ${holidayNames.get(w.Holiday_Date) || w.Holiday_Date} - ${formatMins(mins)}${w.Ended_Time ? "" : " so far"}`, { actor: who, agentId: w.Agent_Id });
     }
     for (const c of comments) {
         const on = c.Assignment_Id ? assignmentById.get(c.Assignment_Id) : null;

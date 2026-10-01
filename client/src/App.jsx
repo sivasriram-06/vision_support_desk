@@ -16,10 +16,11 @@ import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import RealtimeProvider from './realtime/RealtimeProvider.jsx'
 import { PERMISSIONS } from './auth/permissions.js'
 
-/** Renders the page only when the agent holds `permission`; otherwise back to the case list. */
+/** Renders the page only when the agent holds `permission` (or any of a list); otherwise back to the case list. */
 function Guard({ permission, children }) {
   const { can } = useAuth()
-  return can(permission) ? children : <Navigate to="/tickets" replace />
+  const allowed = Array.isArray(permission) ? permission.some(can) : can(permission)
+  return allowed ? children : <Navigate to="/tickets" replace />
 }
 
 function AuthenticatedApp() {
@@ -46,7 +47,7 @@ function AuthenticatedApp() {
         <Route path="/customers" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomersPage /></Guard>} />
         <Route path="/customers/:contactId" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomerDetailPage /></Guard>} />
         <Route path="/teams" element={<Navigate to="/banks" replace />} />
-        <Route path="/config" element={<Guard permission={PERMISSIONS.CONFIG_MANAGE}><ConfigPage /></Guard>} />
+        <Route path="/config" element={<Guard permission={[PERMISSIONS.CONFIG_MANAGE, PERMISSIONS.HOLIDAYS_MANAGE]}><ConfigPage /></Guard>} />
         <Route path="/admin" element={<Guard permission={PERMISSIONS.ADMIN_ACCESS}><AdminPage /></Guard>} />
         <Route path="/settings" element={<Navigate to="/config" replace />} />
         <Route path="*" element={<Navigate to="/tickets" replace />} />

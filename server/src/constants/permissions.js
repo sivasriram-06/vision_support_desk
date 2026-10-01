@@ -15,6 +15,7 @@ const PERMISSIONS = {
     TICKETS_ASSIGN_ANY: "tickets.assign_any",
     TICKETS_REOPEN: "tickets.reopen",
     TICKETS_DELETE: "tickets.delete",
+    HOLIDAYS_MANAGE: "holidays.manage",
     CUSTOMERS_MANAGE: "customers.manage",
     AGENTS_MANAGE: "agents.manage",
     TEAMS_MANAGE: "teams.manage",
@@ -32,6 +33,7 @@ const PERMISSION_CATALOG = [
     { key: PERMISSIONS.TICKETS_ASSIGN_ANY, group: "Assignment", label: "Assign to anyone", description: "Assign tickets to any agent in any team." },
     { key: PERMISSIONS.TICKETS_REOPEN, group: "Tickets", label: "Reopen / split closed tickets", description: "Decide on a customer reply to a Closed ticket: reopen it (counted as a reopen), create it as a new issue, or mark no action." },
     { key: PERMISSIONS.TICKETS_DELETE, group: "Tickets", label: "Delete tickets", description: "Remove a ticket from every list and queue (kept in the database with who deleted it)." },
+    { key: PERMISSIONS.HOLIDAYS_MANAGE, group: "Administration", label: "Manage holiday calendar", description: "Add, edit and remove company holidays (skipped by the SLA and resolution time) and the 24x7 holiday setting." },
     { key: PERMISSIONS.CUSTOMERS_MANAGE, group: "Customers", label: "Customers page", description: "Open the Customers page (Gmail senders), see their ticket counts and edit name and bank." },
     { key: PERMISSIONS.AGENTS_MANAGE, group: "Administration", label: "Manage agents", description: "Add, edit and deactivate agents and move them between teams." },
     { key: PERMISSIONS.TEAMS_MANAGE, group: "Administration", label: "Manage banks & teams", description: "Add and edit banks (support team, level, hours, primary / secondary resources) and support teams." },
@@ -62,7 +64,7 @@ const DEFAULT_ROLES = [
         key: ROLE_KEYS.TEAM_LEAD,
         name: "Team Lead",
         sortOrder: 3,
-        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.TICKETS_REOPEN, PERMISSIONS.TICKETS_DELETE, PERMISSIONS.CUSTOMERS_MANAGE]
+        permissions: [...MEMBER_PERMISSIONS, PERMISSIONS.TICKETS_CREATE, PERMISSIONS.TICKETS_EDIT_PROPERTIES, PERMISSIONS.TICKETS_ASSIGN_TEAM, PERMISSIONS.TICKETS_REOPEN, PERMISSIONS.TICKETS_DELETE, PERMISSIONS.HOLIDAYS_MANAGE, PERMISSIONS.CUSTOMERS_MANAGE]
     },
     {
         key: ROLE_KEYS.ASSISTANT_TEAM_LEAD,

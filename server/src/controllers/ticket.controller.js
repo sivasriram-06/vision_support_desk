@@ -1,4 +1,5 @@
 const ticketService = require("../services/ticket.service");
+const holidayWorkService = require("../services/holiday-work.service");
 const ticketAccessService = require("../services/ticket-access.service");
 const getActorAgentId = require("../utils/get-actor");
 const HTTP_STATUS = require("../constants/http-status");
@@ -80,7 +81,9 @@ const getTicketHistory = (req, res, next) => {
 const getTicketMetrics = (req, res, next) => {
     try {
         const metrics = ticketService.getTicketMetrics(req.params.ticketId);
-        ok(res, HTTP_STATUS.OK, metrics);
+        // Holiday timer state for the signed-in agent (the panel's Start / Stop button).
+        const ticket = ticketService.getTicketById(req.params.ticketId);
+        ok(res, HTTP_STATUS.OK, { ...metrics, holidayTimer: holidayWorkService.timerStatus(ticket, req.agent.agentId) });
     } catch (error) {
         next(error);
     }

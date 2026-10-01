@@ -80,5 +80,17 @@
     { "priority": "P3", "levelNo": 1, "offsetHours": -24 },
     { "priority": "P3", "levelNo": 2, "offsetHours": 0 },
     { "priority": "P3", "levelNo": 3, "offsetHours": 48 }
+  ],
+  "_holidays": "Company holidays (HD_HOLIDAY): IST dates our support team is off - skipped by the SLA due date and resolution time. Each year is entered on its own (no repeat); Admin / Manager / Team Lead manage them on the Config page. 24x7 banks skip them only when the holidays.apply_to_24x7 setting is on.",
+  "holidays": [
+    { "date": "2026-01-01", "name": "New Year" },
+    { "date": "2026-01-15", "name": "Pongal" },
+    { "date": "2026-01-26", "name": "Republic Day" },
+    { "date": "2026-05-01", "name": "May Day" },
+    { "date": "2026-05-28", "name": "Eid al-Adha (Bakrid)" },
+    { "date": "2026-09-14", "name": "Vinayakar Chathurthi" },
+    { "date": "2026-10-19", "name": "Ayutha Pooja" },
+    { "date": "2026-11-09", "name": "Deepavali" },
+    { "date": "2026-12-25", "name": "Christmas" }
   ]
 }

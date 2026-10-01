@@ -30,6 +30,12 @@ const runOnce = () => {
     } catch (error) {
         logger.error("Escalation watch failed:", error);
     }
+    // Same minute tick: close holiday timers left running past midnight IST.
+    try {
+        require("../services/holiday-work.service").closeOverdueTimers();
+    } catch (error) {
+        logger.error("Holiday timer close failed:", error);
+    }
     lastRunIso = nowIso;
 };
 

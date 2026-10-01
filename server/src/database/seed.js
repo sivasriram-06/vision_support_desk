@@ -17,6 +17,7 @@ const picklistRepository = require("../repositories/picklist.repository");
 const productRepository = require("../repositories/product.repository");
 const prioritySlaRepository = require("../repositories/priority-sla.repository");
 const escalationLevelRepository = require("../repositories/escalation-level.repository");
+const holidayRepository = require("../repositories/holiday.repository");
 const { DEFAULT_SUPPORT_START_IST, DEFAULT_SUPPORT_END_IST } = require("../services/sla/business-calendar");
 const supportOrg = require("./seed-data/support-org.json");
 const productTeamSeed = require("./seed-data/product-teams.json");
@@ -345,6 +346,19 @@ const seedConfig = (orgId, systemAgentId) => {
             Priority_Sla_Config_Id: generateId(DB_TABLES.PRIORITY_SLA_CONFIG),
             Priority: priority,
             Sla_Hours: slaHours,
+            Created_By: systemAgentId,
+            Org_Id: orgId
+        });
+        created += 1;
+    }
+
+    // Company holidays - added when missing; never overwrites an edited one.
+    for (const { date, name } of configSeed.holidays || []) {
+        if (holidayRepository.findByDate(orgId, date)) continue;
+        holidayRepository.insert({
+            Holiday_Id: generateId(DB_TABLES.HOLIDAY),
+            Holiday_Date: date,
+            Holiday_Name: name,
             Created_By: systemAgentId,
             Org_Id: orgId
         });

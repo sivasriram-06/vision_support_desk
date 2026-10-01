@@ -183,6 +183,16 @@ export const deletePrioritySlaConfig = (priority) => unwrap(axiosClient.delete(`
 
 // Escalation matrix (Config page) + the Escalations queue
 export const getEscalationLevels = () => unwrap(axiosClient.get('/api/v1/escalation-levels'))
+
+// Company holiday calendar (holidays.manage) and the holiday timer
+export const getHolidays = (params) => unwrap(axiosClient.get('/api/v1/holidays', { params }))
+export const getHolidayImpact = (params) => unwrap(axiosClient.get('/api/v1/holidays/impact', { params }))
+export const createHoliday = (data) => unwrap(axiosClient.post('/api/v1/holidays', data))
+export const updateHoliday = (holidayId, data) => unwrap(axiosClient.patch(`/api/v1/holidays/${holidayId}`, data))
+export const deleteHoliday = (holidayId) => unwrap(axiosClient.delete(`/api/v1/holidays/${holidayId}`))
+export const updateHolidaySettings = (data) => unwrap(axiosClient.put('/api/v1/holidays/settings', data))
+export const startHolidayTimer = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/holiday-timer/start`))
+export const stopHolidayTimer = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/holiday-timer/stop`))
 export const createEscalationLevel = (data) => unwrap(axiosClient.post('/api/v1/escalation-levels', data))
 export const updateEscalationLevel = (escalationLevelId, offsetHours) =>
   unwrap(axiosClient.patch(`/api/v1/escalation-levels/${escalationLevelId}`, { offsetHours }))

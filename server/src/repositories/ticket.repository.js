@@ -383,10 +383,21 @@ const undeleteById = (ticketId, actorAgentId) => {
 const findOpenWithPriorityByBankId = (bankId) => {
     const db = getDB();
     return db.prepare(
-        `SELECT Ticket_Id, Created_Time, Priority FROM ${DB_TABLES.TICKET}
+        `SELECT Ticket_Id, Created_Time, Sla_Start_Time, Priority FROM ${DB_TABLES.TICKET}
          WHERE Bank_Id = ? AND Priority IS NOT NULL AND Clock_State <> 'STOPPED' AND Is_Deleted = 'N'`
     ).all(bankId);
 };
+
+/** Every open ticket with an SLA - re-dated when company holidays change. */
+const findOpenWithPriority = (orgId) => getDB().prepare(
+    `SELECT Ticket_Id, Ticket_Number, Bank_Id, Created_Time, Sla_Start_Time, Priority, Response_Due_Date FROM ${DB_TABLES.TICKET}
+     WHERE Org_Id = ? AND Priority IS NOT NULL AND Clock_State <> 'STOPPED' AND Is_Deleted = 'N'`
+).all(orgId);
+
+/** Every resolved/closed ticket - their stored resolution time is recomputed when holidays change. */
+const findStopped = (orgId) => getDB().prepare(
+    `SELECT Ticket_Id, Bank_Id FROM ${DB_TABLES.TICKET} WHERE Org_Id = ? AND Clock_State = 'STOPPED' AND Is_Deleted = 'N'`
+).all(orgId);
 
 /** Tickets currently in a given Status (text match - Status is a plain picklist label). */
 const findByStatus = (orgId, status) => {
@@ -422,6 +433,8 @@ module.exports = {
     undeleteById,
     incrementCounter,
     findOpenWithPriorityByBankId,
+    findOpenWithPriority,
+    findStopped,
     findByStatus,
     renameStatus
 };

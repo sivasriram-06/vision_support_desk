@@ -13,6 +13,7 @@ import {
   ArrowDownUp,
   RotateCcw,
   GitBranchPlus,
+  CalendarOff,
 } from 'lucide-react'
 import { EVENT_FILTERS, getWorkStyle } from '../../../utils/workMeta.js'
 import { formatMinutes } from '../../../utils/clockMeta.js'
@@ -31,6 +32,7 @@ const EVENT_STYLE = {
   EMAIL: { icon: Mail, className: 'bg-sky/10 text-sky-dark' },
   REOPEN: { icon: RotateCcw, className: 'bg-warn/15 text-warn' },
   SPLIT: { icon: GitBranchPlus, className: 'bg-review/10 text-review' },
+  HOLIDAY: { icon: CalendarOff, className: 'bg-primary/10 text-primary-dark' },
 }
 
 /**

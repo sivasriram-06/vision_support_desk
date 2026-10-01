@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pencil, Check, X, Timer, Hourglass, Siren } from 'lucide-react'
+import { Pencil, Check, X, Timer, Hourglass, Siren, CalendarOff, Play, Square } from 'lucide-react'
 import Avatar from '../ui/Avatar.jsx'
 import Badge from '../ui/Badge.jsx'
 import Select from '../ui/Select.jsx'
@@ -10,7 +10,7 @@ import {
   getTicketAgeDays,
   getAgeingBucketLabel,
 } from '../../utils/ticketMeta.js'
-import { formatDateTime } from '../../utils/format.js'
+import { formatDateTime, formatDate } from '../../utils/format.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 import {
@@ -32,6 +32,9 @@ import {
   getPicklistValues,
   getPrioritySlaConfig,
   getTicketMetrics,
+  startHolidayTimer,
+  stopHolidayTimer,
+  addWorklog,
 } from '../../utils/api.js'
 
 
@@ -145,7 +148,7 @@ function EscalationLine({ escalation }) {
   )
 }
 
-function SlaSection({ ticket, bank, escalation }) {
+function SlaSection({ ticket, bank, escalation, holidays = [] }) {
   const sla = getSlaState(ticket)
   return (
     <div className="flex flex-col gap-3 border-t border-[#EEF2F8] pt-4">
@@ -178,6 +181,12 @@ function SlaSection({ ticket, bank, escalation }) {
             )}
           </div>
           {!sla.stopped && <EscalationLine escalation={escalation} />}
+          {holidays.length > 0 && (
+            <p className="flex items-start gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11.5px] text-slate-600">
+              <CalendarOff className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />
+              Skips {holidays.map((h) => `${h.name} (${formatDate(h.date)})`).join(", ")} - company holiday{holidays.length === 1 ? "" : "s"}.
+            </p>
+          )}
           <p className="text-[11px] text-muted">
             {ticket.Priority} · counted on {bank ? formatWorkingDays(bank.Working_Days, bank.Is_24x7 === 'Y') : 'Mon – Fri'} from when the
             ticket came in; waiting on the bank does not pause it.
@@ -281,11 +290,88 @@ function ResolutionSection({ ticket, bank, metrics, now }) {
         <Field label="Resolved">{ticket.Resolved_Time ? formatDateTime(ticket.Resolved_Time) : '-'}</Field>
         {metrics?.Reopen_Count > 0 && <Field label="Reopened">{metrics.Reopen_Count}×</Field>}
       </div>
+      <HolidayTimer ticket={ticket} timer={metrics?.holidayTimer} now={now} />
       <p className="text-[11px] text-muted">
         {ticket.Clock_State === 'NOT_STARTED' && 'Starts when the agent moves the ticket to a running status (e.g. In Progress). '}
         Counts {bank ? formatSupportHours(bank) : `${DEFAULT_SUPPORT_START_IST}–${DEFAULT_SUPPORT_END_IST} IST`}
-        {bank?.Is_24x7 === 'Y' ? ' (every minute)' : ` on ${bank ? formatWorkingDays(bank.Working_Days, false) : 'Mon – Fri'} only`}.
+        {bank?.Is_24x7 === 'Y' ? ' (every minute)' : ` on ${bank ? formatWorkingDays(bank.Working_Days, false) : 'Mon – Fri'} only`}, company
+        holidays skipped.
       </p>
+    </div>
+  )
+}
+
+/**
+ * On a company holiday the resolution clock is paused. An agent who works
+ * the ticket starts this timer; the time counts toward resolution time
+ * (never the SLA). On stop it offers to log the minutes as work.
+ */
+function HolidayTimer({ ticket, timer, now }) {
+  const { agent: me } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [toLog, setToLog] = useState(null) // minutes from the stopped stretch
+  if (!timer?.holidayToday && !toLog) return null
+
+  const run = async (action) => {
+    setBusy(true)
+    setError(null)
+    try {
+      return await action()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong.')
+      return null
+    } finally {
+      setBusy(false)
+    }
+  }
+  const start = () => run(() => startHolidayTimer(ticket.Ticket_Id))
+  const stop = async () => {
+    const res = await run(() => stopHolidayTimer(ticket.Ticket_Id))
+    if (res?.data?.Minutes > 0) setToLog(res.data.Minutes)
+  }
+  const logWork = async () => {
+    const minutes = toLog
+    if (await run(() => addWorklog(ticket.Ticket_Id, me.agentId, { minutes, note: `Holiday work - ${timer?.holidayToday?.name || 'holiday'}` }))) setToLog(null)
+  }
+  const runningMinutes = timer?.running ? Math.max(0, Math.floor((now - new Date(timer.running.startedTime).getTime()) / 60000)) : 0
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
+      {timer?.holidayToday && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-[12.5px] text-ink">
+            <CalendarOff className="h-3.5 w-3.5 text-primary" />
+            <span>
+              <strong>{timer.holidayToday.name}</strong> - clock paused.
+              {timer.running ? ` Your holiday timer: ${formatMinutes(runningMinutes)}` : ' Working on it today? Start the holiday timer.'}
+            </span>
+          </p>
+          {timer.running ? (
+            <Button variant="secondary" icon={Square} onClick={stop} disabled={busy} className="!px-3 !py-1.5">
+              Stop
+            </Button>
+          ) : (
+            <Button variant="primary" icon={Play} onClick={start} disabled={busy} className="!px-3 !py-1.5">
+              Start holiday timer
+            </Button>
+          )}
+        </div>
+      )}
+      {toLog && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-ink">
+          <span>Holiday work: {formatMinutes(toLog)} added to resolution time. Log it as work too?</span>
+          <span className="flex gap-1.5">
+            <Button variant="primary" onClick={logWork} disabled={busy} className="!px-3 !py-1">
+              Log {formatMinutes(toLog)}
+            </Button>
+            <Button variant="ghost" onClick={() => setToLog(null)} disabled={busy} className="!px-3 !py-1">
+              Skip
+            </Button>
+          </span>
+        </div>
+      )}
+      {error && <p className="text-[12px] font-medium text-danger">{error}</p>}
     </div>
   )
 }
@@ -573,7 +659,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
             </Field>
           </div>
 
-          <SlaSection ticket={ticket} bank={bank} escalation={metrics?.escalation} />
+          <SlaSection ticket={ticket} bank={bank} escalation={metrics?.escalation} holidays={metrics?.holidaysInSla} />
           <ResolutionSection ticket={ticket} bank={bank} metrics={metrics} now={now} />
           <BankSection bank={bank} />
 

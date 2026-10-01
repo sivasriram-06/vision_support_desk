@@ -6,7 +6,10 @@ const { metrics: metricsRepository } = require("../../repositories/history.repos
 const generateId = require("../../utils/generate-id");
 const DB_TABLES = require("../../constants/db-tables");
 const { CLOCK_BEHAVIOUR } = require("../../constants/ticket.constants");
-const { getCalendar, supportMinutesBetween, supportClockNow } = require("./business-calendar");
+const { getCalendar, supportMinutesBetween, supportClockNow, isHolidayDate } = require("./business-calendar");
+const holidayRepository = require("../../repositories/holiday.repository");
+// Company holidays feed every calendar (registers the provider once).
+require("./holiday-calendar");
 const { toIst } = require("../../utils/time");
 
 /**
@@ -32,12 +35,38 @@ const clockBehaviourForStatus = (orgId, status) => {
 
 const calendarForBankId = (bankId) => getCalendar(bankId ? bankRepository.findById(bankId) : null);
 
-/** Support-hours minutes across every segment; an open segment counts up to `now`. */
+/**
+ * Minutes agents logged with the holiday timer on this ticket. Holidays are
+ * skipped by the support window, so this adds the holiday time actually
+ * worked back - only for days still a holiday on this calendar (a holiday
+ * removed later already counts through the normal window). Resolution time
+ * only; never the SLA.
+ */
+const holidayWorkMinutes = (ticketId, calendar, now = new Date()) =>
+    holidayRepository.work.findWorkByTicketId(ticketId)
+        .filter((w) => isHolidayDate(w.Holiday_Date, calendar))
+        .reduce((total, w) => total + Math.max(0, Math.floor(((toDate(w.Ended_Time) || now) - toDate(w.Started_Time)) / 60000)), 0);
+
+/** Support-hours minutes across every segment (an open one counts up to `now`), plus holiday-timer work. */
 const computeResolutionMinutes = (ticketId, calendar, now = new Date()) =>
     clockSegmentRepository.findByTicketId(ticketId).reduce(
         (total, segment) => total + supportMinutesBetween(toDate(segment.Started_Time), toDate(segment.Ended_Time) || now, calendar),
         0
-    );
+    ) + holidayWorkMinutes(ticketId, calendar, now);
+
+/**
+ * Live clock for the browser: counting while inside the support window -
+ * or, on a holiday, while someone's holiday timer runs (until midnight IST).
+ */
+const liveClockFor = (ticketId, calendar, now) => {
+    const todayIst = toIst(now).slice(0, 10);
+    const timerRunning = isHolidayDate(todayIst, calendar) &&
+        holidayRepository.work.findWorkByTicketId(ticketId).some((w) => !w.Ended_Time && w.Holiday_Date === todayIst);
+    if (timerRunning) {
+        return { counting: true, until: new Date(new Date(`${todayIst}T00:00:00+05:30`).getTime() + 24 * 60 * 60 * 1000) };
+    }
+    return supportClockNow(calendar, now);
+};
 
 /**
  * Moves the resolution clock for a status change and returns the
@@ -137,7 +166,7 @@ const getResolutionSummary = (ticket, now = new Date()) => ({
     // For a live display in the browser: while RUNNING, add the minutes since
     // computedAt when `counting`, up to `until` (then refetch once).
     liveClock: ticket.Clock_State === CLOCK_BEHAVIOUR.RUNNING
-        ? (({ counting, until }) => ({ counting, until: until ? toIst(until) : null, computedAt: toIst(now) }))(supportClockNow(calendarForBankId(ticket.Bank_Id), now))
+        ? (({ counting, until }) => ({ counting, until: until ? toIst(until) : null, computedAt: toIst(now) }))(liveClockFor(ticket.Ticket_Id, calendarForBankId(ticket.Bank_Id), now))
         : null,
     resolutionStartedTime: ticket.Resolution_Started_Time,
     resolvedTime: ticket.Resolved_Time,
@@ -150,5 +179,6 @@ module.exports = {
     applyStatusChange,
     resyncTicketsInStatus,
     recomputeStoppedResolutionForBank,
-    getResolutionSummary
+    getResolutionSummary,
+    calendarForBankId
 };
