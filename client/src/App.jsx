@@ -9,6 +9,7 @@ import AgentsPage from './pages/AgentsPage.jsx'
 import CustomersPage from './pages/CustomersPage.jsx'
 import CustomerDetailPage from './pages/CustomerDetailPage.jsx'
 import ConfigPage from './pages/ConfigPage.jsx'
+import RecycleBinPage from './pages/RecycleBinPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import ChangePasswordPage from './pages/ChangePasswordPage.jsx'
@@ -46,6 +47,7 @@ function AuthenticatedApp() {
         <Route path="/banks" element={<BanksPage />} />
         <Route path="/customers" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomersPage /></Guard>} />
         <Route path="/customers/:contactId" element={<Guard permission={PERMISSIONS.CUSTOMERS_MANAGE}><CustomerDetailPage /></Guard>} />
+        <Route path="/recycle-bin" element={<Guard permission={PERMISSIONS.TICKETS_DELETE}><RecycleBinPage /></Guard>} />
         <Route path="/teams" element={<Navigate to="/banks" replace />} />
         <Route path="/config" element={<Guard permission={[PERMISSIONS.CONFIG_MANAGE, PERMISSIONS.HOLIDAYS_MANAGE]}><ConfigPage /></Guard>} />
         <Route path="/admin" element={<Guard permission={PERMISSIONS.ADMIN_ACCESS}><AdminPage /></Guard>} />

@@ -79,7 +79,7 @@ const listMessageIdsToProcess = async (gmail, query) => {
 
         ids.push(...pageMessages.map((m) => m.id));
 
-        const hasNewOnThisPage = pageMessages.some((m) => !gmailIngestedMessageRepository.findByGmailMessageId(m.id));
+        const hasNewOnThisPage = pageMessages.some((m) => !gmailIngestedMessageRepository.isProcessed(m.id));
         if (!hasNewOnThisPage || !res.data.nextPageToken) {
             break;
         }
@@ -447,7 +447,8 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
             // Cheap local check first - no Gmail API call - so a message
             // we've already processed costs nothing on repeat ticks. This
             // is what makes a short GMAIL_SYNC_INTERVAL_MS safe on quota.
-            if (gmailIngestedMessageRepository.findByGmailMessageId(id)) {
+            // Mail of a ticket purged from the recycle bin is skipped too.
+            if (gmailIngestedMessageRepository.isProcessed(id)) {
                 results.skipped += 1;
                 continue;
             }

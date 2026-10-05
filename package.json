@@ -14,7 +14,8 @@
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "migrate": "npm run migrate -w server",
-    "seed": "npm run seed -w server"
+    "seed": "npm run seed -w server",
+    "test": "npm test -w server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -4,6 +4,7 @@ const { connectDB, closeDB } = require("./config/db");
 const { runMigrations } = require("./database/migrate");
 const { startGmailSyncJob, stopGmailSyncJob } = require("./jobs/gmail-sync.job");
 const { startEscalationWatchJob, stopEscalationWatchJob } = require("./jobs/escalation-watch.job");
+const { startRecycleBinPurgeJob, stopRecycleBinPurgeJob } = require("./jobs/recycle-bin-purge.job");
 const { attachWebSocketHub } = require("./realtime/ws-hub");
 const logger = require("./utils/logger");
 
@@ -16,6 +17,7 @@ const startServer = () => {
             logger.info(`Vision Support Desk API listening on port ${env.port} (${env.nodeEnv})`);
             startGmailSyncJob();
             startEscalationWatchJob();
+            startRecycleBinPurgeJob();
         });
         // Live updates for the browser (replaces client-side polling).
         const wss = attachWebSocketHub(server);
@@ -24,6 +26,7 @@ const startServer = () => {
             logger.info(`${signal} received, shutting down...`);
             stopGmailSyncJob();
             stopEscalationWatchJob();
+            stopRecycleBinPurgeJob();
             for (const socket of wss.clients) socket.terminate();
             wss.close();
             server.close(() => {

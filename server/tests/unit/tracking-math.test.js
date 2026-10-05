@@ -1,6 +1,7 @@
+require("../helpers/env");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { unionMinutes, statusStretches, criticalPath, longestWait, sumBy, elapsedMinutes } = require("./tracking-math");
+const { unionMinutes, statusStretches, criticalPath, longestWait, sumBy, elapsedMinutes } = require("../../src/services/tracking/tracking-math");
 
 const H = 60 * 60000;
 

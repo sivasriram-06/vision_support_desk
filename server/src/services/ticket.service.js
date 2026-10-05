@@ -312,7 +312,8 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
  * delete - the row and its mails stay in the database with who deleted it
  * (a TICKET_DELETED history row), but it leaves every list, queue, My
  * Tickets, escalation and customer count. A later mail in its thread opens
- * a new ticket instead of reviving this one.
+ * a new ticket instead of reviving this one. It sits in the recycle bin for
+ * RECYCLE_BIN_DAYS (restorable), then is purged - see recycle-bin.service.js.
  */
 const deleteTicket = (ticketId, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
@@ -325,9 +326,9 @@ const deleteTicket = (ticketId, actorAgentId) => {
     return { deleted: true, ticketId };
 };
 
-/** True when a person deleted the ticket (not the Gmail deletion sync). */
+/** True when a person deleted the ticket (not the Gmail deletion sync) and it hasn't been restored since. */
 const isDeletedByUser = (ticketId) =>
-    historyRepository.findByTicketId(ticketId).some((h) => h.Event_Name === TICKET_HISTORY_EVENT.TICKET_DELETED);
+    ticketRepository.findLatestDeleteEvent(ticketId)?.Event_Name === TICKET_HISTORY_EVENT.TICKET_DELETED;
 
 const getTicketHistory = (ticketId) => {
     getTicketById(ticketId);

@@ -10,7 +10,9 @@
     "migrate": "node src/database/migrate.js",
     "seed": "node src/database/seed.js",
     "seed:demo": "node src/database/seed-demo-tickets.js",
-    "test": "node --test \"src/**/*.test.js\""
+    "test": "node --test --test-reporter=spec \"tests/**/*.test.js\"",
+    "test:unit": "node --test --test-reporter=spec \"tests/unit/**/*.test.js\"",
+    "test:integration": "node --test --test-reporter=spec \"tests/integration/**/*.test.js\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

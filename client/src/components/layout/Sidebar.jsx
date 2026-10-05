@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { getMyTicketCounts } from '../../utils/api.js'
 import useRealtime, { RT } from '../../realtime/useRealtime.js'
-import { Inbox, UserCheck, Siren, UserCog, Landmark, Contact, Headset, Settings, ShieldCheck, Pin, PinOff } from 'lucide-react'
+import { Inbox, UserCheck, Siren, UserCog, Landmark, Contact, Headset, Settings, ShieldCheck, Pin, PinOff, Trash2 } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/agents', label: 'Agents', icon: UserCog, live: true },
   { to: '/banks', label: 'Banks', icon: Landmark, live: true },
   { to: '/customers', label: 'Customers', icon: Contact, live: true, permission: PERMISSIONS.CUSTOMERS_MANAGE },
+  { to: '/recycle-bin', label: 'Recycle Bin', icon: Trash2, live: true, permission: PERMISSIONS.TICKETS_DELETE },
   // Team Leads reach Config for the Holiday Calendar only (holidays.manage).
   { to: '/config', label: 'Config', icon: Settings, live: true, permission: [PERMISSIONS.CONFIG_MANAGE, PERMISSIONS.HOLIDAYS_MANAGE] },
   { to: '/admin', label: 'Admin', icon: ShieldCheck, live: true, permission: PERMISSIONS.ADMIN_ACCESS },

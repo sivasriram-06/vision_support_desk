@@ -95,6 +95,9 @@ export const getTicket = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/$
 export const createTicket = (data) => unwrap(axiosClient.post('/api/v1/tickets', data))
 export const updateTicket = (ticketId, data) => unwrap(axiosClient.patch(`/api/v1/tickets/${ticketId}`, data))
 export const deleteTicket = (ticketId) => unwrap(axiosClient.delete(`/api/v1/tickets/${ticketId}`))
+// Recycle bin (tickets.delete): deleted tickets, restorable for RECYCLE_BIN_DAYS.
+export const getRecycleBin = () => unwrap(axiosClient.get('/api/v1/tickets/recycle-bin'))
+export const restoreTicket = (ticketId) => unwrap(axiosClient.post(`/api/v1/tickets/${ticketId}/restore`))
 export const getTicketHistory = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/history`))
 export const getTicketResolution = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/resolution`))
 export const getTicketMetrics = (ticketId) => unwrap(axiosClient.get(`/api/v1/tickets/${ticketId}/metrics`))

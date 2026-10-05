@@ -44,6 +44,9 @@ const listTicketsQuerySchema = Joi.object({
     bankId: Joi.string(),
     assigneeId: Joi.string(),
     contactId: Joi.string(),
+    // Same buckets as the customer page counts: open (clock not stopped),
+    // closed (clock stopped), overdue (open and past its SLA due date).
+    state: Joi.string().valid("open", "closed", "overdue"),
     search: Joi.string(),
     sortBy: Joi.string(),
     sortOrder: Joi.string().valid("asc", "desc", "ASC", "DESC"),

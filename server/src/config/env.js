@@ -44,6 +44,10 @@ const env = {
     // relative to this root.
     attachmentsDir: requireEnv("ATTACHMENTS_DIR"),
 
+    // Days a deleted ticket stays in the recycle bin (restorable) before it
+    // is permanently deleted with its mails, notes and attachment files.
+    recycleBinDays: requireEnvInt("RECYCLE_BIN_DAYS"),
+
     jwtSecret: requireEnv("JWT_SECRET"),
     jwtExpiresIn: requireEnv("JWT_EXPIRES_IN"),
 

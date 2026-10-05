@@ -74,6 +74,9 @@ const TICKET_HISTORY_EVENT = {
     // A person deleted the ticket (tickets.delete) - never written by the
     // Gmail deletion sync, so ingestion can tell the two apart.
     TICKET_DELETED: "TICKET_DELETED",
+    // Brought back from the recycle bin. Whichever of TICKET_DELETED /
+    // TICKET_RESTORED is latest says whether a person has it deleted now.
+    TICKET_RESTORED: "TICKET_RESTORED",
     SPLIT_FROM: "SPLIT_FROM",
     CLOSE_REPLY_DISMISSED: "CLOSE_REPLY_DISMISSED",
     COMMENT_ADDED: "COMMENT_ADDED"

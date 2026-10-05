@@ -167,6 +167,15 @@ const findAll = (orgId, query = {}) => {
         where += " AND t.Contact_Id = ?";
         params.push(query.contactId);
     }
+    // Matches the customer page counts (customer.repository).
+    if (query.state === "open") {
+        where += " AND t.Clock_State <> 'STOPPED'";
+    } else if (query.state === "closed") {
+        where += " AND t.Clock_State = 'STOPPED'";
+    } else if (query.state === "overdue") {
+        where += " AND t.Clock_State <> 'STOPPED' AND t.Response_Due_Date < ?";
+        params.push(nowIst());
+    }
     if (query.search) {
         where += " AND (t.Subject LIKE ? OR t.Ticket_Number LIKE ?)";
         const term = `%${query.search}%`;
@@ -326,12 +335,22 @@ const findStoppedByBankId = (bankId) => {
     ).all(bankId);
 };
 
+/**
+ * Next running ticket number. A counter in HD_ID_SEQUENCE, started from the
+ * highest number already used, so a number is never handed out twice - not
+ * even after the recycle bin permanently deletes tickets (a row count would
+ * then repeat numbers). Call inside the create transaction.
+ */
+const TICKET_NUMBER_SEQUENCE = `${DB_TABLES.TICKET}.Ticket_Number`;
 const findNextTicketNumber = (orgId) => {
     const db = getDB();
     const row = db.prepare(
-        `SELECT COUNT(*) AS total FROM ${DB_TABLES.TICKET} WHERE Org_Id = ?`
-    ).get(orgId);
-    return String(row.total + 1).padStart(6, "0");
+        `INSERT INTO HD_ID_SEQUENCE (Table_Name, Last_Id)
+         VALUES (?, (SELECT COALESCE(MAX(CAST(Ticket_Number AS INTEGER)), 0) + 1 FROM ${DB_TABLES.TICKET} WHERE Org_Id = ?))
+         ON CONFLICT (Table_Name) DO UPDATE SET Last_Id = Last_Id + 1
+         RETURNING Last_Id`
+    ).get(TICKET_NUMBER_SEQUENCE, orgId);
+    return String(row.Last_Id).padStart(6, "0");
 };
 
 const incrementCounter = (ticketId, column, delta = 1, actorAgentId = null) => {
@@ -371,7 +390,21 @@ const findLatestSplitDescendantId = (ticketId, { includeDeleted = false } = {}) 
     return current;
 };
 
-/** Brings back a ticket soft-deleted because its mails were deleted in Gmail. */
+/**
+ * The latest TICKET_DELETED / TICKET_RESTORED history row of a ticket, or
+ * undefined. A TICKET_DELETED here means a person deleted it and it sits in
+ * the recycle bin (the Gmail deletion sync never writes either event).
+ */
+const findLatestDeleteEvent = (ticketId) => {
+    const db = getDB();
+    return db.prepare(
+        `SELECT Event_Name, Event_Time, Actor_Agent_Id FROM ${DB_TABLES.TICKET_HISTORY}
+         WHERE Ticket_Id = ? AND Event_Name IN ('TICKET_DELETED', 'TICKET_RESTORED') AND Is_Deleted = 'N'
+         ORDER BY Event_Time DESC, History_Id DESC LIMIT 1`
+    ).get(ticketId);
+};
+
+/** Brings back a soft-deleted ticket (mails back from Gmail Trash, or restored from the recycle bin). */
 const undeleteById = (ticketId, actorAgentId) => {
     const db = getDB();
     db.prepare(
@@ -431,6 +464,7 @@ module.exports = {
     findSplitChildren,
     findLatestSplitDescendantId,
     undeleteById,
+    findLatestDeleteEvent,
     incrementCounter,
     findOpenWithPriorityByBankId,
     findOpenWithPriority,

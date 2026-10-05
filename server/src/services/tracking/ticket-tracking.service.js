@@ -215,6 +215,12 @@ const getTracking = (ticketId, now = new Date()) => {
             case TICKET_HISTORY_EVENT.CLOSE_REPLY_DISMISSED:
                 push(h.Event_Time, "STATUS", `${actor} marked the reply after close as no action needed - stays Closed`, { actor });
                 break;
+            case TICKET_HISTORY_EVENT.TICKET_DELETED:
+                push(h.Event_Time, "STATUS", `${actor} deleted the ticket (moved to the recycle bin)`, { actor });
+                break;
+            case TICKET_HISTORY_EVENT.TICKET_RESTORED:
+                push(h.Event_Time, "STATUS", `${actor} restored the ticket from the recycle bin`, { actor });
+                break;
             default:
                 break; // COMMENT_ADDED / CONVERSATION_ADDED come from their own rows below
         }

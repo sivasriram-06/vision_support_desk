@@ -23,6 +23,7 @@ const {
     ticketIdParamSchema
 } = require("../../schemas/ticket.schema");
 const assignmentController = require("../../controllers/ticket-assignment.controller");
+const recycleBinController = require("../../controllers/recycle-bin.controller");
 const workController = require("../../controllers/ticket-work.controller");
 const reopenController = require("../../controllers/ticket-reopen.controller");
 const holidayWorkService = require("../../services/holiday-work.service");
@@ -39,12 +40,17 @@ router.get("/queues/escalated", validate(escalatedTicketsQuerySchema, "query"), 
 router.get("/my", validate(myTicketsQuerySchema, "query"), assignmentController.myTickets);
 router.get("/my/counts", validate(myTicketCountsQuerySchema, "query"), assignmentController.myTicketCounts);
 
+// Recycle bin: tickets a person deleted, restorable for RECYCLE_BIN_DAYS
+// (same people who may delete - tickets.delete). See recycle-bin.service.js.
+router.get("/recycle-bin", requirePermission(PERMISSIONS.TICKETS_DELETE), recycleBinController.listRecycleBin);
+router.post("/:ticketId/restore", requirePermission(PERMISSIONS.TICKETS_DELETE), validate(ticketIdParamSchema, "params"), recycleBinController.restoreTicket);
+
 router.get("/", validate(listTicketsQuerySchema, "query"), ticketController.listTickets);
 router.post("/", requirePermission(PERMISSIONS.TICKETS_CREATE), validate(createTicketSchema), ticketController.createTicket);
 
 router.get("/:ticketId", validate(ticketIdParamSchema, "params"), ticketController.getTicketById);
 router.patch("/:ticketId", validate(ticketIdParamSchema, "params"), validate(updateTicketSchema), ticketController.updateTicket);
-// Admin, Manager, Team Lead only (tickets.delete). Soft delete - see ticket.service.deleteTicket.
+// Admin, Manager, Team Lead only (tickets.delete). Moves it to the recycle bin - see ticket.service.deleteTicket.
 router.delete("/:ticketId", requirePermission(PERMISSIONS.TICKETS_DELETE), validate(ticketIdParamSchema, "params"), ticketController.deleteTicket);
 
 // Assignees: permission rules live in ticket-assignment.service.js (same

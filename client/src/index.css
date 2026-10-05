@@ -49,6 +49,12 @@
     @apply bg-surface text-ink font-sans antialiased;
   }
 
+  /* Edge's built-in password eye / clear button - we draw our own eye (Input.jsx) so every browser looks the same. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

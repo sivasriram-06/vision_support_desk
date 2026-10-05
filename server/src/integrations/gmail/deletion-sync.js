@@ -106,10 +106,9 @@ const restoreIngestedThread = (thread, actorAgentId) => {
                 `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id = ?`
             ).run(actorAgentId, thread.Conversation_Id);
         }
-        // Only a ticket the Gmail delete removed comes back - not one a person deleted.
-        const deletedByUser = db.prepare(
-            `SELECT 1 FROM ${DB_TABLES.TICKET_HISTORY} WHERE Ticket_Id = ? AND Event_Name = 'TICKET_DELETED' LIMIT 1`
-        ).get(thread.Ticket_Id);
+        // Only a ticket the Gmail delete removed comes back - not one a person
+        // deleted (it stays in the recycle bin until someone restores it).
+        const deletedByUser = ticketRepository.findLatestDeleteEvent(thread.Ticket_Id)?.Event_Name === "TICKET_DELETED";
         if (!deletedByUser) undelete(DB_TABLES.TICKET, "Ticket_Id", thread.Ticket_Id);
         recountTicket(thread.Ticket_Id);
         return thread.Ticket_Id;

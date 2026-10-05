@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../utils/api.js'
+import { PasswordToggle } from '../components/ui/Input.jsx'
 
 // Layout follows the Vision AI Ops sign-in screen (AI_SunoidaProjectManagement):
 // navy brand panel on the left, white form panel with the Sunoida lockup on the right.
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -86,15 +88,18 @@ export default function LoginPage() {
         <label className="mb-1.5 block text-[12px] font-bold text-slate-600" htmlFor="password">
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter password"
-          className="mb-6 w-full rounded-[10px] border border-border bg-white px-3.5 py-3 text-[14px] text-ink outline-none transition placeholder:text-slate-400 focus:border-primary focus:shadow-[0_0_0_3px_rgba(232,99,43,0.13)]"
-        />
+        <div className="relative mb-6 flex items-center">
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter password"
+            className="w-full rounded-[10px] border border-border bg-white py-3 pl-3.5 pr-11 text-[14px] text-ink outline-none transition placeholder:text-slate-400 focus:border-primary focus:shadow-[0_0_0_3px_rgba(232,99,43,0.13)]"
+          />
+          <PasswordToggle visible={showPassword} onToggle={() => setShowPassword((v) => !v)} className="right-2.5" />
+        </div>
 
         <button
           type="submit"

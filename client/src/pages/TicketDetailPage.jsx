@@ -205,8 +205,8 @@ export default function TicketDetailPage() {
         title={`Delete ticket #${ticket.Ticket_Number}`}
         message={
           <>
-            <strong>{ticket.Subject}</strong> will be removed from every list, queue and My Tickets. A new mail in its thread opens a
-            new ticket.
+            <strong>{ticket.Subject}</strong> will be removed from every list, queue and My Tickets and moved to the Recycle bin, where
+            it can be restored until it is permanently deleted. A new mail in its thread opens a new ticket.
           </>
         }
         loading={deleting}

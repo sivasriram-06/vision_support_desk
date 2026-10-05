@@ -41,7 +41,9 @@ A support ticketing desk for the Sunoida support team. Customer mail arriving in
 - **My Tickets:** tickets assigned to you. The counts follow the "include closed" box.
 - **Ticket detail:** the full conversation (mail, replies and internal comments), attachments and the property panel. The panel holds bank, priority, department, product, classification, category, status and due date. Also on the page: history and tracking.
 - Ticket ids are 6-digit numbers per table, starting at 100000, shown as `#000123`.
-- **Delete ticket (Admin, Manager, Team Lead only):** a soft delete. The ticket leaves every list and queue but stays in the database with who deleted it.
+- **Delete ticket (Admin, Manager, Team Lead only):** the ticket leaves every list and queue and moves to the **Recycle Bin**, with who deleted it and when.
+- **Recycle Bin** (same roles): a deleted ticket can be restored for `RECYCLE_BIN_DAYS` days (default 30). After that it is **permanently deleted** with its mails, notes, history and attachment files. A job checks every hour. Its mails stay in Gmail but are never imported again. Tickets hidden because their mail was deleted in Gmail are not in the bin; they follow the mailbox.
+- Ticket numbers keep counting up and are never reused, even after a permanent delete.
 
 ### 1.3 Assignment
 - **Only Admin, Manager, Team Lead or Assistant Team Lead can make the first assignment.** After that, the current assignees can add others.
@@ -86,6 +88,7 @@ Each status carries a clock behaviour (editable on the Config page):
 
 ### 1.8 Customers
 - Customers are the Gmail senders. The page shows name and email, with **All / Open / Closed / Overdue** ticket counts.
+- Opening a customer lists the tickets that came from them. Clicking a count card (All / Open / Closed / Overdue) filters that list.
 - Admin, Manager, Team Lead and Assistant Team Lead can see the page and edit name and bank.
 - The customer list starts empty. It fills from incoming mail and is not seeded.
 
@@ -109,7 +112,7 @@ Default permissions per role. Admins can change these on the Admin page; re-seed
 | Create tickets, edit properties, assign within team | ✓ | ✓ | ✓ | ✓ | |
 | Reopen / split closed tickets | ✓ | ✓ | ✓ | ✓ | |
 | Customers page | ✓ | ✓ | ✓ | ✓ | |
-| Delete tickets, manage holidays | ✓ | ✓ | ✓ | | |
+| Delete and restore tickets (Recycle Bin), manage holidays | ✓ | ✓ | ✓ | | |
 | Assign to anyone, manage agents, banks & teams, config, Admin page | ✓ | ✓ | | | |
 
 ### 1.11 Live updates
@@ -203,6 +206,7 @@ npm run dev
 | `LOG_TO_FILE` | ✓ | `true` | `true` / `false`. Writes `logs/<date>.log` and `logs/error-<date>.log`. |
 | `LOG_DIR` | ✓ | `logs` | Log folder, relative to `server/`. |
 | `ATTACHMENTS_DIR` | ✓ | `./uploads/attachments` | Where mail attachments are stored on disk. |
+| `RECYCLE_BIN_DAYS` | ✓ | `30` | Days a deleted ticket can be restored from the Recycle Bin before it is permanently deleted. |
 | `JWT_SECRET` | ✓ | *(long random string)* | Signs sign-in tokens. Changing it signs everyone out. |
 | `JWT_EXPIRES_IN` | ✓ | `1d` | Token lifetime (`8h`, `1d`, …). |
 | `SEED_DEFAULT_PASSWORD` | | *(empty)* | Seed only. The temporary password given to each seeded agent without a sign-in; they must change it on first login. Leave empty to issue passwords from the Admin page instead. |
@@ -274,13 +278,13 @@ The server doesn't serve the client's files. Host `client/dist/` on any static w
 npm run migrate
 ```
 
-- Runs `server/src/database/migrate.js`. It applies each file in `server/src/database/migrations/` in name order (`0001_…sql` to `0030_…sql`), each in its own transaction.
+- Runs `server/src/database/migrate.js`. It applies each file in `server/src/database/migrations/` in name order (`0001_…sql` to `0031_…sql`), each in its own transaction.
 - Applied files are recorded in the `_migrations` table, so running it again applies only new files.
 - If the database file doesn't exist yet, it is created.
 
 Rules for schema changes:
 - **Migrations only create; they never alter.** Each file creates one table and its indexes.
-- **A new table gets a new numbered file**, for example `0031_hd_something.sql`.
+- **A new table gets a new numbered file**, for example `0032_hd_something.sql`.
 - In a throwaway or test database, you can change an existing table by editing its CREATE file and rebuilding the database ([section 9](#9-starting-over-with-a-fresh-database)).
 - **Never rebuild a database that holds real tickets.** Back it up first, and plan the change as a new table or a data script.
 
