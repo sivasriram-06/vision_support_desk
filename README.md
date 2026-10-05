@@ -1,217 +1,402 @@
 # Vision Support Desk
 
-A production-oriented support desk platform. Its workflows, UI and data model are engineered from a captured internal + public API reference of a real, in-production help-desk tenant (`sunoida.com`, 40 agents, 3,164 tickets, 1,158 contacts), documented module-by-module in [`docs/`](docs/). Those documents are the project's source of truth; this README summarizes and indexes them.
+A support ticketing desk for the Sunoida support team. Customer mail arriving in the support Gmail mailbox becomes a ticket automatically. Agents then assign, work, track and close those tickets against each bank's SLA, with escalations, holidays and live updates built in.
 
-Inbound support email (target mailbox: `tasks@sunoida.com`, configured via `GMAIL_MAILBOX` in `server/.env`) is ingested via the Gmail API and converted into tickets, which agents then work through queues, conversations, and the full ticket lifecycle.
+- **Client:** React 19, Vite, Tailwind CSS v4 (`client/`, port **4545**)
+- **Server:** Node.js 22, Express, better-sqlite3, WebSocket (`server/`, port **3456**)
+- **Database:** SQLite file (`server/data/vision_support_desk.db`)
+- **Mail:** Google Gmail API, read-only (OAuth refresh token)
 
 ---
 
-## 1. Source-of-truth documents
+## Contents
 
-Before changing architecture, schema, or API contracts, read the relevant document below — they encode real captured behavior, not assumptions:
+1. [Functionality](#1-functionality)
+2. [Prerequisites](#2-prerequisites)
+3. [Setup procedure](#3-setup-procedure)
+4. [Environment variables](#4-environment-variables)
+5. [Commands to run](#5-commands-to-run)
+6. [Migrations](#6-migrations)
+7. [Seed](#7-seed)
+8. [First sign-in and connecting Gmail](#8-first-sign-in-and-connecting-gmail)
+9. [Starting over with a fresh database](#9-starting-over-with-a-fresh-database)
+10. [Project structure](#10-project-structure)
+11. [Troubleshooting](#11-troubleshooting)
 
-| Document | Contents |
+---
+
+## 1. Functionality
+
+### 1.1 Gmail ingestion (mail to ticket)
+- A background job runs every `GMAIL_SYNC_INTERVAL_MS` (default 60 s) and pulls mail for `GMAIL_MAILBOX`.
+- It imports mail sent to the mailbox directly, in To or Cc, by Bcc, or through a Google Group. It also imports mail sent from the mailbox.
+- **New mail creates a ticket.** The ticket's created time is the time Gmail received the mail, shown in IST.
+- **Replies join their existing ticket.** Matching uses `In-Reply-To` / `References`. If a ticket was split, a reply to the old mail follows the split onto the new ticket.
+- **Every sender is stored as a contact**, including agents. Attachments are saved to disk under `ATTACHMENTS_DIR`.
+- Imports are idempotent: each Gmail message id is recorded, so a message is never imported twice.
+- **Deletion sync:** mail deleted in Gmail is soft-deleted on the ticket. If a ticket loses all its mail, the ticket is hidden too. If the mail is moved back from Trash, it comes back.
+
+### 1.2 Tickets
+- **All Tickets:** search, filter, sort and paginate every ticket. There is an "include closed" option.
+- **My Tickets:** tickets assigned to you. The counts follow the "include closed" box.
+- **Ticket detail:** the full conversation (mail, replies and internal comments), attachments and the property panel. The panel holds bank, priority, department, product, classification, category, status and due date. Also on the page: history and tracking.
+- Ticket ids are 6-digit numbers per table, starting at 100000, shown as `#000123`.
+- **Delete ticket (Admin, Manager, Team Lead only):** a soft delete. The ticket leaves every list and queue but stays in the database with who deleted it.
+
+### 1.3 Assignment
+- **Only Admin, Manager, Team Lead or Assistant Team Lead can make the first assignment.** After that, the current assignees can add others.
+- Cross-team assignment lists every team, including the product teams (Java, Angular).
+- A lead of the ticket's own team can remove cross-team assignees.
+
+### 1.4 Statuses and resolution time
+Each status carries a clock behaviour (editable on the Config page):
+
+| Status | Resolution clock |
 |---|---|
-| [`docs/Zoho_Desk_UI_Module_API_Reference.docx`](docs/Zoho_Desk_UI_Module_API_Reference.docx) | Module-by-module UI → API → DB mapping (10 modules), login/security model, global response contracts, implementation phase order |
-| [`docs/Zoho_Desk_API_Design.xlsx`](docs/Zoho_Desk_API_Design.xlsx) | Captured API endpoint inventory, field definitions per module (Tickets, Accounts, Contacts, etc.), the clone's own `/api/v1` endpoint design, and API standards (pagination, errors, idempotency, concurrency, auth) |
-| [`docs/Zoho_Desk_Table_Config.xlsx`](docs/Zoho_Desk_Table_Config.xlsx) | Full relational schema: 66 `HD_*` tables with field-level specs (type, length, mandatory, index, FK, allowed values, description) |
-| [`docs/Zoho Task Breakdown.xlsx`](docs/Zoho%20Task%20Breakdown.xlsx) | Dated Phase 1 / Phase 2 sub-task schedule (2026-09-22 → 2026-10-05) |
+| Unassigned | Not started |
+| Open, In Progress | Running |
+| In Progress - Client, On Hold - Client, On Hold - Dependent | Paused |
+| Resolved, Resolved - Under Observation | Running |
+| Closed | Stopped |
 
-Where these documents mark something as unverified, edition-dependent, or a "production design decision" rather than confirmed captured behavior, treat it as an assumption to validate during implementation, not as settled fact.
+- **Resolution time** counts only the bank's IST support window on working days. The default window is 10:30–19:30. A 24×7 bank counts every minute.
+- The clock ticks live on the ticket page.
+- **Once a ticket is Closed, it can't be moved back to an open status.** Closed tickets re-enter work only through the flow in 1.6.
+
+### 1.5 SLA and escalations
+- **SLA due date** = SLA start time + the priority's SLA hours, counted on the bank's calendar (its working days and time zone).
+- Default priorities: **P1 = 24 h, P2 = 72 h, P3 = 240 h.**
+- **The SLA never pauses for status.** Only resolution time pauses.
+- **Escalation levels** fire at the due date plus an offset per priority. For example, P1 level 1 fires 4 h before the due date, level 2 at the due date, and level 3 8 h after it.
+- A job checks every minute and the **Escalations** page updates live.
+- When a calendar input changes (bank hours or days, holidays, the 24×7 setting), open tickets are re-dated and closed tickets' resolution times are recomputed.
+
+### 1.6 Reply after close: reopen, new issue or no action
+- When a customer mails on a **Closed** ticket, the ticket is flagged for a decision by a lead.
+- **Reopen:** counts as a reopen. The SLA restarts from the reopen time, and the ticket comes back unassigned.
+- **New issue:** splits the mail into a new ticket. All properties are copied, and the lead can edit them before creating it.
+- **No action needed:** for acknowledgement mails such as "thanks".
+
+### 1.7 Holiday calendar
+- Company holidays are whole IST days. The **SLA, escalations and resolution time skip them like a weekend.**
+- 24×7 banks skip holidays only when **"apply holidays to 24×7 banks"** is on. It is off by default.
+- Holidays are managed on the Config page by Admin, Manager or Team Lead. The page has a year view and shows the impact before you save.
+- **Holiday timer:** work done on a holiday adds to resolution time only, never to the SLA. It stops automatically at midnight IST and offers a work log when stopped.
+- The seed loads the 9 company holidays for 2026.
+
+### 1.8 Customers
+- Customers are the Gmail senders. The page shows name and email, with **All / Open / Closed / Overdue** ticket counts.
+- Admin, Manager, Team Lead and Assistant Team Lead can see the page and edit name and bank.
+- The customer list starts empty. It fills from incoming mail and is not seeded.
+
+### 1.9 Banks, teams, agents, config and admin
+- **Banks:** each bank's support team, level, time zone, working days, support hours (IST), 24×7 flag, and primary and secondary resources.
+- **Agents:** add, edit, deactivate and move agents between teams.
+- **Config:** priorities and SLA hours, escalation offsets, statuses and their clock behaviour, classifications and categories, products, and holidays.
+- **Admin:** role permissions, user access, passwords, and the mail integration status ("Connect Gmail").
+
+### 1.10 Sign-in, roles and permissions
+- Agents sign in with email and password, and receive a JWT.
+- Seeded agents get a temporary password and must change it on first sign-in.
+- Too many failed attempts lock the account for `LOCK_MINUTES`.
+- Deactivating an agent, revoking a sign-in or issuing a temporary password closes that agent's live sessions immediately.
+
+Default permissions per role. Admins can change these on the Admin page; re-seeding never overwrites those changes.
+
+| Permission | Admin | Manager | Team Lead | Asst. TL | Member |
+|---|:-:|:-:|:-:|:-:|:-:|
+| View tickets, reply & comment, edit status | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Create tickets, edit properties, assign within team | ✓ | ✓ | ✓ | ✓ | |
+| Reopen / split closed tickets | ✓ | ✓ | ✓ | ✓ | |
+| Customers page | ✓ | ✓ | ✓ | ✓ | |
+| Delete tickets, manage holidays | ✓ | ✓ | ✓ | | |
+| Assign to anyone, manage agents, banks & teams, config, Admin page | ✓ | ✓ | | | |
+
+### 1.11 Live updates
+- The browser keeps one WebSocket open to `/ws`, authenticated with the JWT. Pages don't poll.
+- When data changes, the server sends a small event (ids only). Open pages refetch through the normal REST API, so permissions still apply.
+- What updates live: ticket lists, queues, My Tickets, Escalations, Customers, the sidebar badges and the open ticket.
+- If you are editing a ticket and someone else changes it, a **Reload** bar appears instead of overwriting your edit.
+
+### 1.12 Timestamps
+Every timestamp is stored and shown in **IST** as ISO text with the `+05:30` offset (for example `2026-10-05T14:30:00.000+05:30`).
 
 ---
 
-## 2. Current repository state
+## 2. Prerequisites
+
+- **Node.js 22 or newer** (`node -v`) and npm.
+- Build tools for `better-sqlite3`, needed only if npm can't download a prebuilt binary. On Windows that means the "Desktop development with C++" workload.
+- A **Google Cloud project** with the Gmail API enabled and an OAuth client. Section 3, step 4 covers this.
+- Access to the support mailbox, so you can sign in as it once and grant read access.
+
+---
+
+## 3. Setup procedure
+
+**Step 1: Get the code and install.** This is an npm workspace, so one install covers the client and the server.
+
+```bash
+git clone <repo-url> support_desk
+```
+```bash
+cd support_desk
+```
+```bash
+npm install
+```
+
+**Step 2: Create the server env file.** Copy the example, then fill in the values listed in [section 4.1](#41-server-serverenv).
+
+```bash
+cp server/.env.example server/.env
+```
+
+**Step 3: Create the client env file.** Copy the example, then set `VITE_API_BASE_URL` ([section 4.2](#42-client-clientenv)).
+
+```bash
+cp client/.env.example client/.env
+```
+
+**Step 4: Set up the Google OAuth client.** Full walkthrough: [`docs/development/gmail-console-setup.md`](docs/development/gmail-console-setup.md).
+1. In Google Cloud Console, enable the **Gmail API**.
+2. Configure the OAuth consent screen. Choose **Internal** for a Workspace domain, and add the scope `https://www.googleapis.com/auth/gmail.readonly`.
+3. Create an **OAuth client ID** of type Web application. Set the redirect URI to `http://localhost:3456/api/v1/gmail/oauth2callback`. It must match `GOOGLE_REDIRECT_URI` exactly.
+4. Put the Client ID and Client Secret into `server/.env`. Leave `GOOGLE_REFRESH_TOKEN` empty for now; [section 8](#8-first-sign-in-and-connecting-gmail) fills it in.
+
+**Step 5: Create the database tables.** See [section 6](#6-migrations).
+
+```bash
+npm run migrate
+```
+
+**Step 6: Load the base data.** See [section 7](#7-seed).
+
+```bash
+npm run seed
+```
+
+**Step 7: Start the app.** See [section 5](#5-commands-to-run).
+
+```bash
+npm run dev
+```
+
+**Step 8: Sign in and connect Gmail.** See [section 8](#8-first-sign-in-and-connecting-gmail).
+
+> `server/.env`, `client/.env`, `server/data/` (the database) and `.claude/` are git-ignored. Never commit secrets.
+
+---
+
+## 4. Environment variables
+
+### 4.1 Server (`server/.env`)
+
+`server/src/config/env.js` validates these at startup. If a required value is missing or invalid, the server refuses to start and names the variable.
+
+| Variable | Required | Example / default | Purpose |
+|---|:-:|---|---|
+| `NODE_ENV` | ✓ | `development` | `development` or `production`. |
+| `PORT` | ✓ | `3456` | API and WebSocket port. |
+| `DATABASE_PATH` | ✓ | `./data/vision_support_desk.db` | SQLite file, relative to `server/`. The folder is created if missing. |
+| `TIMEZONE` | ✓ | `Asia/Kolkata` | IANA zone for log timestamps and the default bank time zone at seed time. Stored timestamps are always IST. |
+| `LOG_TO_FILE` | ✓ | `true` | `true` / `false`. Writes `logs/<date>.log` and `logs/error-<date>.log`. |
+| `LOG_DIR` | ✓ | `logs` | Log folder, relative to `server/`. |
+| `ATTACHMENTS_DIR` | ✓ | `./uploads/attachments` | Where mail attachments are stored on disk. |
+| `JWT_SECRET` | ✓ | *(long random string)* | Signs sign-in tokens. Changing it signs everyone out. |
+| `JWT_EXPIRES_IN` | ✓ | `1d` | Token lifetime (`8h`, `1d`, …). |
+| `SEED_DEFAULT_PASSWORD` | | *(empty)* | Seed only. The temporary password given to each seeded agent without a sign-in; they must change it on first login. Leave empty to issue passwords from the Admin page instead. |
+| `GOOGLE_CLIENT_ID` | ✓ | | OAuth client ID (setup step 4). |
+| `GOOGLE_CLIENT_SECRET` | ✓ | | OAuth client secret (setup step 4). |
+| `GOOGLE_REDIRECT_URI` | ✓ | `http://localhost:3456/api/v1/gmail/oauth2callback` | Must match the redirect URI on the OAuth client exactly. |
+| `GOOGLE_REFRESH_TOKEN` | | *(empty at first)* | Filled in after "Connect Gmail" ([section 8](#8-first-sign-in-and-connecting-gmail)). The server starts without it, but mail sync stays off. |
+| `GMAIL_MAILBOX` | ✓ | `tasks@sunoida.com` | The support mailbox to import. Changing it is an `.env` change plus a re-seed (the seed creates its reply-address row). |
+| `GMAIL_SYNC_ENABLED` | ✓ | `true` | `true` / `false`. Turns the background sync job on or off. |
+| `GMAIL_SYNC_INTERVAL_MS` | ✓ | `60000` | How often the sync runs, in milliseconds. |
+| `MAX_FAILED_ATTEMPTS` | ✓ | `5` | Failed sign-ins allowed before the account locks. |
+| `LOCK_MINUTES` | ✓ | `10` | How long a locked account stays locked. |
+
+To generate a `JWT_SECRET`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+### 4.2 Client (`client/.env`)
+
+| Variable | Example | Purpose |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:3456` | Server address for REST calls and the `/ws` WebSocket. It is baked in at build time, so rebuild the client after changing it. |
+
+---
+
+## 5. Commands to run
+
+Run every command from the **repo root**. Run the migrations (section 6) and the seed (section 7) once before the first start.
+
+| Command | What it does |
+|---|---|
+| `npm install` | Installs client and server dependencies. |
+| `npm run dev` | Starts the server (nodemon, auto-restart) and the client (Vite) together. |
+| `npm run dev:server` | Starts the server only, on http://localhost:3456. |
+| `npm run dev:client` | Starts the client only, on http://localhost:4545. |
+| `npm run build` | Builds the client into `client/dist/`. |
+| `npm start` | Starts the server without nodemon (production). |
+| `npm run migrate` | Applies pending database migrations. |
+| `npm run seed` | Loads the base data. Safe to repeat. |
+| `npm test -w server` | Runs the server unit tests (`node:test`). |
+| `npm run lint -w client` | Lints the client. |
+
+**Development:** run `npm run dev`, then open http://localhost:4545. The API health check is http://localhost:3456/health.
+
+**Production:**
+
+```bash
+npm run migrate
+```
+```bash
+npm run seed
+```
+```bash
+npm run build
+```
+```bash
+npm start
+```
+
+The server doesn't serve the client's files. Host `client/dist/` on any static web server, or run `npm run preview -w client` on port 4545. Before building, set `VITE_API_BASE_URL` to the server's public address. Set `NODE_ENV=production` in `server/.env`.
+
+---
+
+## 6. Migrations
+
+```bash
+npm run migrate
+```
+
+- Runs `server/src/database/migrate.js`. It applies each file in `server/src/database/migrations/` in name order (`0001_…sql` to `0030_…sql`), each in its own transaction.
+- Applied files are recorded in the `_migrations` table, so running it again applies only new files.
+- If the database file doesn't exist yet, it is created.
+
+Rules for schema changes:
+- **Migrations only create; they never alter.** Each file creates one table and its indexes.
+- **A new table gets a new numbered file**, for example `0031_hd_something.sql`.
+- In a throwaway or test database, you can change an existing table by editing its CREATE file and rebuilding the database ([section 9](#9-starting-over-with-a-fresh-database)).
+- **Never rebuild a database that holds real tickets.** Back it up first, and plan the change as a new table or a data script.
+
+---
+
+## 7. Seed
+
+```bash
+npm run seed
+```
+
+Runs `server/src/database/seed.js`. The seed is idempotent: it only adds rows that are missing, and it never overwrites values an admin has since edited. It loads:
+
+| Data | Source |
+|---|---|
+| Organization (Sunoida), default department, system agent, mail reply address for `GMAIL_MAILBOX` | `seed.js` and `server/.env` |
+| Roles (Admin, Manager, Team Lead, Assistant Team Lead, Team Member) with default permissions | `server/src/constants/permissions.js` |
+| Support teams, admin and agent roster with their teams and roles | `seed-data/support-org.json` |
+| Product teams (Java Team, Angular Team) and their agents | `seed-data/product-teams.json` |
+| Banks: support team, level, country time zone, working days, support hours, 24×7, resources | `seed-data/banks.json` |
+| Statuses and clock behaviour, team types, classifications and categories, products, priority SLA hours, escalation levels, 2026 company holidays | `seed-data/config.json` |
+
+Notes:
+- **Sign-in credentials** are created only when `SEED_DEFAULT_PASSWORD` is set. Each seeded agent gets that password as a temporary one and must change it at first sign-in. Without it, the seed warns you, and an Admin issues passwords from the Admin page.
+- **Customers and tickets are not seeded.** They come from Gmail.
+- If you change `GMAIL_MAILBOX`, re-run the seed so a reply-address row exists for the new mailbox.
+
+---
+
+## 8. First sign-in and connecting Gmail
+
+1. Open http://localhost:4545 and sign in as the seeded admin (`vision.support@sunoida.com`) with `SEED_DEFAULT_PASSWORD`. Set a new password when asked.
+2. Go to **Admin → Mail Integration** and click **Connect Gmail**.
+3. Sign in to Google **as the `GMAIL_MAILBOX` account** and allow read access.
+4. Google redirects to `/api/v1/gmail/oauth2callback`, which shows a `refresh_token`. Copy it into `server/.env` as `GOOGLE_REFRESH_TOKEN`.
+5. Restart the server. On the first sync, which runs within `GMAIL_SYNC_INTERVAL_MS`, mail starts arriving as tickets.
+
+An Admin can also trigger a sync by hand with `POST /api/v1/gmail/sync` or `POST /api/v1/gmail/sync-deletions`.
+
+---
+
+## 9. Starting over with a fresh database
+
+**This deletes every ticket.** Use it only on a test machine, and keep a copy first.
+
+1. Stop the server.
+2. Delete the database file and its `-wal` / `-shm` files from `server/data/`:
+   - `vision_support_desk.db`
+   - `vision_support_desk.db-wal`
+   - `vision_support_desk.db-shm`
+3. Rebuild and reload:
+
+```bash
+npm run migrate
+```
+```bash
+npm run seed
+```
+```bash
+npm run dev
+```
+
+Gmail import then rebuilds the tickets from the mailbox.
+
+To back up a live database without stopping the server, run this from `server/`:
+
+```bash
+node -e "require('better-sqlite3')('data/vision_support_desk.db').exec(\"VACUUM INTO 'data/backup.db'\")"
+```
+
+---
+
+## 10. Project structure
 
 ```
 support_desk/
-├── client/     — empty (React app not yet scaffolded)
-├── server/     — empty (Node backend not yet scaffolded)
-├── docs/       — source-of-truth reference documents (see above)
-└── README.md
+├── client/                      React + Vite + Tailwind
+│   └── src/
+│       ├── pages/               Tickets, My Tickets, Ticket detail, Escalations, Customers,
+│       │                        Agents, Banks, Config, Admin, Login, Change password
+│       ├── components/          layout/, tickets/, settings/, ui/
+│       ├── auth/                session + client-side permission keys
+│       ├── realtime/            RealtimeProvider + useRealtime (WebSocket)
+│       └── utils/               api.js (axios), format.js (IST display)
+├── server/
+│   ├── src/
+│   │   ├── routes/v1/           /api/v1/* endpoints
+│   │   ├── controllers/  services/  repositories/   request → logic → SQL
+│   │   ├── services/sla/        business calendar, SLA, escalations, resolution clock, holidays
+│   │   ├── integrations/gmail/  Gmail client, normalizer, ingestion + deletion sync
+│   │   ├── realtime/            event bus + WebSocket hub (/ws)
+│   │   ├── jobs/                Gmail sync job, escalation watch job
+│   │   ├── database/            migrate.js, migrations/, seed.js, seed-data/
+│   │   ├── constants/  schemas/  middleware/  models/  config/  utils/
+│   │   └── server.js / app.js
+│   ├── data/                    SQLite database (git-ignored)
+│   ├── logs/                    daily log files
+│   └── uploads/                 attachments
+├── docs/                        design references, ER diagram, Gmail console setup
+└── postman/                     API collection
 ```
 
-No code, package.json, migrations, or database file exist yet. This is a greenfield implementation guided by an already-completed reverse-engineering/design pass.
+The request flow is `Route → Middleware (auth, permission, Joi validation) → Controller → Service → Repository → SQLite`. Services publish realtime events after a transaction commits.
 
 ---
 
-## 3. Technology stack
+## 11. Troubleshooting
 
-- **Frontend:** React.js, Tailwind CSS
-- **Backend:** Node.js, Express.js
-- **Database:** SQLite (production-grade relational modeling: FKs, indexes, migrations, transactions)
-- **Email integration:** Google Gmail API (OAuth), mailbox `tasks@sunoida.com`
-
----
-
-## 4. Architecture
-
-Layered backend, no business logic in routes or SQL in controllers/React:
-
-```
-HTTP Request → Route → Middleware → Controller → Service → Repository → SQLite
-```
-
-External integrations (Gmail, etc.) go through an adapter, never called directly from a service:
-
-```
-Service → Integration Adapter → External API
-```
-
-Frontend is organized by feature module (`tickets`, `contacts`, `accounts`, `agents`, `teams`, `departments`, `reports`, `automation`, `activities`, `products`, `contracts`, `settings`), each with its own components, hooks, and API-layer calls — no direct fetch calls from UI components.
-
----
-
-## 5. Authentication & authorization model
-
-Per `docs/Zoho_Desk_UI_Module_API_Reference.docx` §2 and the `Auth_API_Design` / `Clone_API_Standards` sheets, this **deliberately does not clone a vendor login page** — it reproduces the captured production security architecture:
-
-- Agent identity = **email address**, federated through an external identity provider (Google OAuth) — never a locally-stored password.
-- `HD_AGENT_MASTER` never stores `Password`/`Password_Hash`.
-- `HD_AGENT_AUTH` maps the external IdP subject + login email to the Desk agent.
-- `HD_AGENT_SESSION` holds server-side session + CSRF binding.
-- `HD_AUTH_LOGIN_EVENT` is the security audit log.
-- Browser session = HttpOnly/Secure cookie; all state-changing requests require a CSRF token.
-- Authorization is derived server-side from Role → Profile → Department/Team scope (`HD_ROLE_MASTER`, `HD_PROFILE_MASTER`, `HD_AGENT_DEPARTMENT_MAP`) — **never** from client-supplied `agentId`/`orgId`/permissions.
-
-```
-POST /api/v1/auth/login     — start IdP handoff
-GET  /api/v1/auth/callback  — validate IdP response, create session
-GET  /api/v1/auth/me        — current agent + role/profile/departments
-POST /api/v1/auth/logout    — revoke session
-GET  /api/v1/auth/csrf      — issue/rotate CSRF token
-```
-
----
-
-## 6. Modules (from the UI/Module/API reference)
-
-| # | Module | Key sub-modules |
-|---|---|---|
-| 01 | Login & Security | IdP handoff, callback, `/me`, logout, session/CSRF |
-| 02 | Analytics | Dashboards, folders, components, widget data, templates, Reports (Advanced Analytics excluded) |
-| 03 | Tickets | All Cases, Agent Queue, Team Queue, Ticket Detail, Conversations, Threads, Comments, History, Resolution, Metrics, Attachments, Approvals, Followers, Tags, Time Entries |
-| 04 | Contacts & Accounts | Contacts, Accounts, Customer Happiness |
-| 05 | Agents & Organization | Agents, Departments, Teams, Roles, Profiles, Skills |
-| 06 | Automation & Configuration | Views, Saved Filters, Macros, Business Hours, SLA, Assignment/Escalation Rules, Blueprints, Custom Fields, Layouts |
-| 07 | Channels & Communication | Channels, Mail Reply Address, Feed, Notifications, Internal Chat |
-| 08 | Products & Contracts | Products, Contracts |
-| 09 | Activities | Tasks, Events, Calls |
-| 10 | System & Org Settings | Organization, Module registry, Tags |
-
-Full per-module UI → API → DB mapping, production rules, and open implementation notes live in `docs/Zoho_Desk_UI_Module_API_Reference.docx`.
-
----
-
-## 7. Implementation phases
-
-### Phase 1 — Ticket Management & Organization
-Gmail ingestion → SQLite; ticket creation & property mapping; Agent Queue + Team Queue; All Cases (search/filter/sort/paginate); Ticket Detail; Conversations/threads/comments/attachments; Contacts + Accounts; Agents + Departments + Teams; ticket actions (assign, reassign, status, tags, followers, history, resolution); Phase 1 integration testing.
-
-### Phase 2 — Reporting, Configuration & Business Operations
-Reports; Configuration (layouts, custom fields, views, filters, business hours, SLA); Automation (rules/conditions/actions); Channels + email engine enhancements; Activities (Tasks/Calls/Events); Products + Contracts; remaining settings (roles, profiles, permissions, notifications, skills, org config); cross-module integration + regression testing.
-
-The dated day-by-day breakdown (Sep 22 – Oct 5, 2026) is in `docs/Zoho Task Breakdown.xlsx`. The module reference document additionally proposes its own 6-phase priority order (Login → Tickets → Contacts/Agents/Teams → Analytics → Reports/Config/Automation → Channels/Activities/Products); reconcile the two before scheduling work — they don't fully agree on where Analytics/Dashboards land.
-
----
-
-## 8. Database
-
-SQLite with a normalized relational design, `HD_` ("Help Desk" — project-specific, not a Zoho convention) table prefix, full FK/index/CHAR-flag discipline. The complete schema (66 tables) is defined field-by-field in `docs/Zoho_Desk_Table_Config.xlsx`, sheet `Module_Index` for the index and one sheet per table for column-level specs. Categories:
-
-- **Tickets (15 tables):** `HD_TICKET_MASTER` (54 columns) + `CONVERSATION`, `THREAD`, `COMMENT`, `HISTORY`, `RESOLUTION`, `METRICS`, `ATTACHMENT`, `APPROVAL`, `FOLLOWER`, `SECONDARY_CONTACT`, `TAG_MAP`, `TIME_ENTRY`, `CUSTOM_FIELD_VALUE`, `SCHEDULED_REPLY`
-- **Contacts & Accounts (4):** `CONTACT_MASTER`, `ACCOUNT_MASTER`, `CUSTOMER_HAPPINESS`, `CONTACT_ACCOUNT_MAP`
-- **Agents & Org Structure (10):** `AGENT_MASTER`, `AGENT_DEPARTMENT_MAP`, `AGENT_PREFERENCE`, `ROLE_MASTER`, `PROFILE_MASTER`, `DEPARTMENT_MASTER`, `TEAM_MASTER`, `TEAM_MEMBER_MAP`, `SKILL_MASTER`, `AGENT_SKILL_MAP`
-- **Automation & Configuration (11):** `MACRO_MASTER`, `BUSINESS_HOURS_MASTER`, `SLA_POLICY_MASTER`, `VIEW_MASTER`, `VIEW_STAR_MAP`, `SAVED_FILTER`, `ASSIGNMENT_RULE_MASTER`, `ESCALATION_RULE_MASTER`, `BLUEPRINT_MASTER`, `CUSTOM_FIELD_DEFINITION`, `LAYOUT_MASTER`
-- **Channels & Communication (5):** `CHANNEL_MASTER`, `MAIL_REPLY_ADDRESS`, `FEED_POST`, `NOTIFICATION_MASTER`, `CHAT_THREAD`
-- **Products & Contracts (2):** `PRODUCT_MASTER`, `CONTRACT_MASTER`
-- **Activities (3):** `TASK_MASTER`, `EVENT_MASTER`, `CALL_LOG_MASTER`
-- **Analytics (9):** `DASHBOARD_TEMPLATE_CATEGORY`, `DASHBOARD_TEMPLATE_MASTER`, `COMPONENT_TEMPLATE_MASTER`, `DASHBOARD_MASTER`, `DASHBOARD_FOLDER`, `DASHBOARD_COMPONENT`, `DASHBOARD_ACCESS_MAP`, `REPORT_FOLDER`, `REPORT_MASTER`
-- **System & Org Settings (3):** `ORGANIZATION_MASTER`, `MODULE_MASTER`, `TAG_MASTER`
-- **Login & Security (3):** `AGENT_AUTH`, `AGENT_SESSION`, `AUTH_LOGIN_EVENT`
-
-Tag architecture is master + mapping (`HD_TAG_MASTER` 1:N `HD_TICKET_TAG_MAP` N:1 `HD_TICKET_MASTER`) — tags are never duplicated per ticket.
-
-**Do not scaffold all 66 tables in one pass.** Build them module-by-module, in the order the current implementation phase actually needs them, and validate each against the spec sheet as it's built.
-
----
-
-## 9. API design
-
-Versioned REST, base path `/api/v1`. Standards (from `Clone_API_Standards`):
-
-- **Pagination:** default limit 50, max 100; cursor-based (`nextCursor`/`hasMore`), with offset supported for compatibility
-- **Errors:** `{ "error": { "code", "message", "details", "traceId" } }`
-- **List response:** `{ "data": [...], "paging": { "limit", "nextCursor", "hasMore" } }`
-- **Single-resource response:** `{ "data": {...} }`
-- **Idempotency:** POSTs that can create duplicate side effects (e.g. Gmail ingestion) accept an `Idempotency-Key`
-- **Concurrency:** PATCH uses optimistic locking (`If-Match` / version field) on mutable resources (tickets, dashboards)
-- **Audit:** every ticket mutation writes `HD_TICKET_HISTORY`; every auth/security event writes `HD_AUTH_LOGIN_EVENT`
-- **Tenant isolation:** every query scoped by `Org_Id` from the authenticated session — never from the request body/client
-- **Analytics:** dashboard/report widgets execute validated query definitions against an allow-listed field/aggregation registry; clients never submit raw SQL
-
-The full endpoint list (Auth, Dashboard, Tickets, Contacts, Accounts, Agents, Config, Activities, Org) is in `Zoho_Desk_API_Design.xlsx` sheet `Clone_API_Endpoints`, with dedicated deep-dive sheets for `Auth_API_Design` and `Dashboard_API_Design`.
-
----
-
-## 10. Gmail integration
-
-```
-Gmail API (GMAIL_MAILBOX)
-   → Fetch messages
-   → Validate / normalize
-   → Identify sender → Find/create HD_CONTACT_MASTER
-   → Find existing ticket (thread match) or create new HD_TICKET_MASTER
-   → Save HD_TICKET_CONVERSATION (+ HD_TICKET_THREAD)
-   → Assign (rule-based or default queue)
-```
-
-The Gmail provider message ID must be persisted and checked before creating a ticket/conversation, so re-processing the same message is a no-op (idempotent ingestion). OAuth credentials are never hard-coded or committed, and neither is the target mailbox — `server/src/config/env.js` throws at startup if any of these are missing rather than silently falling back to a default:
-
-```env
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=
-GOOGLE_REFRESH_TOKEN=
-GMAIL_MAILBOX=
-```
-
-`GOOGLE_REFRESH_TOKEN` is the one deliberate exception — it's legitimately empty until the one-time OAuth consent flow (`GET /api/v1/gmail/auth-url`) completes, so the server must be able to boot without it. `GMAIL_MAILBOX` is currently set to a personal test address (`sivasriram.balasubramaniyan@sunoida.com`) while `tasks@sunoida.com` access is set up; swapping mailboxes later is a one-line `.env` change, no code change.
-
-Ship a `.env.example` with empty values; never commit `.env`. Step-by-step Google Cloud Console setup (OAuth client, consent screen, capturing the refresh token) is in [`docs/development/gmail-console-setup.md`](docs/development/gmail-console-setup.md).
-
----
-
-## 11. Development rules
-
-**Never:** hard-code data into React · put SQL in routes/controllers/React · trust client-supplied `agentId`/`orgId`/permissions · expose Gmail/OAuth secrets to the frontend · duplicate business logic across frontend and backend · accept raw SQL from a dashboard/report client · create tables the current phase doesn't need yet.
-
-**Always:** validate input and route params · authorize server-side · use transactions for multi-table writes · write `HD_TICKET_HISTORY` on ticket mutations · use migrations, never hand-edit the schema · handle loading/empty/error states in the UI · keep pagination/filtering/sorting consistent across list endpoints.
-
----
-
-## 12. Definition of done
-
-A module is complete only when it has: UI, API, database (with migration), validation, authorization (where applicable), error handling, loading/empty/error states, pagination/filtering (where applicable), tests, and documentation — as applicable to that specific feature.
-
----
-
-## 13. Implementation status
-
-**Backend (`server/`) — implemented, frontend intentionally on hold:**
-
-- Layered structure: `routes → controllers → services → repositories`, plus `config/`, `constants/`, `middleware/`, `models/` (column definitions per table), `schemas/` (Joi validation), `utils/`, `database/` (migrations + seed), `integrations/gmail/`.
-- SQLite via `better-sqlite3`, 25 migrations covering the Login & Security tables and the Tickets/Contacts/Accounts/Agents/Organization core Phase 1 needs (`HD_ORGANIZATION_MASTER` through `HD_AUTH_LOGIN_EVENT`) — see each file in `server/src/database/migrations/` for the exact column-level source it was built from.
-- `npm run seed` bootstraps the single tenant org, default department, system actor, Email channel, and the `HD_MAIL_REPLY_ADDRESS` row for `tasks@sunoida.com`.
-- Working REST API (verified end-to-end) for tickets (list/create/update/queues/history/resolution/metrics), conversations, internal comments, contacts, accounts, agents, departments, teams.
-- Gmail ingestion engine (`integrations/gmail/`): OAuth client, message normalizer, and an idempotent fetch → normalize → match/create contact → match/create ticket → save conversation/thread pipeline, exposed via `/api/v1/gmail/auth-url`, `/oauth2callback`, `/sync`.
-- JWT auth/authorization middleware (`auth.middleware.js`, `authorize.middleware.js`) and `config/auth.js` are scaffolded and ready, but **not wired into any route** — the Login & Security module (`/api/v1/auth/*`) itself isn't built yet, so writes currently attribute to a system actor.
-
-**Not started:** frontend integration (client is scaffolded with Vite/React/Tailwind but untouched beyond that), the Login & Security API, and everything in Phase 2.
-
-**Next steps:**
-
-1. Implement `/api/v1/auth/*` (Login & Security module) and wire `auth.middleware.js`/`authorize.middleware.js` into the write routes.
-2. Set up the real Google Cloud OAuth client per [`docs/development/gmail-console-setup.md`](docs/development/gmail-console-setup.md) and run a live ingestion pass against `tasks@sunoida.com`.
-3. Add a scheduled job to call `/api/v1/gmail/sync` periodically instead of the current manual trigger.
-4. Reconcile the two competing phase orders (Task Breakdown vs. the module reference's 6-phase plan) before starting frontend integration.
+| Symptom | Fix |
+|---|---|
+| `X not found in env` on start | That variable is missing or empty in `server/.env` ([section 4.1](#41-server-serverenv)). |
+| `EADDRINUSE :3456` | Another server is already running. Stop the old Node process. |
+| `MAIL_REPLY_ADDRESS_NOT_FOUND` | Run `npm run seed`, and again after changing `GMAIL_MAILBOX`. |
+| `GMAIL_NOT_CONFIGURED` on sync | `GOOGLE_REFRESH_TOKEN` is empty. Redo [section 8](#8-first-sign-in-and-connecting-gmail). |
+| `invalid_grant` in `logs/error-*.log` | The refresh token was revoked or expired. Reconnect Gmail and replace the token. |
+| `redirect_uri_mismatch` from Google | `GOOGLE_REDIRECT_URI` must match the OAuth client's redirect URI byte for byte. |
+| `ETIMEDOUT oauth2.googleapis.com` | A network problem. The next sync picks up any missed mail. |
+| No seeded user can sign in | `SEED_DEFAULT_PASSWORD` was empty during the seed. Set it and re-run `npm run seed`, or issue passwords from the Admin page. |
+| Pages don't update live | Check that `VITE_API_BASE_URL` points at the server and that `/ws` isn't blocked by a proxy. |
