@@ -1,8 +1,7 @@
 const { getDB } = require("../config/db");
 const DB_TABLES = require("../constants/db-tables");
 
-// HD_TICKET_REOPEN is append-only apart from Closed_Again_Time, so it
-// doesn't use the base repository's CRUD helpers.
+// HD_TICKET_REOPEN is append-only apart from Closed_Again_Time, so no base repository CRUD helpers.
 
 const insert = (row) => {
     const db = getDB();

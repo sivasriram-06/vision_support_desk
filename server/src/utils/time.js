@@ -1,18 +1,6 @@
 const { DateTime } = require("luxon");
 
-/**
- * One timestamp format for everything stored: ISO-8601 in IST with its
- * offset, e.g. 2026-09-30T17:53:00.123+05:30.
- *
- *  - Unambiguous: the offset is part of the value, so new Date(value),
- *    luxon and SQLite's date functions all read the right instant.
- *  - Sortable: every value carries the same +05:30, so plain text order
- *    and SQL < / > comparisons are time order.
- *
- * Always write times through nowIst() / toIst() in JS and NOW_IST_SQL in
- * SQL - never Date#toISOString() (UTC "Z") or SQLite datetime('now')
- * ("YYYY-MM-DD HH:MM:SS" UTC). Mixing formats is what breaks comparisons.
- */
+// All stored times are IST ISO (+05:30) via nowIst/toIst/NOW_IST_SQL; mixing UTC formats breaks text comparisons.
 const IST_ZONE = "Asia/Kolkata";
 
 // strftime's %f is SS.SSS; SQLite has no zone database, so IST = UTC + 330 min.

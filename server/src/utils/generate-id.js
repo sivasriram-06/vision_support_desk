@@ -2,13 +2,7 @@ const { getDB } = require("../config/db");
 
 const FIRST_ID = 100000;
 
-/**
- * Next primary key for `table` (a DB_TABLES value): a per-table running
- * number starting at 100000 (HD_ID_SEQUENCE), returned as a string to fit
- * the TEXT *_Id columns. better-sqlite3 is synchronous and single-writer,
- * so the upsert + RETURNING is atomic; inside a caller's transaction the
- * counter rolls back with it.
- */
+// Per-table running id (as text); atomic since better-sqlite3 is single-writer, and rolls back with the caller.
 const generateId = (table) => {
     if (!table) throw new Error("generateId(table) needs the table name");
     const row = getDB().prepare(

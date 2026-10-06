@@ -11,22 +11,7 @@ const HTTP_STATUS = require("../constants/http-status");
 const { PERMISSIONS } = require("../constants/permissions");
 const { TICKET_HISTORY_EVENT, WORK_STATE } = require("../constants/ticket.constants");
 
-/**
- * One assignee's work on a ticket (an HD_TICKET_ASSIGNMENT row) moves
- * through work states; every stretch is logged so the Tracking tab can
- * show where the ticket sat and who it waited on.
- *
- *   PENDING      assigned, not started (waiting for handover)   - on assign
- *   WAITING      blocked by another assignee's unfinished work  - automatic
- *   READY        unblocked, not started                         - automatic
- *   IN_PROGRESS / ON_HOLD / DONE                                 - set by people
- *
- * When a blocker is marked DONE, everyone waiting only on it moves to
- * READY. Who may change someone's work: the assignee, whoever assigned
- * them, a team lead of the assignee's team or of the ticket's own team
- * (the ticket team lead stays responsible for cross-team work), or
- * anyone with tickets.assign_any.
- */
+// Per-assignee work states, logged for Tracking; a DONE blocker moves those waiting only on it to READY.
 
 const MANUAL_STATES = [WORK_STATE.IN_PROGRESS, WORK_STATE.ON_HOLD, WORK_STATE.DONE];
 const { publish, REALTIME_EVENT } = require("../realtime/bus");
@@ -60,10 +45,7 @@ const getOpenAssignment = (ticketId, agentId) => {
     return assignmentRepository.findById(open.Assignment_Id);
 };
 
-/**
- * Moves an assignment to `state`: closes the current stretch, opens the
- * next, and records history. Runs in the caller's transaction.
- */
+// Closes the current stretch, opens the next and records history; runs in the caller's transaction.
 const setState = (assignment, state, { actorAgentId, note = null, time = nowIso(), orgId, eventName = TICKET_HISTORY_EVENT.WORK_STATE_CHANGE }) => {
     workRepository.closeOpenStateLog(assignment.Assignment_Id, time);
     workRepository.openStateLog({
@@ -273,11 +255,7 @@ const deleteWorklog = (ticketId, worklogId, actor) => {
     workRepository.softDeleteWorklog(worklogId);
 };
 
-/**
- * Work changes someone makes on a ticket (state, blockers, work logs) tell
- * open ticket pages / Tracking tabs and My Tickets to refresh. startWork /
- * endWork run inside assignment and reopen flows, which publish themselves.
- */
+// Work changes refresh ticket pages and My Tickets; startWork/endWork flows publish themselves.
 const publishingWorkChange = (fn) => (ticketId, ...args) => {
     const result = fn(ticketId, ...args);
     const actor = args[args.length - 1];

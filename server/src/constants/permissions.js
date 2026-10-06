@@ -1,10 +1,4 @@
-/**
- * Permission catalogue + the built-in roles. Roles live in HD_ROLE_MASTER
- * (keyed by Role_Key); each role's permission set is admin-editable from the
- * Admin page and stored in HD_ROLE_MASTER.Permissions_Json. The defaults
- * below are only what seed.js writes the first time a role is created -
- * re-seeding never overwrites an admin's later changes.
- */
+// Role defaults below are seeded only when a role is first created; re-seeding never overwrites admin edits.
 const PERMISSIONS = {
     TICKETS_VIEW: "tickets.view",
     TICKETS_CREATE: "tickets.create",

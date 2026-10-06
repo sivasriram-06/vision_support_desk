@@ -24,29 +24,16 @@ const { CHANNEL, DIRECTION, TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS, CLOCK
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Gap between each message's full-fetch (+ any attachment downloads) within
-// one sync run, so a big backfill spreads its Gmail API calls out instead of
-// bursting them and tripping the per-minute quota (see runSync's early-exit
-// below for what happens if it trips anyway).
+// Gap between full-fetches so a big backfill spreads its Gmail API calls and doesn't trip the per-minute quota.
 const PER_MESSAGE_DELAY_MS = 350;
 
 const isQuotaExceededError = (error) => error?.code === 403 && error?.errors?.[0]?.reason === "rateLimitExceeded";
 
 const PAGE_SIZE = 50;
-// Safety cap so a mailbox with years of history backfills over a few sync
-// ticks instead of one run trying to walk the entire mailbox at once.
+// Safety cap so years of history backfill over a few sync ticks instead of one huge run.
 const MAX_PAGES_PER_SYNC = 20;
 
-/**
- * Who actually wrote an inbound message. Relay notices - Google Sheets /
- * Docs / Drive share mails, "Yogesh Balan (via Google Sheets)" - send
- * everyone's mail from one shared no-reply From address and carry the real
- * person only in Reply-To. Matching the contact on that shared From address
- * glued every such mail onto whoever sent the first one. Only these "(via
- * ...)" relays are redirected: ordinary automated senders (GitHub, Postman,
- * newsletters) also set Reply-To, often to a per-message token address, and
- * must stay on their From address.
- */
+// "(via Google Sheets)"-style relays share one From; the real sender is Reply-To. Other senders keep From.
 const VIA_SUFFIX = /\s*\(via [^)]*\)\s*$/i;
 
 const resolveRequester = (normalized, mailboxAddress) => {
@@ -57,15 +44,7 @@ const resolveRequester = (normalized, mailboxAddress) => {
     return { email: replyTo.email, name: replyTo.name || from.name.replace(VIA_SUFFIX, "").trim() || null };
 };
 
-/**
- * Walks Gmail's message list (newest-first) page by page instead of only
- * ever reading the first page. Without this, ingestion could only ever see
- * the newest PAGE_SIZE messages matching the query - anything older than
- * that window would be permanently invisible, no matter how many sync ticks
- * ran, since every tick re-requested the same "first page".
- * Stops early once an entire page comes back with nothing new (we've
- * caught up to already-ingested history), so steady-state ticks stay cheap.
- */
+// Pages past the first so older mail is reachable; stops at a page with nothing new so idle ticks stay cheap.
 const listMessageIdsToProcess = async (gmail, query) => {
     const ids = [];
     let pageToken;
@@ -94,12 +73,7 @@ const getFullMessage = async (gmail, id) => {
     return res.data;
 };
 
-/**
- * Resolves the actual bytes for each attachment part found by the
- * normalizer: large attachments only carry an attachmentId and need a
- * separate fetch, small ones may already have inline base64url data.
- * Runs before the sync transaction since it's async I/O.
- */
+// Large attachments need a separate fetch by attachmentId; runs before the sync transaction (async I/O).
 const downloadAttachments = async (gmail, gmailMessageId, attachmentParts) => {
     const files = [];
     for (const part of attachmentParts) {
@@ -129,20 +103,7 @@ const downloadAttachments = async (gmail, gmailMessageId, attachmentParts) => {
 const MAX_REMOTE_IMAGE_BYTES = 5 * 1024 * 1024; // generous for a signature/logo, cheap insurance against a runaway download
 const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 8000;
 
-/**
- * Gmail signatures (and plenty of other mail clients) often reference a
- * logo/signature image by a live external URL instead of embedding it -
- * e.g. Google's own ci3.googleusercontent.com/mail-sig/... CDN. Those URLs
- * are not a reliable thing to keep re-fetching from outside Gmail's own
- * viewer: repeated/automated requests to the same asset get rate-limited
- * (429) even though the URL itself needs no auth, so the image renders as a
- * broken icon for whichever ticket view didn't win the race. Downloading it
- * once at ingestion time and embedding it as a data: URI removes that live
- * dependency entirely - same fix as the cid: inline-image case below, just
- * for a real external URL instead of an unresolvable cid: reference.
- * Failures fall back to leaving the original URL in place rather than
- * throwing - a slow/blocked remote image should never fail ingestion.
- */
+// Embeds remote signature images as data: URIs (their CDN rate-limits re-fetches); failures keep the URL.
 const embedRemoteImages = async (html) => {
     if (!html) return html;
 
@@ -180,22 +141,14 @@ const embedRemoteImages = async (html) => {
     return resolved;
 };
 
-/**
- * Matches a reply to its parent ticket via In-Reply-To / References headers:
- * In-Reply-To first, then References newest-first (the header lists the
- * chain oldest-first). If that ticket had a reply split off into a new
- * issue, the rest of the thread belongs to the newest such ticket, even
- * when the customer answers an older message.
- */
+// Reply -> ticket via In-Reply-To then References (newest first); follows splits to the newest split ticket.
 const findTicketIdForReply = (normalized) => {
     const references = normalized.referencesHeader
         ? normalized.referencesHeader.split(/\s+/).filter(Boolean).reverse()
         : [];
     const candidates = [normalized.inReplyToHeader, ...references].filter(Boolean);
 
-    // A ticket a person deleted (Delete ticket) stays deleted: a reply in
-    // its thread opens a new ticket instead of landing on - or reviving -
-    // the hidden one.
+    // A ticket a person deleted stays deleted: a reply in its thread opens a new ticket instead of reviving it.
     const deletedByUser = (ticketId) => ticketRepository.findById(ticketId, { includeDeleted: true })?.Is_Deleted === "Y" && ticketService.isDeletedByUser(ticketId);
 
     for (const messageId of candidates) {
@@ -205,9 +158,7 @@ const findTicketIdForReply = (normalized) => {
             return deletedByUser(ticketId) ? null : ticketId;
         }
     }
-    // Only a deleted mail matches (deleted in Gmail, maybe about to come
-    // back from Trash): the reply still belongs to that mail's ticket, not
-    // a new one. The ticket is brought back if the Gmail delete had removed it.
+    // Only a Gmail-deleted mail matches: the reply still belongs to its ticket, which is brought back if removed.
     for (const messageId of candidates) {
         const thread = threadRepository.findThreadByMessageId(messageId);
         if (thread) {
@@ -220,32 +171,13 @@ const findTicketIdForReply = (normalized) => {
     return null;
 };
 
-/**
- * Fetch -> normalize -> idempotency check -> contact match/create ->
- * ticket match/create -> conversation + thread + attachments, all in one
- * DB transaction. Re-processing the same Gmail message is a safe no-op
- * (matches HD_TICKET_THREAD.Message_Id_Header's unique index).
- * `attachmentFiles` must already be downloaded (see downloadAttachments).
- * This function is async (it embeds remote signature images over the
- * network before writing), but only the actual DB write below runs inside
- * a synchronous better-sqlite3 transaction, per "no awaits inside a
- * db.transaction() callback".
- *
- * Handles BOTH directions: a message sent TO the mailbox (a customer's
- * message - inbound) and a message sent FROM the mailbox (an agent's own
- * reply, typed directly in Gmail rather than through this app - outbound).
- * Direction is determined by which side of the message the mailbox address
- * is on, so a reply an agent sends straight from Gmail still lands in the
- * right ticket's thread instead of being silently skipped.
- */
+// Idempotent per Message-ID; inbound and outbound (sent from Gmail) alike. Awaits stay outside the DB transaction.
 const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachmentFiles = []) => {
     const org = organizationService.getDefaultOrganization();
 
     const alreadyIngested = threadRepository.findThreadByMessageId(normalized.messageIdHeader);
     if (alreadyIngested) {
-        // Deleted in Gmail earlier (so removed here) and now moved back out
-        // of Trash: bring the mail - and its ticket - back instead of
-        // skipping it as a duplicate.
+        // Deleted in Gmail and now back out of Trash: restore the mail and its ticket, don't skip as duplicate.
         if (alreadyIngested.Is_Deleted === "Y") {
             const ticketId = restoreIngestedThread(alreadyIngested, systemAgentId);
             publish({ type: REALTIME_EVENT.TICKET_CHANGED, ticketId, reason: "restored" });
@@ -266,39 +198,23 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
     const isOutbound = normalized.from.email.toLowerCase() === mailboxAddress.toLowerCase();
     const direction = isOutbound ? DIRECTION.OUT : DIRECTION.IN;
 
-    // The "counterpart" is whichever side of the message ISN'T the mailbox -
-    // the customer, always - so ticket/contact matching is symmetric no
-    // matter who actually sent this particular message.
+    // The counterpart (customer) is whichever side isn't the mailbox, so matching works in both directions.
     const counterpartAddress = isOutbound ? (normalized.to[0] || normalized.cc[0]) : resolveRequester(normalized, mailboxAddress);
     if (!counterpartAddress?.email) {
         return { status: "skipped", reason: "outbound message has no recipient to match a contact" };
     }
     const contact = contactService.findOrCreateBySender(counterpartAddress, systemAgentId);
-    // Every From address is kept on the Customers page - bank side and our
-    // own agents alike - not only the ticket's counterpart.
+    // Every From address is kept on the Customers page (bank side and our agents), not only the counterpart.
     if (normalized.from.email.toLowerCase() !== counterpartAddress.email.toLowerCase()) {
         contactService.findOrCreateBySender(normalized.from, systemAgentId);
     }
 
-    // An outbound message's author is the agent who actually sent it. Reuses
-    // an existing HD_AGENT_MASTER row for that From address if one exists,
-    // otherwise creates one from Gmail's own name/email for that address -
-    // never the generic system actor, so whichever mailbox the .env
-    // credentials point to (test today, production later) always shows its
-    // real sender, with no code change needed when the credentials change.
+    // Outbound author is the real sending agent (found or created by From), never the system actor.
     const authorAgentId = isOutbound
         ? agentService.findOrCreateBySender(normalized.from, systemAgentId).Agent_Id
         : null;
 
-    // A part that's both got a Content-ID AND is actually referenced by
-    // that id in the HTML body (<img src="cid:...">) IS the message content,
-    // not something separate to download - Gmail itself never shows these
-    // in an "Attachments" list either. Embed it as a data: URI directly in
-    // the stored HTML (browsers can't resolve cid: URLs on their own, which
-    // is why these were rendering as broken images) and skip creating an
-    // HD_TICKET_ATTACHMENT row for it entirely. A real attachment (no
-    // Content-ID, or one that's on the message but not referenced inline)
-    // keeps going through the normal attachment-row + download-link path.
+    // A part referenced inline as cid: is body content: embed it as a data: URI (browsers can't resolve cid:).
     let resolvedBodyHtml = normalized.bodyHtml;
     const realAttachmentFiles = [];
     for (const file of attachmentFiles) {
@@ -340,8 +256,7 @@ const ingestMessage = async (normalized, systemAgentId, mailboxAddress, attachme
             isNewTicket = true;
         }
 
-        // A customer mail on a Closed ticket waits for a lead's decision:
-        // reopen, create as a new issue, or no action (ticket-reopen.service.js).
+        // A customer mail on a Closed ticket waits for a lead's decision (ticket-reopen.service.js).
         const closedTicket = !isNewTicket && !isOutbound && ticketRepository.findById(ticketId)?.Clock_State === CLOCK_BEHAVIOUR.STOPPED;
 
         const conversationId = generateId(DB_TABLES.TICKET_CONVERSATION);
@@ -429,25 +344,13 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
     const gmail = gmailClient.getGmailClient();
     const systemAgent = organizationService.getSystemAgent();
 
-    // listMessageIdsToProcess returns newest-first (Gmail's default list
-    // order). Ingesting in THAT order was the bug: a reply would be seen
-    // before the original message it replies to, so no matching thread
-    // existed yet and the reply span up its own separate ticket instead of
-    // attaching to the parent. Reversing to oldest-first guarantees a
-    // message's parent is always ingested before it, within a run.
-    // Query covers both directions - `to:` (a customer's message) and
-    // `from:` (an agent's own reply sent straight from Gmail) - so a reply
-    // typed directly in Gmail still shows up in its ticket's thread instead
-    // of being invisible to the app.
+    // Oldest-first, so a reply's parent is always ingested before it (else the reply opens its own ticket).
     const messageIds = (await listMessageIdsToProcess(gmail, gmailClient.mailboxQuery(mailbox))).reverse();
     const results = { fetched: messageIds.length, ingested: 0, skipped: 0, ticketsCreated: 0, attachmentsSaved: 0, errors: [] };
 
     for (const id of messageIds) {
         try {
-            // Cheap local check first - no Gmail API call - so a message
-            // we've already processed costs nothing on repeat ticks. This
-            // is what makes a short GMAIL_SYNC_INTERVAL_MS safe on quota.
-            // Mail of a ticket purged from the recycle bin is skipped too.
+            // Cheap local check, no API call, so a short sync interval is safe on quota; purged mail skipped too.
             if (gmailIngestedMessageRepository.isProcessed(id)) {
                 results.skipped += 1;
                 continue;
@@ -478,15 +381,11 @@ const runSync = async ({ mailbox = env.google.mailbox } = {}) => {
                 results.skipped += 1;
             }
 
-            // Throttle: only after an actual API-consuming fetch, not after
-            // a cheap skip, so idle ticks stay instant.
+            // Throttle only after a real API fetch, not a cheap skip, so idle ticks stay instant.
             await sleep(PER_MESSAGE_DELAY_MS);
         } catch (error) {
             if (isQuotaExceededError(error)) {
-                // Every remaining message would fail the same way right now -
-                // stop burning through the list and let the next sync tick
-                // (or the next backfill page) pick up where this left off,
-                // once Gmail's per-minute quota window resets.
+                // The rest would fail too; stop and let the next tick resume once the quota window resets.
                 logger.warn(
                     `Gmail sync stopped early: quota exceeded after ${results.ingested} ingested ` +
                     `(${messageIds.length - results.ingested - results.skipped} message(s) remaining this run).`

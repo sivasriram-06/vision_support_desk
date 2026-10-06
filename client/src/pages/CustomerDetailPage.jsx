@@ -20,11 +20,7 @@ const COUNTS = [
   { key: 'Overdue_Tickets', label: 'Overdue Tickets', tone: 'text-danger', state: 'overdue' },
 ]
 
-/**
- * One customer: properties on the left (name + bank editable, email
- * read-only - it's how Gmail matches their next mail), ticket counts on
- * the right, and the tickets that came from them below.
- */
+// One customer: name and bank editable, email read-only (Gmail matches their mail by it), plus their tickets.
 export default function CustomerDetailPage() {
   const { contactId } = useParams()
   const [state, setState] = useState({ loading: true, error: null, customer: null })

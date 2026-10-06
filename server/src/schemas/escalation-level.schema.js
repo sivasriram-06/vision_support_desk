@@ -4,8 +4,7 @@ const escalationLevelIdParamSchema = Joi.object({
     escalationLevelId: Joi.string().required()
 });
 
-// Offset from the SLA due date in hours: negative = before due, 0 = at
-// due, positive = after. Bounded to a year either way.
+// Hours from the SLA due date: negative = before, 0 = at, positive = after; bounded to a year.
 const offsetHours = Joi.number().min(-8760).max(8760).precision(2);
 
 const createEscalationLevelSchema = Joi.object({

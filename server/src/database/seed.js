@@ -26,12 +26,7 @@ const configSeed = require("./seed-data/config.json");
 
 const SUPPORT_MAILBOX = env.google.mailbox;
 
-/**
- * Idempotent bootstrap: safe to run repeatedly. Creates the single tenant
- * org, its default department, the system actor used for Created_By on
- * ingestion-created rows, and the mail reply address the
- * Gmail ingestion engine looks Department_Id up by.
- */
+// Idempotent bootstrap: org, default department, system agent (ingestion Created_By) and mail reply address.
 const seed = () => {
     connectDB();
 
@@ -77,8 +72,7 @@ const seed = () => {
         logger.info(`Seeded system agent: ${systemAgent.Email} (${systemAgent.Agent_Id})`);
     }
 
-    // Back-fill Created_By on the org and intake team now that the system
-    // agent exists (both were NULL at bootstrap time).
+    // Back-fill Created_By on the org and intake team now that the system agent exists.
     if (!department.Created_By) {
         departmentRepository.updateById(department.Department_Id, { Created_By: systemAgent.Agent_Id });
     }
@@ -109,11 +103,7 @@ const seed = () => {
     logger.info("Seed complete.");
 };
 
-/**
- * Built-in roles, keyed by Role_Key. Created with their default permission
- * set the first time only - an admin's later edits on the Admin page are
- * never overwritten by re-seeding.
- */
+// Built-in roles get default permissions on first creation only; re-seeding never overwrites admin edits.
 const seedRoles = (orgId, systemAgentId) => {
     const roleIdByKey = {};
     for (const def of DEFAULT_ROLES) {
@@ -137,15 +127,10 @@ const seedRoles = (orgId, systemAgentId) => {
     return roleIdByKey;
 };
 
-/**
- * Support teams (seed-data/support-org.json) are departments; each bank is
- * worked by one of them. Created once by Sanitized_Name - a later admin
- * rename in the app is kept.
- */
+// Support teams are departments, created once by Sanitized_Name so a later admin rename is kept.
 const seedSupportTeams = (orgId, systemAgentId) => {
     const teamIdByName = {};
-    // Support teams from the KB sheet, then the product teams (Java /
-    // Angular) that support pulls in by cross-team assignment.
+    // Support teams, then the product teams (Java / Angular) that support pulls in cross-team.
     for (const team of [...supportOrg.teams, ...productTeamSeed.teams]) {
         let department = departmentRepository.findBySanitizedName(orgId, team.sanitizedName);
         if (!department) {
@@ -167,20 +152,7 @@ const seedSupportTeams = (orgId, systemAgentId) => {
     return teamIdByName;
 };
 
-/**
- * The support roster from docs/Vision Support Desk KB.xlsx. Upserts by
- * email: a new agent is created with its team + role; an existing agent
- * (e.g. one Gmail ingestion created for a mail sender) gets team + role only while it has no
- * built-in role yet, so admin changes made in the app survive re-seeding.
- *
- * The support mailbox account (GMAIL_MAILBOX) is also made an Admin - in
- * production that is vision.support@sunoida.com itself.
- *
- * Sign-in: when SEED_DEFAULT_PASSWORD is set, every seeded agent without a
- * credential gets it as a temporary password they must change on first
- * login. Without it, nobody gets a login from the seed - an admin issues
- * passwords from the Admin page instead.
- */
+// Roster upsert by email; existing agents get team/role only if they have no built-in role; mailbox is Admin.
 const seedSupportAgents = (orgId, systemAgentId, roleIdByKey, teamIdByName) => {
     const defaultPassword = env.seedDefaultPassword;
     const entries = [...supportOrg.agents, ...productTeamSeed.agents];
@@ -244,12 +216,7 @@ const seedSupportAgents = (orgId, systemAgentId, roleIdByKey, teamIdByName) => {
     }
 };
 
-/**
- * Banks from docs/Vision Support Desk KB.xlsx (seed-data/banks.json): which
- * support team works each bank, its support level/hours, and its primary /
- * secondary resources. Created once by name - a bank already present has
- * been maintained in the app since and is left alone.
- */
+// Banks with team, support hours and resources; created once by name, existing banks are left alone.
 const seedBanks = (orgId, systemAgentId, teamIdByName) => {
     let created = 0;
     const missingResources = new Set();
@@ -270,12 +237,10 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
             Country: bank.country || null,
             Module: bank.module || null,
             Support_Level: bank.supportLevel || null,
-            // SLA calendar: the sheet's support days (MON-FRI when blank; 24x7
-            // counts every day) in the country's time zone.
+            // SLA calendar: support days (MON-FRI when blank, every day for 24x7) in the country's time zone.
             Working_Days: bank.is24x7 ? "MON,TUE,WED,THU,FRI,SAT,SUN" : (bank.workingDays || "MON,TUE,WED,THU,FRI"),
             Time_Zone: bankSeed.timeZoneByCountry[bank.country] || env.timezone,
-            // Support window (IST) that bounds resolution time; the sheet
-            // leaves some banks blank - they get the standard 10:30-19:30.
+            // Support window (IST) bounding resolution time; blank banks get the standard 10:30-19:30.
             Support_Start_Ist: bank.supportStartIst || DEFAULT_SUPPORT_START_IST,
             Support_End_Ist: bank.supportEndIst || DEFAULT_SUPPORT_END_IST,
             Is_24x7: bank.is24x7 ? "Y" : "N",
@@ -302,14 +267,7 @@ const seedBanks = (orgId, systemAgentId, teamIdByName) => {
     }
 };
 
-/**
- * Ticket option lists (seed-data/config.json): statuses (with their
- * resolution-clock behaviour), classifications
- * with their categories, products, priority SLAs and the escalation
- * matrix (levels per priority). Each value is created
- * once; values an admin adds, renames or deletes later on the Config page
- * are not touched.
- */
+// Ticket option lists, priority SLAs and escalation matrix; each value created once, admin edits untouched.
 const seedConfig = (orgId, systemAgentId) => {
     let created = 0;
     const addPicklist = (field, value, sortOrder, parentValue = null, clockBehaviour = null) => {

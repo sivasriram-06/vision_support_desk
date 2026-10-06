@@ -5,10 +5,7 @@ const env = require("../config/env");
 const HTTP_STATUS = require("../constants/http-status");
 const { ok } = require("../utils/api-response");
 
-/**
- * Step 1 of Gmail Console setup: open this URL, sign in as GMAIL_MAILBOX
- * (see server/.env), grant access.
- */
+// Gmail setup step 1: open this URL, sign in as GMAIL_MAILBOX and grant access.
 const getAuthUrl = (req, res, next) => {
     try {
         const url = gmailClient.getAuthUrl();
@@ -18,11 +15,7 @@ const getAuthUrl = (req, res, next) => {
     }
 };
 
-/**
- * Step 2: Google redirects here with ?code=. Exchange it for tokens and
- * return the refresh token once - save it to .env as GOOGLE_REFRESH_TOKEN.
- * This is a one-time setup endpoint, not part of the ongoing sync loop.
- */
+// Step 2 (one-time setup): exchange ?code= for tokens; save the returned refresh token as GOOGLE_REFRESH_TOKEN.
 const oauthCallback = async (req, res, next) => {
     try {
         const { code } = req.query;

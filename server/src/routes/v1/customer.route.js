@@ -5,8 +5,7 @@ const customerController = require("../../controllers/customer.controller");
 const validate = require("../../middleware/validate.middleware");
 const { customerIdParamSchema, listCustomersQuerySchema, updateCustomerSchema } = require("../../schemas/customer.schema");
 
-// Customers page: Admin, Manager, Team Lead, Assistant Team Lead (customers.manage).
-// /contacts stays as-is for the ticket screens every agent uses.
+// Customers page (customers.manage); /contacts stays as-is for the ticket screens every agent uses.
 const router = express.Router();
 router.use(requirePermission(PERMISSIONS.CUSTOMERS_MANAGE));
 

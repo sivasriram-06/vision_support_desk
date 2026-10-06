@@ -1,5 +1,3 @@
-// Mirrors server/src/constants/permissions.js. The server is the authority
-// (it re-checks every request); these keys only decide what the UI shows.
 export const PERMISSIONS = {
   TICKETS_VIEW: 'tickets.view',
   TICKETS_CREATE: 'tickets.create',

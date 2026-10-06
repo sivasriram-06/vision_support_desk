@@ -10,8 +10,7 @@ const holidayWorkService = require("../../src/services/holiday-work.service");
 const { computeSlaDueDate } = require("../../src/services/sla/sla.service");
 const { ALL_PERMISSION_KEYS, DEFAULT_ROLES } = require("../../src/constants/permissions");
 
-// All dates are fixed in 2026 (IST). Seeded holidays used: 2026-01-26, 2026-05-01 (Fri).
-// March and April 2026 have no seeded holidays.
+// Fixed 2026 IST dates; seeded holidays used: 2026-01-26, 2026-05-01 (Fri); March and April have none.
 const ist = (local) => `${local}:00.000+05:30`; // "2026-03-06T18:00" -> stored IST ISO
 
 let api;

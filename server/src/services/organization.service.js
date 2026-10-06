@@ -9,12 +9,7 @@ const SYSTEM_AGENT_EMAIL = "system@sunoida.com";
 let cachedOrg = null;
 let cachedSystemAgent = null;
 
-/**
- * Every request is scoped to this single tenant's Org_Id, resolved from the
- * database rather than trusted from the client (Clone_API_Standards:
- * "Tenant isolation"). Cached after first lookup since this deployment is
- * single-tenant.
- */
+// Tenant Org_Id comes from the DB, never the client; cached after first lookup (single-tenant deployment).
 const getDefaultOrganization = () => {
     if (cachedOrg) {
         return cachedOrg;
@@ -31,10 +26,7 @@ const getDefaultOrganization = () => {
     return org;
 };
 
-/**
- * System actor used as Created_By/Author for records the Gmail ingestion
- * engine creates without a human agent in the loop.
- */
+// System actor for records the Gmail ingestion creates without a human agent in the loop.
 const getSystemAgent = () => {
     if (cachedSystemAgent) {
         return cachedSystemAgent;

@@ -16,19 +16,7 @@ const { TICKET_HISTORY_EVENT, WORK_STATE, CLOCK_BEHAVIOUR, NEW_EMAIL_TICKET_STAT
 const { WAIT_STATES, elapsedMinutes, unionMinutes, statusStretches, sumBy, criticalPath, longestWait } = require("./tracking-math");
 const { toIst } = require("../../utils/time");
 
-/**
- * GET /tickets/:id/tracking - the internal Tracking tab in one response:
- *
- *   events         every change, comment, email and work update in time
- *                  order, each with how long the ticket sat until the next
- *   lanes          one per assignment (person's work): state stretches,
- *                  blockers, time per state, held time, logged effort
- *   statuses       time spent in each ticket status
- *   summary        current holders, busy vs idle, time per team / person,
- *                  the longest wait and the critical path
- *
- * Durations are given as elapsed minutes and as bank support-hours minutes.
- */
+// Tracking tab in one response (events, lanes, statuses, summary); durations elapsed and support-hours minutes.
 
 const toMs = (value) => (value ? new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`).getTime() : null);
 const fullName = (a) => (a ? [a.First_Name, a.Last_Name].filter(Boolean).join(" ") : "System");

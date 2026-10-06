@@ -96,12 +96,7 @@ function Row({ ticket, scope }) {
   )
 }
 
-/**
- * My Tickets: how an agent learns what was assigned to them. Everyone sees
- * tickets assigned to them (new ones flagged until opened) and tickets
- * they assigned to others (e.g. pulled a Java/Angular member in); team
- * leads also see every ticket of their team.
- */
+// Tickets assigned to me (new flagged until opened) and ones I assigned to others; leads also see their team's.
 export default function MyTicketsPage() {
   const { can, agent: me } = useAuth()
   const isLead = can(PERMISSIONS.TICKETS_ASSIGN_TEAM) || can(PERMISSIONS.TICKETS_ASSIGN_ANY)

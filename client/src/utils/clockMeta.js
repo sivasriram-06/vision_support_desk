@@ -1,6 +1,4 @@
-// Resolution-clock behaviour per status - mirrors CLOCK_BEHAVIOUR in
-// server/src/constants/ticket.constants.js. Set per status on the Config
-// page; drives the status badge colour and the ticket's Resolution block.
+// Resolution-clock behaviour per status; mirrors CLOCK_BEHAVIOUR in server/src/constants/ticket.constants.js.
 export const CLOCK_BEHAVIOURS = [
   { value: 'NOT_STARTED', label: 'Not started', hint: 'Work not begun (e.g. Unassigned, Open)' },
   { value: 'RUNNING', label: 'Running', hint: 'Our side is working (e.g. In Progress)' },
@@ -29,9 +27,7 @@ export const formatMinutes = (totalMinutes) => {
   return `${minutes}m`
 }
 
-// Escalation levels (Config page -> Escalation matrix): amber while the
-// ticket is nearing due, deepening to red as it slips further. Levels past
-// the last style reuse the darkest one.
+// Escalation level colours: amber nearing due, deepening to red; levels past the last reuse the darkest.
 const ESCALATION_STYLE = [
   { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300/70', header: 'bg-amber-500' },
   { dot: 'bg-orange-600', text: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300/70', header: 'bg-orange-600' },

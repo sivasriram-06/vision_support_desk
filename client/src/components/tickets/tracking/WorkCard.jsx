@@ -15,11 +15,7 @@ const ACTIONS = [
   { state: 'DONE', label: 'Done', icon: CheckCircle2 },
 ]
 
-/**
- * One assignee's work: state, time per state, what it waits on, logged
- * effort - and, for people allowed to manage it, the actions (start /
- * hold / done, add a dependency, log work).
- */
+// One assignee's work (state, time, dependencies, logged effort); managers also get the actions.
 export default function WorkCard({ ticketId, lane, lanes, canManage, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)

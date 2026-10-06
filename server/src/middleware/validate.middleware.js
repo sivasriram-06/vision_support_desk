@@ -2,9 +2,7 @@ const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 
-/**
- * Generic centralized validator. Usage: validate(schema, "body" | "query" | "params").
- */
+// Usage: validate(schema, "body" | "query" | "params").
 const validate = (schema, property = "body") => {
     return (req, res, next) => {
         const { error, value } = schema.validate(req[property], {

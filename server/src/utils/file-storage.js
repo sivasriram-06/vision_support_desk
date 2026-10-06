@@ -10,13 +10,7 @@ const sanitizeFileName = (name) => {
     return cleaned || "file";
 };
 
-/**
- * Writes a file under <attachmentsRoot>/<ticketId>/<attachmentId>-<name>
- * and returns the path stored in HD_TICKET_ATTACHMENT.Storage_Path -
- * relative to attachmentsRoot, so the root can move between environments
- * (e.g. local disk in dev, a mounted volume in production) without
- * invalidating existing rows.
- */
+// Returns a path relative to attachmentsRoot so the root can move between environments without breaking rows.
 const saveAttachmentBuffer = ({ ticketId, attachmentId, fileName, buffer }) => {
     const ticketDir = path.join(attachmentsRoot, ticketId);
     fs.mkdirSync(ticketDir, { recursive: true });

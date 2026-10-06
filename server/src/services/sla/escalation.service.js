@@ -10,25 +10,11 @@ const { getCalendar, addWorkingHours } = require("./business-calendar");
 require("./holiday-calendar");
 const { toIst } = require("../../utils/time");
 
-/**
- * Escalation: how far a ticket has slipped against its SLA due date.
- * Level N of the ticket's priority (HD_ESCALATION_LEVEL, Config page) is
- * reached Offset_Hours from the due date on the bank's SLA calendar -
- * e.g. P1 L1 = 4h before due, L2 = at due, L3 = 8h after. Trigger times
- * are stored per ticket (HD_TICKET_ESCALATION); the current level is read
- * off them against "now" in SQL (ticket.repository.js), and resolving or
- * closing the ticket takes it out of escalation.
- *
- * Writes run inside the caller's transaction.
- */
+// Level N is reached Offset_Hours from the due date on the bank calendar; writes run in the caller's txn.
 
 const toDate = (value) => new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
 
-/**
- * Re-derives a ticket's trigger times from its current due date, bank and
- * priority. `ticket` needs Ticket_Id, Priority, Bank_Id, Response_Due_Date.
- * No due date (no priority / no SLA configured) means no escalation.
- */
+// Re-derives trigger times from the current due date, bank and priority; no due date means no escalation.
 const rebuildTriggers = (ticket, orgId) => {
     ticketEscalationRepository.deleteByTicketId(ticket.Ticket_Id);
     if (!ticket.Priority || !ticket.Response_Due_Date) return;

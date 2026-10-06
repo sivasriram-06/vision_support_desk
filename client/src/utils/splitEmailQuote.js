@@ -23,8 +23,7 @@ export const splitEmailQuote = (html) => {
   const main = doc.body.innerHTML.trim()
   const quoted = parts.join('')
 
-  // If stripping the quote left nothing (e.g. the whole message WAS just a
-  // quote, no new text), don't hide the only content there is.
+  // If the whole message was a quote, don't hide the only content there is.
   if (!main) return { main: html, quoted: null }
 
   return { main, quoted }

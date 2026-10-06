@@ -9,12 +9,7 @@ const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 
-/**
- * Escalation matrix on the Config page: per priority, any number of
- * levels, each reached Offset_Hours from the SLA due date. Every change
- * re-derives the trigger times of that priority's open tickets, so the
- * Escalations queue reflects the new matrix at once.
- */
+// Escalation matrix (levels at Offset_Hours from due); every change re-derives that priority's open triggers.
 
 const listLevels = () => {
     const org = organizationService.getDefaultOrganization();
@@ -29,11 +24,7 @@ const getLevelById = (escalationLevelId) => {
     return level;
 };
 
-/**
- * A higher level must be reached later than a lower one: offsets strictly
- * increase with Level_No within the priority. `candidate` is the level
- * being added or edited.
- */
+// Offsets must strictly increase with Level_No within the priority (a higher level is reached later).
 const assertOrdered = (orgId, priority, candidate) => {
     const levels = escalationLevelRepository.findByPriority(orgId, priority)
         .filter((level) => level.Level_No !== candidate.Level_No)

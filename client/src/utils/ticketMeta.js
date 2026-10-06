@@ -7,10 +7,7 @@ export const STATUS_TYPE_STYLES = {
 export const getStatusStyle = (statusType) =>
   STATUS_TYPE_STYLES[statusType] || { dot: 'bg-muted', text: 'text-muted', bg: 'bg-muted/10', label: statusType || '-' }
 
-// Priority is an admin-managed list now (see Config > Priority SLA), not a
-// fixed P1-P4 enum, so only these two well-known keys get a pinned color -
-// anything else (P5, "Urgent", ...) gets a deterministic color from
-// PRIORITY_PALETTE below, the same approach as getAvatarColor.
+// Priorities are admin-managed: well-known keys get pinned colours, others a hashed one from PRIORITY_PALETTE.
 const PRIORITY_STYLES = {
   P1: { text: 'text-danger', dot: 'bg-danger', bg: 'bg-danger/10', border: 'border-danger/25' },
   P2: { text: 'text-warn', dot: 'bg-warn', bg: 'bg-warn/10', border: 'border-warn/25' },
@@ -44,9 +41,7 @@ export const CHANNEL_LABELS = {
 }
 
 
-// Ageing buckets in weeks, as used by the support team's reports. Each
-// bucket covers ages below `underDays` (0-1 WK = 0-6 days, 1-2 WK = 7-13,
-// 2-4 WK = 14-27, 4-10 WK = 28-69, 10+ WK = 70 and over).
+// Ageing buckets in weeks as in the support team's reports; each covers ages below `underDays`.
 const AGEING_BUCKETS = [
   { underDays: 7, label: '0-1 WK' },
   { underDays: 14, label: '1-2 WK' },

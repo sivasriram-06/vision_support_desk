@@ -34,10 +34,7 @@ const exchangeCodeForTokens = async (code) => {
     return tokens;
 };
 
-/**
- * Authenticated Gmail API client for ongoing ingestion, using the
- * long-lived refresh token captured once during Gmail Console setup.
- */
+// Gmail API client using the long-lived refresh token captured once during Gmail Console setup.
 const getGmailClient = () => {
     if (!env.google.refreshToken) {
         throw new ApiError(
@@ -51,14 +48,7 @@ const getGmailClient = () => {
     return google.gmail({ version: "v1", auth: client });
 };
 
-/**
- * The mail the support desk mirrors: everything Gmail DELIVERED to the
- * mailbox (direct, Cc, Bcc, and mail to a group the mailbox belongs to - the
- * address need not be in To/Cc), anything addressed to it (Gmail-generated
- * bounces carry no Delivered-To), and everything the mailbox sent. Shared by
- * the import sync and the deletion sync, which must see the same set or a
- * message would look deleted.
- */
+// Delivered (incl. Bcc/groups), addressed, or sent mail; import and deletion sync must share it or mail looks deleted.
 const mailboxQuery = (mailbox) => `{deliveredto:${mailbox} to:${mailbox} from:${mailbox}}`;
 
 module.exports = { getAuthUrl, exchangeCodeForTokens, getGmailClient, mailboxQuery, SCOPES };

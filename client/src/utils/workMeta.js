@@ -1,5 +1,4 @@
-// One assignee's work on a ticket - mirrors WORK_STATE in
-// server/src/constants/ticket.constants.js. Literal Tailwind classes only.
+// Mirrors WORK_STATE in server/src/constants/ticket.constants.js. Literal Tailwind classes only.
 export const WORK_STATES = {
   PENDING: { label: 'Pending', hint: 'Assigned, not started - waiting for handover', bar: 'bg-slate-300', dot: 'bg-slate-400', text: 'text-slate-600', bg: 'bg-slate-100' },
   WAITING: { label: 'Waiting', hint: 'Blocked by another assignee’s work', bar: 'bg-amber-400', dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },

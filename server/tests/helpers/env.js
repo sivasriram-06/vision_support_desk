@@ -1,12 +1,4 @@
-/**
- * Test environment. Must be the FIRST require in every test file (before
- * anything under src/), because src/config/env.js reads process.env once.
- *
- * Every value is set here, overriding the developer's server/.env, so a test
- * run can never touch the live database, mailbox or attachment folder - and
- * runs the same on a machine with no .env. Each test file runs in its own
- * process (node --test), so each gets its own temp folder and database.
- */
+// Must be the FIRST require in every test file; overrides server/.env so tests never touch live data.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");

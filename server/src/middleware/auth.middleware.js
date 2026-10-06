@@ -5,8 +5,7 @@ const ApiError = require("../utils/api-error");
 const HTTP_STATUS = require("../constants/http-status");
 const ERROR_CODES = require("../constants/error-codes");
 
-// Routes a user with a temporary (admin-issued / seeded) password may still
-// call - everything else is refused until they choose their own password.
+// The only routes allowed while on a temporary password; everything else waits for a password change.
 const PASSWORD_CHANGE_ALLOWED = ["/auth/me", "/auth/change-password", "/auth/logout"];
 
 const readToken = (req) => {
@@ -17,20 +16,14 @@ const readToken = (req) => {
         }
         return authHeader.slice("Bearer ".length).trim();
     }
-    // The httpOnly cookie is accepted for safe (read-only) requests only -
-    // it exists so plain <a href> attachment downloads carry auth. Writes
-    // must present the Bearer header, which a cross-site form can't forge.
+    // Cookie only for GET/HEAD (attachment links); writes need the Bearer header, which cross-site forms can't forge.
     if ((req.method === "GET" || req.method === "HEAD") && req.cookies && req.cookies[authConfig.sessionCookieName]) {
         return req.cookies[authConfig.sessionCookieName];
     }
     return null;
 };
 
-/**
- * Verifies the JWT, then loads the agent's current role/permissions from
- * the database into req.agent (see auth.service.buildPrincipal). The JWT
- * only carries the agent id - never trust a client-held role.
- */
+// Verifies the JWT, then loads current role/permissions from the DB into req.agent - never trust a client role.
 const authenticate = (req, res, next) => {
     try {
         const token = readToken(req);

@@ -1,21 +1,4 @@
-/**
- * Demo for "reply after close": takes two email tickets, moves them a week
- * back and plays each story through the real services on a simulated
- * clock, so history, tracking and SLA read like it really happened.
- *
- *   node src/database/demo-reopen-split.js <reopenTicketNo> <splitTicketNo>
- *
- *   Reopen example  assigned -> worked -> Closed; the customer mails in the
- *                   same thread "the error is back"; the lead reopens it
- *                   (Reopen #1) and assigns it again.
- *   New issue       assigned -> worked -> Closed; the customer mails a new
- *                   problem in the same thread; the lead creates it as a new
- *                   issue; a later reply to the OLD mail still lands on the
- *                   new ticket.
- *
- * Customer mails are written here and fed through the Gmail ingestion code
- * (no mail is sent). Test data only - never run against production.
- */
+// Test-only "reply after close" demo (reopen + split) replayed a week back via real services; never run on prod.
 const RealDate = Date;
 let fakeNow = RealDate.now();
 class FakeDate extends RealDate {

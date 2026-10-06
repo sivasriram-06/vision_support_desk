@@ -12,8 +12,7 @@ const {
 
 const router = express.Router();
 
-// Roles are also readable by agent managers - the Agents page needs the
-// list to offer a role dropdown. Everything else is the Admin page only.
+// Roles are also readable by agent managers for the Agents page role dropdown; the rest is Admin only.
 router.get("/roles", requirePermission(PERMISSIONS.ADMIN_ACCESS, PERMISSIONS.AGENTS_MANAGE), adminController.listRoles);
 
 router.use(requirePermission(PERMISSIONS.ADMIN_ACCESS));

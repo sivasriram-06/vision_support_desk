@@ -1,9 +1,7 @@
 const Joi = require("joi");
 const { STATUS_TYPE, CHANNEL } = require("../constants/ticket.constants");
 
-// Priority is an admin-managed list (see HD_PRIORITY_SLA_CONFIG /
-// priority-sla.service.js), not a fixed enum, so it's validated as a plain
-// string here rather than against ticket.constants.js's PRIORITY.
+// Priority is an admin-managed list, not a fixed enum, so it's validated as a plain string.
 
 const ticketIdParamSchema = Joi.object({
     ticketId: Joi.string().required()
@@ -44,8 +42,7 @@ const listTicketsQuerySchema = Joi.object({
     bankId: Joi.string(),
     assigneeId: Joi.string(),
     contactId: Joi.string(),
-    // Same buckets as the customer page counts: open (clock not stopped),
-    // closed (clock stopped), overdue (open and past its SLA due date).
+    // Customer page buckets: open (clock not stopped), closed (stopped), overdue (open and past SLA due).
     state: Joi.string().valid("open", "closed", "overdue"),
     search: Joi.string(),
     sortBy: Joi.string(),

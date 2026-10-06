@@ -45,12 +45,7 @@ const upsertConfig = (priority, slaHours, actorAgentId) => {
     return prioritySlaRepository.findByPriority(org.Organization_Id, priority);
 };
 
-/**
- * Soft-deletes the priority from the config list. Tickets already carrying
- * this priority keep the raw text value (Priority isn't FK-constrained on
- * HD_TICKET_MASTER, same as Product_Id) - deleting it here only stops it
- * from being offered/SLA-calculated going forward.
- */
+// Tickets keep the raw priority text (not an FK); deleting only stops it being offered/SLA-calculated.
 const deleteConfig = (priority, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     const existing = prioritySlaRepository.findByPriority(org.Organization_Id, priority);
@@ -60,10 +55,7 @@ const deleteConfig = (priority, actorAgentId) => {
     prioritySlaRepository.softDeleteById(existing.Priority_Sla_Config_Id, actorAgentId);
 };
 
-/**
- * Used by ticket.service.js: null if no admin config exists for that
- * priority (leaves Response_Due_Date untouched rather than guessing).
- */
+// Null when the priority has no config, so Response_Due_Date is left untouched rather than guessed.
 const getSlaHoursForPriority = (orgId, priority) => {
     if (!priority) return null;
     const config = prioritySlaRepository.findByPriority(orgId, priority);

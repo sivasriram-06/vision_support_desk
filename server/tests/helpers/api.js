@@ -1,14 +1,7 @@
 require("./env");
 const app = require("../../src/app");
 
-/**
- * Starts the real Express app (routes, auth, permissions, validation,
- * error handler) on a free port for HTTP tests. No Gmail job, no WebSocket.
- *
- *   const api = await startApi();
- *   const res = await api.get("/api/v1/tickets", token);   // { status, body }
- *   await api.close();
- */
+// Real Express app on a free port for HTTP tests (no Gmail job, no WebSocket); api.get(path, token) -> { status, body }.
 const startApi = () => new Promise((resolve) => {
     const server = app.listen(0, () => {
         const base = `http://127.0.0.1:${server.address().port}`;

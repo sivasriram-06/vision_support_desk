@@ -3,8 +3,7 @@ const DB_TABLES = require("../constants/db-tables");
 const generateId = require("../utils/generate-id");
 const { nowIst } = require("../utils/time");
 
-// HD_AUTH_LOGIN_EVENT is append-only (no Is_Deleted / Modified_* columns),
-// so it doesn't use the base repository's CRUD helpers.
+// HD_AUTH_LOGIN_EVENT is append-only (no Is_Deleted / Modified_*), so no base repository helpers.
 
 const record = ({ agentId = null, eventType, loginEmail = null, failureCode = null, ipAddress = null, userAgent = null, orgId }) => {
     const db = getDB();

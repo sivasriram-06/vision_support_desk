@@ -12,10 +12,7 @@ import { CLOCK_BEHAVIOURS, getClockStyle, getClockLabel } from '../../utils/cloc
 
 const CLOCK_OPTIONS = CLOCK_BEHAVIOURS.map((c) => ({ value: c.value, label: `Clock: ${c.label}` }))
 
-/**
- * CRUD list for one picklist field. For Status, each value also carries its
- * resolution-clock behaviour (Not started / Running / Paused / Stopped).
- */
+// CRUD list for one picklist field; Status values also carry their resolution-clock behaviour.
 export default function PicklistManager({ field, label, className = '' }) {
   const isStatus = field === 'STATUS'
   const [state, setState] = useState({ loading: true, error: null, values: [] })

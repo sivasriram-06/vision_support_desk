@@ -6,9 +6,7 @@ const { ok } = require("../utils/api-response");
 
 const requestMeta = (req) => ({ ipAddress: req.ip, userAgent: req.headers["user-agent"] || null });
 
-// Mirrors the JWT into an httpOnly cookie so attachment download links
-// (<a href>, no Authorization header) are authenticated too. The cookie is
-// only honoured on GET/HEAD - see auth.middleware.js.
+// JWT mirrored into an httpOnly cookie so plain <a href> attachment downloads work; honoured on GET/HEAD only.
 const cookieOptions = {
     httpOnly: true,
     sameSite: "lax",

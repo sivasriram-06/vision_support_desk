@@ -1,11 +1,9 @@
 const bcrypt = require("bcryptjs");
 
-// bcryptjs (pure JS) rather than native bcrypt - no node-gyp build on
-// Windows/Linux servers, and hashes are interchangeable with native bcrypt.
+// bcryptjs (pure JS): no node-gyp build, and hashes are interchangeable with native bcrypt.
 const SALT_ROUNDS = 10;
 const MIN_LENGTH = 8;
-// bcrypt silently ignores everything past 72 bytes, so reject longer input
-// instead of letting two different long passwords hash the same.
+// bcrypt ignores bytes past 72, so reject longer input rather than let two long passwords hash the same.
 const MAX_BYTES = 72;
 
 const hashPassword = (password) => bcrypt.hashSync(password, SALT_ROUNDS);

@@ -25,13 +25,7 @@ const getValueById = (picklistValueId) => {
     return value;
 };
 
-/**
- * Category is the only field with a parent: it's a sub-classification, and
- * the same Category text can validly repeat under different Classifications
- * (e.g. "Application" under both "Problem" and "Incident"), so uniqueness
- * and the dropdown options are scoped by parentValue instead of being
- * global like Classification/Status.
- */
+// Category text may repeat under different Classifications, so its uniqueness is scoped by parentValue.
 const assertClassificationExists = (orgId, parentValue) => {
     const parent = picklistRepository.findByValue(orgId, PICKLIST_FIELD.CLASSIFICATION, parentValue);
     if (!parent) {
@@ -102,9 +96,7 @@ const updateValue = (picklistValueId, payload, actorAgentId) => {
         }
         picklistRepository.updateById(picklistValueId, changes);
 
-        // Renaming a Classification: every Category whose Parent_Value
-        // pointed at the old text needs to follow it, since that's a plain
-        // text link (same precedent as Priority/Status not being FK ids).
+        // Renaming a Classification: its Categories follow, since Parent_Value is a plain text link.
         if (existing.Field === PICKLIST_FIELD.CLASSIFICATION && payload.value !== undefined && nextValue !== existing.Value) {
             picklistRepository.renameParentValue(org.Organization_Id, PICKLIST_FIELD.CATEGORY, existing.Value, nextValue, actorAgentId);
         }
@@ -115,10 +107,7 @@ const updateValue = (picklistValueId, payload, actorAgentId) => {
         }
 
         if (existing.Field === PICKLIST_FIELD.STATUS) {
-            // Status is stored on tickets as plain text too - a rename
-            // carries every ticket along so none is left on a status that
-            // no longer exists (which would drop it out of filters and the
-            // edit dropdown).
+            // Status is plain text on tickets - a rename carries them along so none drops out of filters.
             if (payload.value !== undefined && nextValue !== existing.Value) {
                 ticketRepository.renameStatus(org.Organization_Id, existing.Value, nextValue, actorAgentId);
             }
@@ -141,10 +130,7 @@ const deleteValue = (picklistValueId, actorAgentId) => {
     const deleteTxn = db.transaction(() => {
         picklistRepository.softDeleteById(picklistValueId, actorAgentId);
 
-        // Deleting a Classification takes its Categories with it - an
-        // orphaned Category with no visible parent in the Config UI isn't
-        // useful, and tickets that already used one keep the raw text
-        // regardless (same precedent as Product/Priority deletion).
+        // Deleting a Classification takes its Categories with it; tickets keep the raw text regardless.
         if (existing.Field === PICKLIST_FIELD.CLASSIFICATION) {
             const children = picklistRepository.findByParentValue(org.Organization_Id, PICKLIST_FIELD.CATEGORY, existing.Value);
             for (const child of children) {

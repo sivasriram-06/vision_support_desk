@@ -42,8 +42,7 @@ const runOnce = async () => {
         if (results.ingested > 0 || results.errors.length > 0) {
             logger.info(`Gmail sync job: ${summary}`);
         } else {
-            // Quiet tick (nothing new) - only visible with LOG_LEVEL=debug,
-            // so normal logs aren't spammed every interval.
+            // Quiet tick: debug level only, so normal logs aren't spammed every interval.
             logger.debug(`Gmail sync job tick: ${summary}`);
         }
         if (results.errors.length > 0) {
@@ -61,12 +60,7 @@ const runOnce = async () => {
     }
 };
 
-/**
- * Starts the interval-based background sync. A no-op (with a log line
- * explaining why) if GMAIL_SYNC_ENABLED=false or GOOGLE_REFRESH_TOKEN hasn't
- * been captured yet (docs/development/gmail-console-setup.md step 5) -
- * neither of those is a startup error, just a "not configured yet" state.
- */
+// Logged no-op (not an error) when sync is disabled or GOOGLE_REFRESH_TOKEN hasn't been captured yet.
 const startGmailSyncJob = () => {
     if (!env.google.syncEnabled) {
         logger.info("Gmail sync job disabled (GMAIL_SYNC_ENABLED=false).");

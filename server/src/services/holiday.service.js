@@ -18,12 +18,7 @@ const HTTP_STATUS = require("../constants/http-status");
 const { DateTime } = require("luxon");
 const { IST_ZONE } = require("../utils/time");
 
-/**
- * Company holiday calendar (Config page; holidays.manage = Admin, Manager,
- * Team Lead). One row per IST date. Every change re-dates the SLA of open
- * tickets (and their escalation triggers) and recomputes the stored
- * resolution time of resolved/closed ones, then tells open screens.
- */
+// Company holidays (one per IST date): every change re-dates open SLAs and recomputes closed resolution times.
 
 const badRequest = (message) => new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, message);
 const weekdayOf = (date) => DateTime.fromISO(date, { zone: IST_ZONE }).toFormat("cccc");
@@ -48,12 +43,7 @@ const getSettings = () => {
     return { applyTo24x7: appSettingRepository.get(org.Organization_Id, holidayCalendar.SETTING_APPLY_TO_24X7) === "Y" };
 };
 
-/**
- * Re-dates every open ticket's SLA (from Sla_Start_Time) with its
- * escalation triggers, and recomputes resolved/closed tickets' stored
- * resolution time, on the current holidays. Returns the open tickets whose
- * due date moved.
- */
+// Re-dates open SLAs and closed resolution times on the current holidays; returns moved tickets.
 const recalculate = (actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     const orgId = org.Organization_Id;
@@ -81,10 +71,7 @@ const recalculate = (actorAgentId) => {
     return moved;
 };
 
-/**
- * "What would this change do?" - the open tickets whose SLA due date moves
- * if `date` became (or stopped being) a holiday. Read-only.
- */
+// Read-only: open tickets whose SLA due date would move if `date` became (or stopped being) a holiday.
 const previewImpact = ({ date, remove = false }) => {
     assertValidDate(date);
     const org = organizationService.getDefaultOrganization();

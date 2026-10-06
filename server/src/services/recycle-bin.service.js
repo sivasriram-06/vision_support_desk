@@ -16,17 +16,7 @@ const { publish, REALTIME_EVENT } = require("../realtime/bus");
 const { toIst } = require("../utils/time");
 const logger = require("../utils/logger");
 
-/**
- * Recycle bin: tickets a person deleted (Delete ticket, tickets.delete).
- * They can be restored for RECYCLE_BIN_DAYS days from the delete; after
- * that the purge job removes them for good - the ticket, its mails, notes,
- * history, work records and attachment files. Tickets hidden by the Gmail
- * deletion sync are not in the bin: they follow the mailbox (back from
- * Gmail Trash = back on the desk) and are never purged here.
- *
- * The delete time is the latest TICKET_DELETED history row, so no column
- * is needed on HD_TICKET_MASTER.
- */
+// Person-deleted tickets, restorable for RECYCLE_BIN_DAYS then purged; Gmail-sync-hidden ones never land here.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -89,8 +79,7 @@ const restoreTicket = (ticketId, actorAgentId) => {
     return { restored: true, ticketId };
 };
 
-// Child tables in foreign-key order (rows pointing at others go first).
-// _GMAIL_INGESTED_MESSAGE is handled by markTicketPurged before these.
+// Child tables in foreign-key order (referencing rows first); Gmail ingested ids go via markTicketPurged.
 const CHILD_TABLES = [
     DB_TABLES.ASSIGNMENT_STATE_LOG,
     DB_TABLES.ASSIGNMENT_DEPENDENCY,
@@ -146,11 +135,7 @@ const removeFiles = (storagePaths) => {
     }
 };
 
-/**
- * Permanently deletes every ticket that has been in the recycle bin longer
- * than RECYCLE_BIN_DAYS. Each ticket is its own transaction, so one failure
- * doesn't block the rest. Run by jobs/recycle-bin-purge.job.js.
- */
+// Purges tickets past RECYCLE_BIN_DAYS, one transaction each so one failure doesn't block the rest.
 const purgeExpired = () => {
     const org = organizationService.getDefaultOrganization();
     const db = getDB();

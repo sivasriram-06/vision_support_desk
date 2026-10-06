@@ -18,12 +18,7 @@ import useRealtime, { RT, TICKET_LIST_EVENTS } from '../realtime/useRealtime.js'
 
 const EMPTY_FILTERS = { departmentId: '', bankId: '', priority: '' }
 
-/**
- * Escalations queue: every open ticket that has reached an escalation
- * level, one column per level (Config page -> Escalation matrix). Level N
- * of a priority falls due a set number of hours before/after the SLA due
- * date; resolving or closing a ticket takes it off this board.
- */
+// Open tickets that reached an escalation level, one column per level; resolving or closing removes them.
 export default function EscalationsPage() {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [lookups, setLookups] = useState({ teams: [], banks: [], priorities: [], levels: [] })
@@ -58,8 +53,7 @@ export default function EscalationsPage() {
     .filter((b) => !filters.departmentId || b.Department_Id === filters.departmentId)
     .map((b) => ({ value: b.Bank_Id, label: b.Bank_Name }))
 
-  // One column per configured level number (across priorities), plus any
-  // level a ticket still sits at after its level was deleted.
+  // One column per configured level number, plus any level a ticket still sits at after it was deleted.
   const columns = useMemo(() => {
     const levelNos = new Set(lookups.levels.map((l) => l.Level_No))
     state.tickets.forEach((t) => levelNos.add(t.Escalation_Level))

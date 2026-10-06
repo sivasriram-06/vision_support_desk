@@ -6,8 +6,7 @@ import { Inbox, UserCheck, Siren, UserCog, Landmark, Contact, Headset, Settings,
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 
-// `permission` hides an item from agents who couldn't use the page anyway
-// (the routes in App.jsx and the server enforce the same rule).
+// `permission` hides items agents couldn't use anyway (App.jsx routes and the server enforce the same rule).
 const NAV_ITEMS = [
   { to: '/tickets', label: 'All Cases', icon: Inbox, live: true },
   { to: '/my-tickets', label: 'My Tickets', icon: UserCheck, live: true, badge: 'unseen' },
@@ -22,12 +21,7 @@ const NAV_ITEMS = [
 ]
 
 
-/**
- * Tickets newly assigned to me that I haven't opened yet - the sidebar
- * badge that tells an agent the lead handed them something. Refreshed when
- * the server says my tickets changed (WebSocket) and at once when a ticket
- * is opened in this tab.
- */
+// New assignments I haven't opened yet (sidebar badge); refreshed on WebSocket event and on ticket open.
 function useUnseenAssignments() {
   const [unseen, setUnseen] = useState(0)
   const load = useCallback(

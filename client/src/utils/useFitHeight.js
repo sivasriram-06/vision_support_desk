@@ -1,11 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
-/**
- * Height for a queue board that fills the window down to the bottom edge
- * (columns scroll inside) instead of a fixed guess that leaves a gap on
- * tall screens. Re-measures when `dependency` changes (e.g. after loading)
- * and on window resize.
- */
+// Queue board height that fills the window to the bottom edge; re-measures on `dependency` change and resize.
 export default function useFitHeight(dependency) {
   const ref = useRef(null)
   const [height, setHeight] = useState(480)

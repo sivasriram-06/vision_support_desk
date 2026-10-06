@@ -5,11 +5,7 @@ import { ApiError } from '../utils/api.js'
 import Input from '../components/ui/Input.jsx'
 import Button from '../components/ui/Button.jsx'
 
-/**
- * Shown instead of the app while the agent still has a temporary password
- * (seed default or admin reset). The server refuses every other request
- * until this is done, so there is nothing to skip to.
- */
+// Replaces the app while the password is temporary; the server refuses every other request until it's changed.
 export default function ChangePasswordPage() {
   const { agent, changePassword, logout } = useAuth()
   const [form, setForm] = useState({ current: '', next: '', confirm: '' })

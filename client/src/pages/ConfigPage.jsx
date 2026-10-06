@@ -12,11 +12,7 @@ function GroupHeading({ children }) {
   return <h2 className="text-[12px] font-bold uppercase tracking-wider text-muted">{children}</h2>
 }
 
-/**
- * Every card is one full-width row, grouped under a heading. Team Leads
- * reach this page for the Holiday Calendar only (holidays.manage); the
- * rest needs config.manage.
- */
+// Team Leads reach this page for the Holiday Calendar only (holidays.manage); the rest needs config.manage.
 export default function ConfigPage() {
   const { can } = useAuth()
   const canConfig = can(PERMISSIONS.CONFIG_MANAGE)

@@ -19,21 +19,7 @@ const { TICKET_HISTORY_EVENT, CLOCK_BEHAVIOUR, WORK_STATE } = require("../consta
 const workRepository = require("../repositories/assignment-work.repository");
 const { toIst } = require("../utils/time");
 
-/**
- * DEMO DATA - test environments only. Rewrites every ticket with a random
- * bank (and its support team), an assignee from that team, a priority,
- * classification/category and a status, and replays a believable
- * timeline to reach that status (assigned -> In Progress -> maybe waiting
- * on the bank -> resolved ...) with back-dated timestamps, so SLA due
- * dates, resolution-clock segments and status history all look real.
- *
- * Created_Time is spread over the last DEMO_WINDOW_DAYS so the board shows
- * a mix of on-time / due-soon / overdue tickets. Email send times in the
- * conversation are untouched.
- *
- * Deterministic (seeded RNG): the same seed gives the same demo.
- * Usage: npm run seed:demo [-- --seed=42]
- */
+// Test-only: rewrites every ticket with random bank/assignee/status and a back-dated believable timeline (seeded RNG).
 const DEMO_WINDOW_DAYS = 10;
 const MINUTE = 60 * 1000;
 const WORKLOG_NOTES = ["Analysed logs", "Checked the report query", "Fixed data mapping", "Tested on UAT", "Call with bank team", "Reviewed the job run", null];
@@ -122,8 +108,7 @@ const seedDemoTickets = () => {
          WHERE a.Is_Deleted = 'N' AND a.Status = 'Active' AND a.Email <> ?`
     ).all(SYSTEM_AGENT_EMAIL).reduce((map, row) => map.set(row.Primary_Department_Id, [...(map.get(row.Primary_Department_Id) || []), row.Agent_Id]), new Map());
     const banks = bankRepository.findAll(orgId).filter((bank) => agentsByTeam.has(bank.Department_Id));
-    // Team leads assign within their team; product team members (Java /
-    // Angular) are pulled in cross-team on some tickets.
+    // Team leads assign within their team; product (Java / Angular) members are pulled in cross-team on some.
     const leadByTeam = new Map(
         db.prepare(
             `SELECT a.Agent_Id, a.Primary_Department_Id FROM ${DB_TABLES.AGENT} a
@@ -153,11 +138,7 @@ const seedDemoTickets = () => {
         return { assignmentId, agentId, at: at.getTime(), crossTeam };
     };
 
-    /**
-     * Writes one assignment's work timeline: `points` = [{ time, state,
-     * note? }] in order. Consecutive repeats collapse; each stretch ends
-     * where the next starts, the last stays open. History rows match.
-     */
+    // Writes one assignment's work timeline; repeats collapse, each stretch ends where the next starts.
     const writeWork = (ticketId, assignment, points) => {
         const steps = points.filter((p, i) => i === 0 || p.state !== points[i - 1].state);
         steps.forEach((p, i) => {
@@ -192,13 +173,7 @@ const seedDemoTickets = () => {
         assignmentRepository.updateWork(assignment.assignmentId, { workState: steps[steps.length - 1].state });
     };
 
-    /**
-     * Replays believable work for a ticket's assignees from its status
-     * walk: support assignees start when the ticket goes running, hold
-     * while it waits on the bank, finish when it's resolved. A product
-     * member pulled in mid-way works their part, and the first support
-     * assignee waits on them (a dependency) until they're done.
-     */
+    // Replays assignee work from the status walk; the first support assignee depends on any product member.
     const replayWork = (ticketId, supportAssignments, product, statusTimeline, endMs) => {
         const workStateFor = (behaviour) =>
             behaviour === CLOCK_BEHAVIOUR.RUNNING ? WORK_STATE.IN_PROGRESS
@@ -278,8 +253,7 @@ const seedDemoTickets = () => {
             const created = new Date(now - between(60, DEMO_WINDOW_DAYS * 24 * 60));
             const path = buildPath(target, behaviourOf);
 
-            // Step times: triage, then alternating work / waiting stretches.
-            // Squeezed proportionally if the ticket is too recent to fit.
+            // Step times: triage, then work / waiting stretches, squeezed if the ticket is too recent to fit.
             const gaps = [between(10, 180)];
             for (let i = 1; i < path.length; i += 1) {
                 gaps.push(behaviourOf(path[i - 1]) === CLOCK_BEHAVIOUR.PAUSED ? between(60, 2880) : between(30, 720));
@@ -328,8 +302,7 @@ const seedDemoTickets = () => {
             }
             let productAssignment = null;
             const statusTimeline = [];
-            // Some product-side issues pull in a Java / Angular member mid-way.
-            // Never after the ticket is resolved.
+            // Some product-side issues pull in a Java / Angular member mid-way, never after resolution.
             let crossTeamAt = productAgents.length && path.length > 1 && random() < 0.3 ? 1 + Math.floor(random() * (path.length - 1)) : -1;
             if (crossTeamAt !== -1 && behaviourOf(path[crossTeamAt]) === CLOCK_BEHAVIOUR.STOPPED) crossTeamAt -= 1;
             if (crossTeamAt === 0) crossTeamAt = -1;

@@ -10,14 +10,7 @@ const DB_TABLES = require("../../constants/db-tables");
 const { publish, REALTIME_EVENT } = require("../../realtime/bus");
 const logger = require("../../utils/logger");
 
-/**
- * Walks EVERY message id currently matching the ingestion query, with no
- * early-stop. Unlike the main sync's listMessageIdsToProcess (which can
- * safely stop once it hits a page of already-known messages), deletion
- * detection needs the full live set to diff against - stopping early would
- * make everything past that point look "deleted" even though it's simply
- * unread by this walk.
- */
+// Walks EVERY matching id with no early-stop: stopping early would make the unread rest look "deleted".
 const listAllLiveMessageIds = async (gmail, query) => {
     const ids = new Set();
     let pageToken;
@@ -31,20 +24,11 @@ const listAllLiveMessageIds = async (gmail, query) => {
     return ids;
 };
 
-/**
- * Removes one already-ingested message's local footprint: its thread row,
- * its conversation row (and any attachments on that conversation), with
- * the ticket's counters adjusted to match. If that was the ticket's last
- * remaining (non-deleted) conversation, the ticket itself is removed too -
- * this mailbox is its only source of truth, so a ticket with nothing left
- * in it has nothing left to show.
- */
+// Soft-deletes a mail's thread, conversation and attachments; removes the ticket too if no mail is left.
 const removeIngestedMessage = (row, actorAgentId) => {
     const db = getDB();
     const txn = db.transaction(() => {
-        // The thread row knows the ticket the mail is on NOW - a "Create as
-        // new issue" split moves mails, so the ingested row's Ticket_Id can
-        // be stale.
+        // The thread row knows the mail's ticket NOW - a "Create as new issue" split can stale row.Ticket_Id.
         const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id, { includeDeleted: true }) : null;
         const ticketId = thread ? thread.Ticket_Id : row.Ticket_Id;
 
@@ -75,10 +59,7 @@ const removeIngestedMessage = (row, actorAgentId) => {
     return txn();
 };
 
-/**
- * Thread / attachment counters from the rows themselves, so a delete and a
- * later restore (or a split moving mails) can never drift them negative.
- */
+// Counters recounted from the rows, so delete / restore / split can never drift them negative.
 const recountTicket = (ticketId) => {
     getDB().prepare(
         `UPDATE ${DB_TABLES.TICKET} SET
@@ -88,12 +69,7 @@ const recountTicket = (ticketId) => {
     ).run({ ticketId });
 };
 
-/**
- * A mail the owner deleted in Gmail came back (moved out of Trash): brings
- * back its thread, conversation and attachments - and the ticket, if the
- * delete had removed it. Returns the ticket id the mail is on. Runs in the
- * caller's transaction when there is one.
- */
+// Mail moved back out of Gmail Trash: restores its rows (and the ticket if the delete removed it).
 const restoreIngestedThread = (thread, actorAgentId) => {
     const db = getDB();
     return db.transaction(() => {
@@ -106,8 +82,7 @@ const restoreIngestedThread = (thread, actorAgentId) => {
                 `UPDATE ${DB_TABLES.TICKET_ATTACHMENT} SET Is_Deleted = 'N', Modified_By = ?, Modified_Time = strftime('%Y-%m-%dT%H:%M:%f+05:30', 'now', '+330 minutes') WHERE Conversation_Id = ?`
             ).run(actorAgentId, thread.Conversation_Id);
         }
-        // Only a ticket the Gmail delete removed comes back - not one a person
-        // deleted (it stays in the recycle bin until someone restores it).
+        // Only a ticket the Gmail delete removed comes back; one a person deleted stays in the recycle bin.
         const deletedByUser = ticketRepository.findLatestDeleteEvent(thread.Ticket_Id)?.Event_Name === "TICKET_DELETED";
         if (!deletedByUser) undelete(DB_TABLES.TICKET, "Ticket_Id", thread.Ticket_Id);
         recountTicket(thread.Ticket_Id);
@@ -115,14 +90,7 @@ const restoreIngestedThread = (thread, actorAgentId) => {
     })();
 };
 
-/**
- * Detects messages this app previously ingested that no longer exist in
- * Gmail (deleted by the mailbox owner) and removes them locally to match -
- * this app mirrors the mailbox rather than archiving independently of it.
- * Only ever calls messages.list (cheap, no per-message content fetch), so
- * it's safe to run far more often than it needs to without meaningfully
- * touching Gmail API quota.
- */
+// Mirrors Gmail deletes locally; only calls messages.list, so it can run often without hurting quota.
 const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
     const gmail = gmailClient.getGmailClient();
     const systemAgent = organizationService.getSystemAgent();
@@ -134,8 +102,7 @@ const runDeletionSync = async ({ mailbox = env.google.mailbox } = {}) => {
 
     for (const row of ingestedRows) {
         if (liveIds.has(row.Gmail_Message_Id)) {
-            // Live in Gmail but deleted here: it was deleted and then moved
-            // back out of Trash - bring it back.
+            // Live in Gmail but deleted here: it was moved back out of Trash - bring it back.
             const thread = row.Thread_Id ? threadRepository.findById(row.Thread_Id, { includeDeleted: true }) : null;
             if (thread && thread.Is_Deleted === "Y") {
                 try {

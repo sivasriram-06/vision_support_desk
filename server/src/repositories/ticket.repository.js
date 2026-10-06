@@ -15,12 +15,7 @@ const SORTABLE_FIELDS = new Set([
     "Created_Time", "Modified_Time", "Due_Date", "Response_Due_Date", "Priority", "Status", "Subject"
 ]);
 
-/**
- * Current escalation level of `t`: the highest level whose trigger time
- * has passed, 0 when none has or the ticket is resolved/closed. Trigger
- * times and NOW_IST_SQL are both IST ISO (+05:30), so text comparison is
- * time order.
- */
+// Highest level whose trigger time has passed (0 when closed); both sides are IST ISO, so text order is time order.
 const ESCALATION_LEVEL_SQL = `
     CASE WHEN t.Clock_State = 'STOPPED' THEN 0 ELSE COALESCE((
         SELECT MAX(e.Level_No) FROM ${DB_TABLES.TICKET_ESCALATION} e
@@ -32,10 +27,7 @@ const NEXT_ESCALATION_TIME_SQL = `
         WHERE e.Ticket_Id = t.Ticket_Id AND e.Trigger_Time > ${NOW_IST_SQL}
     ) END`;
 
-/**
- * Current assignees of `t` (open HD_TICKET_ASSIGNMENT rows) as a JSON
- * array, oldest assignment first. Parsed into `Assignees` by withAssignees.
- */
+// Open assignments of `t` as a JSON array, oldest first; parsed into `Assignees` by withAssignees.
 const ASSIGNEES_JSON_SQL = `(
     SELECT json_group_array(json_object(
         'agentId', x.Agent_Id, 'firstName', x.First_Name, 'lastName', x.Last_Name,
@@ -63,12 +55,7 @@ const PENDING_CLOSE_REPLIES_SQL = `(
     WHERE pc.Ticket_Id = t.Ticket_Id AND pc.Post_Close_Decision = 'PENDING' AND pc.Is_Deleted = 'N'
 )`;
 
-/**
- * List/queue rows join in display names (contact, assignees,
- * department, bank) so the frontend never has to resolve raw *_Id columns
- * itself. Ticket_Id's own primary key isn't ambiguous with the joined
- * tables' ids since every SELECT column is qualified.
- */
+// List/queue rows join in display names so the frontend never resolves raw *_Id columns itself.
 const LIST_SELECT = `
     SELECT t.*,
         c.First_Name AS Contact_First_Name, c.Last_Name AS Contact_Last_Name, c.Email AS Contact_Email,
@@ -107,10 +94,7 @@ const withAssignees = (row) => {
     return { ...rest, Assignees: assignees };
 };
 
-/**
- * All Cases: paginated ticket list with filters/search/sort, per
- * GET /api/v1/tickets.
- */
+// All Cases: paginated ticket list with filters/search/sort (GET /api/v1/tickets).
 const findAll = (orgId, query = {}) => {
     const db = getDB();
     const { limit, offset, page } = parsePagination(query);
@@ -129,10 +113,7 @@ const findAll = (orgId, query = {}) => {
         where += " AND t.Priority = ?";
         params.push(query.priority);
     }
-    // SLA breached: either still open and past its due date (overdue now),
-    // or resolved/closed after its due date - a breach stays a breach once
-    // the ticket is closed. Response_Due_Date and Resolved_Time are both
-    // IST ISO (+05:30), so string comparison orders correctly.
+    // SLA breached: open and past due, or closed after due - a breach stays a breach once closed.
     if (query.slaBreached === "true") {
         where += ` AND t.Response_Due_Date IS NOT NULL AND (
             (t.Clock_State <> 'STOPPED' AND t.Response_Due_Date < ?)
@@ -140,8 +121,7 @@ const findAll = (orgId, query = {}) => {
         )`;
         params.push(nowIst());
     }
-    // Escalation: "any" = level 1 or above, or an exact level number.
-    // Replies after close: Closed tickets with a customer mail awaiting a decision.
+    // Replies after close: Closed tickets with a customer mail awaiting a decision; escalation "any" = level 1+.
     if (query.closeReplies === "true") {
         where += ` AND ${PENDING_CLOSE_REPLIES_SQL} > 0`;
     }
@@ -223,10 +203,7 @@ const findBankQueue = (orgId, bankId, query = {}) => {
     return { rows, total, page, limit };
 };
 
-/**
- * Escalation queue: every open ticket at level 1 or above (unpaginated -
- * the board groups them by level), most escalated and most overdue first.
- */
+// Escalation queue: open tickets at level 1+, unpaginated (the board groups by level), worst first.
 const findEscalated = (orgId, query = {}) => {
     const db = getDB();
     const params = [orgId];
@@ -250,16 +227,7 @@ const findEscalated = (orgId, query = {}) => {
     ).all(...params).map(withAssignees);
 };
 
-/**
- * My Tickets. Scopes, each for open (not resolved/closed) tickets unless
- * includeClosed:
- *   assigned    - I am a current assignee
- *   assignedBy  - I assigned someone else, and that assignment is still open
- *   team        - the ticket belongs to my team, or someone in my team is
- *                 a current assignee (team leads)
- * Rows carry My_Assigned_* (who assigned me / whom I assigned, and when)
- * for the scope's own assignment.
- */
+// My Tickets scopes (open only unless includeClosed): assigned to me, assigned by me, or my team's tickets.
 const findMyTickets = (orgId, { scope, agentId, teamId, includeClosed = false }) => {
     const db = getDB();
     let scopeSql;
@@ -290,11 +258,7 @@ const findMyTickets = (orgId, { scope, agentId, teamId, includeClosed = false })
     ).all({ orgId, agentId, teamId: teamId || "" }).map(withAssignees);
 };
 
-/**
- * My Tickets tab badges, per scope. They follow the page's "include resolved
- * and closed" box like findMyTickets; unseen (the sidebar badge) always
- * counts open tickets only.
- */
+// My Tickets tab badges follow includeClosed; unseen (the sidebar badge) always counts open tickets only.
 const countMyTickets = (orgId, { agentId, teamId, includeClosed = false }) => {
     const db = getDB();
     const openOnly = `t.Org_Id = @orgId AND t.Is_Deleted = 'N' AND t.Clock_State <> 'STOPPED'`;
@@ -335,12 +299,7 @@ const findStoppedByBankId = (bankId) => {
     ).all(bankId);
 };
 
-/**
- * Next running ticket number. A counter in HD_ID_SEQUENCE, started from the
- * highest number already used, so a number is never handed out twice - not
- * even after the recycle bin permanently deletes tickets (a row count would
- * then repeat numbers). Call inside the create transaction.
- */
+// Ticket numbers come from HD_ID_SEQUENCE so purged tickets never free a number for reuse; call inside the txn.
 const TICKET_NUMBER_SEQUENCE = `${DB_TABLES.TICKET}.Ticket_Number`;
 const findNextTicketNumber = (orgId) => {
     const db = getDB();
@@ -369,12 +328,7 @@ const findSplitChildren = (ticketId) => {
     ).all(ticketId);
 };
 
-/**
- * Follows "split into" links forward: the newest ticket split off
- * `ticketId`, then the newest split off that one, and so on. Returns
- * `ticketId` itself when nothing was split off. `includeDeleted` also
- * follows tickets removed because their mails were deleted in Gmail.
- */
+// Follows newest "split into" links forward to the last ticket; returns `ticketId` itself when none.
 const findLatestSplitDescendantId = (ticketId, { includeDeleted = false } = {}) => {
     const db = getDB();
     const next = db.prepare(
@@ -390,11 +344,7 @@ const findLatestSplitDescendantId = (ticketId, { includeDeleted = false } = {}) 
     return current;
 };
 
-/**
- * The latest TICKET_DELETED / TICKET_RESTORED history row of a ticket, or
- * undefined. A TICKET_DELETED here means a person deleted it and it sits in
- * the recycle bin (the Gmail deletion sync never writes either event).
- */
+// Latest TICKET_DELETED/RESTORED row; TICKET_DELETED means a person deleted it (Gmail sync writes neither).
 const findLatestDeleteEvent = (ticketId) => {
     const db = getDB();
     return db.prepare(

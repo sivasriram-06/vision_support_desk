@@ -9,11 +9,7 @@ const base = createRepository({
     columns: PICKLIST_VALUE_COLUMNS
 });
 
-/**
- * parentValue is only meaningful for Field='CATEGORY' (its owning
- * Classification's Value text) - omit it to list every row for the field
- * regardless of parent, pass it to scope to just that parent's children.
- */
+// parentValue (a Classification's Value) scopes CATEGORY rows to that parent; omit it to list every row.
 const findAll = (orgId, field, parentValue) => {
     const db = getDB();
     if (parentValue !== undefined) {

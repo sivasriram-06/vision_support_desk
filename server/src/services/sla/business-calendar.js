@@ -1,28 +1,7 @@
 const { DateTime } = require("luxon");
 const env = require("../../config/env");
 
-/**
- * Working-day calendar maths for SLA due dates and resolution time.
- *
- * Rule (agreed with the support team): time is counted in real hours, but
- * a bank's non-working days are skipped as whole days in the bank's own
- * local time. A P1 (24h) raised Friday 18:00 on a Mon-Fri bank is due
- * Monday 18:00; on a 24x7 bank it is due Saturday 18:00. The SLA does not
- * apply support hours within a day - only which days count.
- *
- * Resolution time is stricter: only minutes inside the bank's support
- * window (Support_Start_Ist..Support_End_Ist, IST) on its working days
- * count (supportMinutesBetween). A 24x7 bank counts every minute.
- *
- * Company holidays (Config -> Holiday Calendar, HD_HOLIDAY) are days our
- * support team is off: whole IST days (00:00-24:00 IST) skipped by both
- * the SLA and resolution time, whatever the bank's own zone. 24x7 banks
- * skip them only when the "holidays apply to 24x7" setting is on.
- *
- * Pure functions over Date instants; holidays come from a provider the
- * holiday service registers (setHolidayProvider) - none by default, so the
- * maths stays testable without a database.
- */
+// SLA skips whole non-working/holiday days; resolution time counts only support-window minutes (24x7: all).
 const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]; // luxon weekday 1..7
 const DEFAULT_WORKING_DAYS = ["MON", "TUE", "WED", "THU", "FRI"];
 // Support hours are kept on the support team's clock (IST), as in the KB sheet.
@@ -43,12 +22,7 @@ const setHolidayProvider = (provider) => {
     holidayProvider = provider || (() => NO_HOLIDAYS);
 };
 
-/**
- * Calendar for a bank row (HD_BANK_MASTER), or the org default when the
- * ticket has no bank yet. `hours` is the IST support window used for
- * resolution time; null on a 24x7 bank (every minute counts). `holidays`
- * are the company holidays that apply to it.
- */
+// Bank calendar (org default with no bank); `hours` = IST support window, null on 24x7 (every minute counts).
 const getCalendar = (bank) => {
     const company = holidayProvider();
     if (!bank) {
@@ -135,20 +109,14 @@ const subtractWorkingHours = (startUtc, hours, calendar) => {
     throw new Error("addWorkingHours: calendar has no working days");
 };
 
-/**
- * start + hours, counting only time that falls on working days. If the
- * start is on a non-working day the clock begins at the next working
- * day's 00:00 local. Negative hours walk backwards the same way ("4 hours
- * before due" for escalation triggers).
- */
+// start + hours on working days only; negative hours walk backwards ("4h before due" escalation triggers).
 const addWorkingHours = (startUtc, hours, calendar) => {
     if (hours === 0) return new Date(startUtc.getTime());
     if (hours < 0) return subtractWorkingHours(startUtc, -hours, calendar);
     let remainingMs = hours * 60 * 60 * 1000;
     let cursor = DateTime.fromJSDate(startUtc, { zone: calendar.timeZone });
 
-    // Guard: an empty calendar can't happen (parseWorkingDays defaults), but
-    // never loop forever on bad data.
+    // Guard: never loop forever on bad data, even though parseWorkingDays defaults an empty calendar.
     for (let guard = 0; guard < 10000; guard += 1) {
         if (!isWorkingDay(cursor, calendar)) {
             cursor = cursor.plus({ days: 1 }).startOf("day");
@@ -183,12 +151,7 @@ const workingMinutesBetween = (fromUtc, toUtc, calendar) => {
     return Math.floor(totalMs / 60000);
 };
 
-/**
- * Whole minutes in [fromUtc, toUtc) that fall inside the bank's support
- * window on its working days - resolution time. Walks IST days; a day's
- * window counts when the bank's local weekday at the window start is a
- * working day. A 24x7 calendar (hours = null) counts every minute.
- */
+// Resolution minutes in [fromUtc, toUtc) inside the support window on working days; 24x7 counts every minute.
 const supportMinutesBetween = (fromUtc, toUtc, calendar) => {
     if (!calendar.hours) return workingMinutesBetween(fromUtc, toUtc, calendar);
     if (!fromUtc || !toUtc || toUtc <= fromUtc) return 0;
@@ -215,13 +178,7 @@ const supportMinutesBetween = (fromUtc, toUtc, calendar) => {
     return Math.floor(totalMs / 60000);
 };
 
-/**
- * Is the support clock counting at `now`, and until when? { counting,
- * until } - `until` is the next moment that flips (end of today's window,
- * or the next working day's window start); null = never flips (24x7).
- * Lets the browser run a live resolution clock between server updates
- * without polling.
- */
+// { counting, until } at `now` (until = next flip, null on 24x7) so the browser ticks without polling.
 const supportClockNow = (calendar, now = new Date()) => {
     const nowMs = now.getTime();
     if (!calendar.hours) {

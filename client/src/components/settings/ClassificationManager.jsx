@@ -7,12 +7,7 @@ import ErrorState from '../ui/ErrorState.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 import { ApiError, getPicklistValues, createPicklistValue, updatePicklistValue, deletePicklistValue } from '../../utils/api.js'
 
-/**
- * Classification (ticket type, e.g. "Problem") owns many Categories
- * (sub-classification, e.g. "Application" / "Process" / "People") - the
- * same Category text can validly repeat under different Classifications, so
- * they're grouped and managed here instead of as a flat picklist.
- */
+// Classification owns its Categories; the same Category can repeat under different ones, so not a flat picklist.
 export default function ClassificationManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, classifications: [], categories: [] })
   const [expanded, setExpanded] = useState(() => new Set())

@@ -8,12 +8,7 @@ import { formatDateTime } from '../../utils/format.js'
 
 const fullName = (first, last) => [first, last].filter(Boolean).join(' ')
 
-/**
- * One ticket on a queue board. `mode` says what the column already groups
- * by, so the card shows the other facet: 'priority' -> status badge,
- * 'status' -> priority badge, 'escalation' -> both, plus when the next
- * escalation level falls due.
- */
+// Shows the facet the column doesn't group by (`mode`); escalation mode shows both plus next level due.
 export default function QueueCard({ ticket, mode }) {
   const navigate = useNavigate()
   const sla = getSlaState(ticket)

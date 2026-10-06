@@ -5,19 +5,7 @@ const authService = require("../services/auth.service");
 const { bus, REALTIME_EVENT } = require("./bus");
 const logger = require("../utils/logger");
 
-/**
- * WebSocket hub on the API's own HTTP server, path /ws.
- *
- * Auth: a browser WebSocket can't send an Authorization header and a token
- * in the URL lands in logs, so the first message must be
- * { type: "auth", token } - checked like a REST request (valid JWT, active
- * account with a credential, no forced password change). No valid auth
- * within AUTH_TIMEOUT_MS -> the socket is closed.
- *
- * Heartbeat: ping every HEARTBEAT_MS; a socket that missed the last pong is
- * dropped. Server -> client messages are bus events (see bus.js) plus
- * { type: "ready" } after auth.
- */
+// /ws hub: first message must be { type: "auth", token } (no header, and URL tokens leak to logs); pong or drop.
 const AUTH_TIMEOUT_MS = 5000;
 const HEARTBEAT_MS = 30000;
 const CLOSE = { AUTH_FAILED: 4001, AUTH_TIMEOUT: 4002, REVOKED: 4003 };

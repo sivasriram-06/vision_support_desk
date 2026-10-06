@@ -1,442 +1,3170 @@
 {
   "info": {
-    "_postman_id": "3f7a2b6e-6c1d-4e3a-9d0a-1f9b8a0c2b5e",
     "name": "Vision Support Desk API",
-    "description": "REST API for Vision Support Desk (tickets, conversations, contacts, accounts, agents, departments, banks, Gmail ingestion).\n\nBase path: `/api/v1`. Server default: `http://localhost:3456`.\n\n### Response contract\n- List endpoints: `{ \"data\": [...], \"paging\": { \"limit\", \"page\", \"total\", \"hasMore\", \"nextCursor\" } }`\n- Single-resource endpoints: `{ \"data\": {...} }`\n- Errors: `{ \"error\": { \"code\", \"message\", \"details\", \"traceId\" } }`\n\n### Auth\nNo authentication is wired into any route yet (Login & Security module / `/api/v1/auth/*` is not implemented). Every write currently attributes to a system actor server-side. `auth.middleware.js` / `authorize.middleware.js` are ready for when JWT auth lands, expecting a `Bearer` token.\n\n### Suggested flow to try this collection\n1. Run **Departments → List Departments** and **Agents → List Agents** to copy a real `departmentId` / `agentId` (seeded by `npm run seed`).\n2. Run **Contacts → Create Contact** and save the returned `Contact_Id` into the `contactId` collection variable.\n3. Run **Tickets → Create Ticket** using those ids; save the returned `Ticket_Id` into the `ticketId` variable.\n4. Exercise Conversations/Comments/History/Queues using that `ticketId`.\n5. For Gmail, follow `docs/development/gmail-console-setup.md` before calling the Gmail folder's requests.",
+    "description": "Every /api/v1 endpoint of the Vision Support Desk server. Start with **1. Auth > Login** - it saves the JWT to `{{token}}` and every request sends `Authorization: Bearer {{token}}`. See postman/README.md. Requests marked [NEW] were added after the first collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3456", "type": "string", "description": "Vision Support Desk API origin" },
-    { "key": "departmentId", "value": "", "type": "string", "description": "HD_DEPARTMENT_MASTER.Department_Id - copy from List Departments" },
-    { "key": "bankId", "value": "", "type": "string", "description": "HD_BANK_MASTER.Bank_Id - copy from List Banks" },
-    { "key": "agentId", "value": "", "type": "string", "description": "HD_AGENT_MASTER.Agent_Id - copy from List Agents" },
-    { "key": "contactId", "value": "", "type": "string", "description": "HD_CONTACT_MASTER.Contact_Id - copy from Create/List Contacts" },
-    { "key": "accountId", "value": "", "type": "string", "description": "HD_ACCOUNT_MASTER.Account_Id - copy from List Accounts" },
-    { "key": "ticketId", "value": "", "type": "string", "description": "HD_TICKET_MASTER.Ticket_Id - copy from Create/List Tickets" }
-  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
   "item": [
     {
-      "name": "Health",
+      "name": "0. Health",
+      "description": "No sign-in needed. Use it to check the server is up.",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
-            "description": "Liveness probe. Not versioned under /api/v1 - used by process managers/load balancers.\n\n**Response 200**\n```json\n{ \"data\": { \"status\": \"ok\", \"timestamp\": \"2026-09-21T11:42:07.301Z\" } }\n```"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Tickets",
-      "description": "Core ticket workflow: All Cases, Agent/Bank queues, ticket detail, properties, history, resolution, metrics. Backed by HD_TICKET_MASTER + child tables.",
-      "item": [
-        {
-          "name": "List Tickets (All Cases)",
+          "name": "Health check",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tickets?page=1&limit=25&statusType=Open&sortBy=Created_Time&sortOrder=desc",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tickets"],
-              "query": [
-                { "key": "page", "value": "1", "description": "1-based page number (default 1)" },
-                { "key": "limit", "value": "25", "description": "Page size, max 100 (default 50)" },
-                { "key": "status", "value": "", "description": "Exact tenant-configured status label, e.g. \"Open\"", "disabled": true },
-                { "key": "statusType", "value": "Open", "description": "One of: Open, On Hold, Closed" },
-                { "key": "priority", "value": "", "description": "One of: P1, P2, P3, P4", "disabled": true },
-                { "key": "departmentId", "value": "", "description": "Filter by HD_DEPARTMENT_MASTER.Department_Id", "disabled": true },
-                { "key": "bankId", "value": "", "description": "Filter by HD_BANK_MASTER.Bank_Id", "disabled": true },
-                { "key": "assigneeId", "value": "", "description": "Filter by HD_AGENT_MASTER.Agent_Id", "disabled": true },
-                { "key": "contactId", "value": "", "description": "Filter by HD_CONTACT_MASTER.Contact_Id", "disabled": true },
-                { "key": "search", "value": "", "description": "Matches Subject or Ticket_Number (LIKE)", "disabled": true },
-                { "key": "sortBy", "value": "Created_Time", "description": "One of: Created_Time, Modified_Time, Due_Date, Priority, Status, Subject" },
-                { "key": "sortOrder", "value": "desc", "description": "asc | desc (default desc)" }
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
               ]
             },
-            "description": "All Cases: paginated, filterable, searchable, sortable ticket list.\n\n**Response 200**\n```json\n{ \"data\": [ { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Subject\": \"...\", ... } ], \"paging\": { \"limit\": 25, \"page\": 1, \"total\": 1, \"hasMore\": false, \"nextCursor\": null } }\n```"
-          },
-          "response": []
-        },
+            "description": "Returns `{ data: { status: \"ok\", timestamp } }`.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Auth (start here)",
+      "description": "Call **Login** first. Its test script saves the JWT into the `token` collection variable; every other request sends it as `Authorization: Bearer {{token}}` (collection-level auth).",
+      "item": [
         {
-          "name": "Create Ticket",
+          "name": "[NEW] Login",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Email + password. Response `{ data: { token, agent } }`. The token is saved to `{{token}}` automatically and `agent.agentId` to `{{myAgentId}}`.\n\nIf `agent.mustChangePassword` is true, call **Change password** next - every other route answers 403 PASSWORD_CHANGE_REQUIRED until then.\n\nWrong password/unknown email: 401. After MAX_FAILED_ATTEMPTS wrong passwords: 403 ACCOUNT_LOCKED for LOCK_MINUTES.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"subject\": \"Cannot access dashboard\",\n  \"description\": \"Getting a 500 error when I open the dashboard\",\n  \"channel\": \"Web Form\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"contactId\": \"{{contactId}}\",\n  \"accountId\": null,\n  \"bankId\": null,\n  \"assigneeId\": null,\n  \"priority\": \"P3\",\n  \"statusType\": \"Open\"\n}"
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets"] },
-            "description": "Creates a ticket, its CREATED history row, and an empty metrics row in one transaction.\n\n**Required:** `subject`, `channel` (Email | Web Form | Social | Chat | Phone), `departmentId`, `contactId`.\n**Optional:** `description`, `bankId`, `accountId`, `assigneeId`, `status`, `statusType` (Open | On Hold | Closed, default Open), `priority` (P1-P4).\n\n**Response 201** → `{ \"data\": { \"Ticket_Id\": \"...\", \"Ticket_Number\": \"000001\", \"Status\": \"Open\", ... } }`\n\n**Errors:** `VALIDATION_ERROR` (400), `DEPARTMENT_NOT_FOUND` (400), `CONTACT_NOT_FOUND` (400)."
+            "auth": {
+              "type": "noauth"
+            }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"signed in\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.collectionVariables.set(\"token\", data.token);",
+                  "    pm.collectionVariables.set(\"myAgentId\", data.agent.agentId);",
+                  "    console.log(\"Token saved. Must change password:\", data.agent.mustChangePassword);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Get Ticket By Id",
+          "name": "[NEW] Me",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}"] },
-            "description": "Full ticket record (HD_TICKET_MASTER row).\n\n**Errors:** `TICKET_NOT_FOUND` (404)."
-          },
-          "response": []
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "The signed-in agent: role, team and the permission keys the server will enforce."
+          }
         },
         {
-          "name": "Update Ticket",
+          "name": "[NEW] Change password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Required after a temporary password. Policy: at least 8 characters, a letter and a number, max 72 bytes, different from the current one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Records a LOGOUT login event and clears the cookie. The token itself stays valid until it expires (JWT_EXPIRES_IN) - discard it on the client."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Lookups (ids for later calls)",
+      "description": "Run these once after login - each saves the first id it finds into a collection variable used by the ticket requests.",
+      "item": [
+        {
+          "name": "List teams (departments)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments"
+              ]
+            },
+            "description": "Support and product teams. Saves the first `Department_Id` to `{{departmentId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Department_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"departmentId\", String(value)); console.log(\"Saved departmentId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments/{{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments",
+                "{{departmentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List banks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks"
+              ]
+            },
+            "description": "Optional `?departmentId=`. Saves the first `Bank_Id` to `{{bankId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Bank_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"bankId\", String(value)); console.log(\"Saved bankId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get bank",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks/{{bankId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks",
+                "{{bankId}}"
+              ]
+            },
+            "description": "Bank with support team, level, working days, time zone, IST support hours, 24x7 flag and resources."
+          }
+        },
+        {
+          "name": "List agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agents"
+              ],
+              "query": [
+                {
+                  "key": "departmentId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Optional `?departmentId=`. Saves two active agents: `{{agentId}}` (assignee in the Assignment / Work requests) and `{{blockerAgentId}}` (the second assignee, for 'waits on')."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const agents = pm.response.json().data.filter((a) => a.Status === \"Active\" && a.Agent_Id !== pm.collectionVariables.get(\"myAgentId\"));",
+                  "    if (agents[0]) pm.collectionVariables.set(\"agentId\", agents[0].Agent_Id);",
+                  "    if (agents[1]) pm.collectionVariables.set(\"blockerAgentId\", agents[1].Agent_Id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get agent",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/{{agentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agents",
+                "{{agentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] List picklist values",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/picklists?field=STATUS",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "picklists"
+              ],
+              "query": [
+                {
+                  "key": "field",
+                  "value": "STATUS",
+                  "disabled": false
+                },
+                {
+                  "key": "parentValue",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`field` = STATUS | CLASSIFICATION | CATEGORY | SUB_CATEGORY | TEAM_TYPE. CATEGORY takes `parentValue` (the classification). Statuses include their `Clock_Behaviour`."
+          }
+        },
+        {
+          "name": "[NEW] List products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] List priority SLA hours",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/priority-sla",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "priority-sla"
+              ]
+            },
+            "description": "P1 / P2 / P3 and their SLA hours."
+          }
+        },
+        {
+          "name": "[NEW] List escalation levels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/escalation-levels",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "escalation-levels"
+              ]
+            },
+            "description": "Per priority: level number and offset hours from the SLA due date (negative = before)."
+          }
+        },
+        {
+          "name": "List contacts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contacts?page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contacts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Every sender (Gmail) and manually created contact. `?search=` on name/email."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Contact_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"contactId\", String(value)); console.log(\"Saved contactId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contacts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contacts"
+              ]
+            },
+            "description": "Needs tickets.create. Saves `Contact_Id` to `{{contactId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Customer\",\n  \"email\": \"test.customer@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Contact_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"contactId\", String(value)); console.log(\"Saved contactId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get contact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contacts/{{contactId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contacts",
+                "{{contactId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Tickets",
+      "description": "All need tickets.view. Create needs tickets.create; status changes tickets.edit_status; other fields tickets.edit_properties; delete tickets.delete.",
+      "item": [
+        {
+          "name": "List tickets (All Cases)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets?page=1&limit=25&sortBy=Created_Time&sortOrder=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "Created_Time",
+                  "disabled": false
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters (all optional): `status`, `priority`, `departmentId`, `bankId`, `assigneeId`, `contactId`, `state` (open | closed | overdue), `search` (subject or ticket number), `slaBreached=true`, `closeReplies=true` (Closed tickets with a customer reply awaiting a lead), `escalationLevel` (any | 1 | 2 ...). Sort: `sortBy` (Created_Time, Modified_Time, Response_Due_Date, Priority, Status, Subject), `sortOrder` asc|desc. Paging: `page`, `limit` (max 100). Saves the first `Ticket_Id` to `{{ticketId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Ticket_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"ticketId\", String(value)); console.log(\"Saved ticketId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets"
+              ]
+            },
+            "description": "Manual ticket. Channel: Email | Web Form | Social | Chat | Phone. With a `bankId` the ticket goes to that bank's team. SLA due date comes from the priority on the bank's calendar. Saves `Ticket_Id` to `{{ticketId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Login issue on portal\",\n  \"description\": \"Customer cannot log in.\",\n  \"channel\": \"Phone\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"bankId\": \"{{bankId}}\",\n  \"contactId\": \"{{contactId}}\",\n  \"priority\": \"P2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Ticket_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"ticketId\", String(value)); console.log(\"Saved ticketId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "Full ticket with team, bank, contact, SLA due date, clock state, escalation level and counts."
+          }
+        },
+        {
+          "name": "Update ticket",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "Send only the fields to change: `status`, `priority`, `departmentId`, `bankId`, `productId`, `classification`, `category`, `subCategory`, `description`.\n\nRules: a bank moves the ticket to the bank's team; priority/bank re-date the SLA; a Closed ticket cannot go back to an open status (use Reopen); closing is refused while any assignee is not Done. The subject is fixed by design - don't send it.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"priority\": \"P2\",\n  \"assigneeId\": \"{{agentId}}\",\n  \"status\": \"In Progress\",\n  \"statusType\": \"Open\"\n}"
+              "raw": "{\n  \"status\": \"In Progress\",\n  \"priority\": \"P1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ticket history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "history"
+              ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}"] },
-            "description": "Partial update. Any of: `subject`, `description`, `status`, `statusType`, `priority`, `departmentId`, `bankId`, `assigneeId`, `category`, `subCategory`, `classification` (at least one required).\n\nWrites one HD_TICKET_HISTORY row per changed field (STATUS_CHANGE / PRIORITY_CHANGE / REASSIGNED / FIELD_CHANGE), all in one transaction.\n\n**Errors:** `VALIDATION_ERROR` (400 - empty body), `TICKET_NOT_FOUND` (404)."
-          },
-          "response": []
+            "description": "Every change: event, field, old and new value, who and when."
+          }
         },
         {
-          "name": "Get Ticket History",
+          "name": "Ticket metrics (SLA + resolution clock)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/history", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "history"] },
-            "description": "Field-change audit trail (HD_TICKET_HISTORY), oldest first. Every ticket mutation writes here: CREATED, STATUS_CHANGE, PRIORITY_CHANGE, REASSIGNED, CONVERSATION_ADDED, COMMENT_ADDED, FIELD_CHANGE."
-          },
-          "response": []
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "metrics"
+              ]
+            },
+            "description": "SLA due date, time left, escalation level, holidays inside the SLA, live resolution time (support hours), reopen count."
+          }
         },
         {
-          "name": "Get Ticket Resolution",
+          "name": "List conversations (mails)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/resolution", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "resolution"] },
-            "description": "Most recent HD_TICKET_RESOLUTION row, or `\"data\": null` if the ticket has no resolution note yet."
-          },
-          "response": []
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "conversations"
+              ]
+            },
+            "description": "Every mail on the ticket, in and out, oldest first."
+          }
         },
         {
-          "name": "Get Ticket Metrics",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/metrics", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "metrics"] },
-            "description": "SLA/handling metrics (HD_TICKET_METRICS): First_Response_Time_Mins, Resolution_Time_Mins, Reopen_Count, Reassign_Count, Response_Count, Handled_By_Agent_Ids."
-          },
-          "response": []
-        },
-        {
-          "name": "List Ticket Conversations",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "conversations"] },
-            "description": "Unified message feed for the ticket (HD_TICKET_CONVERSATION), oldest first - inbound customer email and outbound agent replies together, ordered by Sent_Time."
-          },
-          "response": []
-        },
-        {
-          "name": "Add Reply (Conversation)",
+          "name": "Add reply record",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "conversations"
+              ]
+            },
+            "description": "Stores an outbound reply on the ticket (tickets.reply). It is NOT emailed - customer mail goes out from Gmail and is imported.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Thanks for reporting - looking into it now.\",\n  \"channel\": \"Email\",\n  \"isPublic\": true,\n  \"toAddress\": \"customer@example.com\",\n  \"ccAddress\": \"\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/conversations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "conversations"] },
-            "description": "Agent reply, customer-visible by default (`isPublic: false` for an internal-only conversation entry). Increments HD_TICKET_MASTER.Thread_Count and writes a CONVERSATION_ADDED history row, in one transaction.\n\n**Required:** `content`. **Optional:** `channel` (default \"Email\"), `isPublic` (default true), `toAddress`, `ccAddress`.\n\n**Errors:** `VALIDATION_ERROR` (400), `TICKET_NOT_FOUND` (404)."
-          },
-          "response": []
+              "raw": "{\n  \"content\": \"We are looking into it.\",\n  \"isPublic\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         },
         {
-          "name": "List Ticket Comments",
+          "name": "List internal comments",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "comments"] },
-            "description": "Internal-only notes on the ticket (HD_TICKET_COMMENT), never visible to the customer, ordered by Commented_Time."
-          },
-          "response": []
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "comments"
+              ]
+            }
+          }
         },
         {
-          "name": "Add Internal Comment",
+          "name": "Add internal comment",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "comments"
+              ]
+            },
+            "description": "Never mailed. Optional `assignmentId` ties it to one assignee's work.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Looks like a permissions bug on the dashboard route.\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tickets", "{{ticketId}}", "comments"] },
-            "description": "Adds an internal note. Increments HD_TICKET_MASTER.Comment_Count and writes a COMMENT_ADDED history row.\n\n**Required:** `content`.\n\n**Errors:** `VALIDATION_ERROR` (400), `TICKET_NOT_FOUND` (404)."
-          },
-          "response": []
+              "raw": "{\n  \"content\": \"Checked logs - waiting for Java team.\",\n  \"assignmentId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         },
         {
-          "name": "Agent Queue",
+          "name": "[NEW] List attachments",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tickets/queues/agent/{{agentId}}?page=1&limit=25",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tickets", "queues", "agent", "{{agentId}}"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "25" }
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/attachments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "attachments"
               ]
             },
-            "description": "Tickets currently assigned to one agent (Assignee_Id = agentId). Accepts the same filter/sort query params as List Tickets."
+            "description": "Saves the first `Attachment_Id` to `{{attachmentId}}`."
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Attachment_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"attachmentId\", String(value)); console.log(\"Saved attachmentId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Bank Queue",
+          "name": "[NEW] Download attachment",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/tickets/queues/bank/{{bankId}}?unassignedOnly=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tickets", "queues", "bank", "{{bankId}}"],
-              "query": [
-                { "key": "unassignedOnly", "value": "true", "description": "\"true\" to only show tickets with no Assignee_Id yet" }
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/attachments/{{attachmentId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "attachments",
+                "{{attachmentId}}",
+                "download"
               ]
             },
-            "description": "Tickets for a bank (Bank_Id = bankId), optionally filtered to unassigned-only via `unassignedOnly=true`."
-          },
-          "response": []
+            "description": "Returns the file (Send and Download in Postman)."
+          }
+        },
+        {
+          "name": "Agent queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/agent/{{agentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "queues",
+                "agent",
+                "{{agentId}}"
+              ]
+            },
+            "description": "Open tickets assigned to an agent."
+          }
+        },
+        {
+          "name": "Bank queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/bank/{{bankId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "queues",
+                "bank",
+                "{{bankId}}"
+              ]
+            },
+            "description": "Open tickets of one bank (board view)."
+          }
+        },
+        {
+          "name": "[NEW] Escalated tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/queues/escalated",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "queues",
+                "escalated"
+              ],
+              "query": [
+                {
+                  "key": "departmentId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "bankId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Open tickets at escalation level 1 or higher. Optional `departmentId`, `bankId`, `priority`."
+          }
         }
       ]
     },
     {
-      "name": "Contacts",
-      "description": "Customer/requester directory (HD_CONTACT_MASTER).",
+      "name": "4. Assignment & My Tickets",
+      "description": "The first assignment of a ticket: Admin, Manager, Team Lead or Assistant Team Lead only. After that, current assignees can add others from any team (cross-team).",
       "item": [
         {
-          "name": "List Contacts",
+          "name": "[NEW] List assignees",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/contacts?page=1&limit=25&search=ravi",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "contacts"],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "25" },
-                { "key": "search", "value": "ravi", "description": "Matches Email, First_Name or Last_Name (LIKE)", "disabled": true }
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees"
               ]
             },
-            "description": "Paginated contact directory/search."
-          },
-          "response": []
+            "description": "Current and released assignments with work state, who assigned, when, cross-team flag."
+          }
         },
         {
-          "name": "Create Contact",
+          "name": "[NEW] Assign agents",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees"
+              ]
+            },
+            "description": "`agentIds`: one or more agents (here the two saved by List agents). Optional `note`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Ravi\",\n  \"lastName\": \"Kumar\",\n  \"email\": \"ravi.kumar@example.com\",\n  \"phone\": \"\",\n  \"accountId\": null\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/contacts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "contacts"] },
-            "description": "Creates a contact directly. (The Gmail ingestion engine also creates contacts automatically from the sender's From header, reusing an existing one by email when it matches.)\n\n**Required:** `lastName`. **Optional:** `firstName`, `email`, `phone`, `accountId`.\n\n**Response 201** → `{ \"data\": { \"Contact_Id\": \"...\", ... } }`"
-          },
-          "response": []
+              "raw": "{\n  \"agentIds\": [\n    \"{{agentId}}\",\n    \"{{blockerAgentId}}\"\n  ],\n  \"note\": \"Please check the portal login.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         },
         {
-          "name": "Get Contact By Id",
+          "name": "[NEW] Mark ticket seen",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/contacts/{{contactId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "contacts", "{{contactId}}"] },
-            "description": "**Errors:** `CONTACT_NOT_FOUND` (404)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Accounts",
-      "description": "Customer company/organization records (HD_ACCOUNT_MASTER). Read-only via API today - created by the Contacts/Accounts module UI, not yet exposed as a write endpoint.",
-      "item": [
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/seen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "seen"
+              ]
+            },
+            "description": "Clears the 'new assignment' badge for the signed-in agent."
+          }
+        },
         {
-          "name": "List Accounts",
+          "name": "[NEW] My tickets",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts?page=1&limit=25&search=acme",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts"],
+              "raw": "{{baseUrl}}/api/v1/tickets/my?scope=assigned&includeClosed=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "my"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "25" },
-                { "key": "search", "value": "acme", "description": "Matches Account_Name (LIKE)", "disabled": true }
+                {
+                  "key": "scope",
+                  "value": "assigned",
+                  "disabled": false
+                },
+                {
+                  "key": "includeClosed",
+                  "value": "false",
+                  "disabled": false
+                }
               ]
             },
-            "description": "Paginated company/account directory/search."
-          },
-          "response": []
+            "description": "`scope` = assigned (to me) | assignedBy (me) | team (leads). `includeClosed=true` to include closed."
+          }
         },
         {
-          "name": "Get Account By Id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounts", "{{accountId}}"] },
-            "description": "**Errors:** `ACCOUNT_NOT_FOUND` (404)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Agents",
-      "description": "Support agent directory (HD_AGENT_MASTER). Read-only via API today - agents are provisioned via seed/future admin tooling, not a public create endpoint.",
-      "item": [
-        {
-          "name": "List Agents",
+          "name": "[NEW] My tickets counts",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agents?departmentId={{departmentId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agents"],
+              "raw": "{{baseUrl}}/api/v1/tickets/my/counts?includeClosed=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "my",
+                "counts"
+              ],
               "query": [
-                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to agents whose Primary_Department_Id matches", "disabled": true }
+                {
+                  "key": "includeClosed",
+                  "value": "false",
+                  "disabled": false
+                }
               ]
             },
-            "description": "Agent directory, optionally filtered by primary department. No pagination envelope (returns a plain array in `data`)."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Agent By Id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/agents/{{agentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "{{agentId}}"] },
-            "description": "**Errors:** `AGENT_NOT_FOUND` (404)."
-          },
-          "response": []
+            "description": "Counts per tab plus `unseen` (new assignments not opened yet)."
+          }
         }
       ]
     },
     {
-      "name": "Departments",
-      "description": "Support departments / top-level queues (HD_DEPARTMENT_MASTER). Read-only via API today.",
+      "name": "5. Work tracking",
+      "description": "Per-assignee work. The assignee, whoever assigned them, Admin/Manager and the team leads may change it.",
       "item": [
         {
-          "name": "List Departments",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/departments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "departments"] },
-            "description": "All departments for the tenant. No pagination envelope (returns a plain array in `data`)."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Department By Id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/departments/{{departmentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "departments", "{{departmentId}}"] },
-            "description": "**Errors:** `DEPARTMENT_NOT_FOUND` (404)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Banks",
-      "description": "Client banks (HD_BANK_MASTER): support team, level, hours, primary/secondary resources.",
-      "item": [
-        {
-          "name": "List Banks",
+          "name": "[NEW] Tracking (timeline + totals)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/banks?departmentId={{departmentId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "banks"],
-              "query": [
-                { "key": "departmentId", "value": "{{departmentId}}", "description": "Filter to banks worked by one support team (department)", "disabled": true }
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/tracking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "tracking"
               ]
             },
-            "description": "All banks with their support team and primary/secondary resources, optionally filtered by support team. No pagination envelope (returns a plain array in `data`)."
-          },
-          "response": []
+            "description": "Per assignee and per team: time held, active, waiting and logged; swimlanes; timeline of every event; longest wait; critical path."
+          }
         },
         {
-          "name": "Get Bank By Id",
+          "name": "[NEW] Change work state",
           "request": {
-            "method": "GET",
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/{{agentId}}/state",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "{{agentId}}",
+                "state"
+              ]
+            },
+            "description": "`state` = IN_PROGRESS | ON_HOLD | DONE. (PENDING / WAITING / READY are set by the system.)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"IN_PROGRESS\",\n  \"note\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add 'waits on'",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/{{agentId}}/dependencies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "{{agentId}}",
+                "dependencies"
+              ]
+            },
+            "description": "`{{agentId}}` waits on `blockerAgentId`: becomes WAITING, then READY automatically when the blocker is Done or released. Loops are refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blockerAgentId\": \"{{blockerAgentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Remove 'waits on'",
+          "request": {
+            "method": "DELETE",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/banks/{{bankId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "banks", "{{bankId}}"] },
-            "description": "**Errors:** `BANK_NOT_FOUND` (404)."
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/{{agentId}}/dependencies/{{blockerAgentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "{{agentId}}",
+                "dependencies",
+                "{{blockerAgentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Log work",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/{{agentId}}/worklogs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "{{agentId}}",
+                "worklogs"
+              ]
+            },
+            "description": "`minutes` 1-1440, optional `note`. Saves the new `Worklog_Id` to `{{worklogId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minutes\": 30,\n  \"note\": \"Analysed the logs\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
-          "response": []
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Worklog_Id || body.data?.worklog?.Worklog_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"worklogId\", String(value)); console.log(\"Saved worklogId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Delete work log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/worklogs/{{worklogId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "worklogs",
+                "{{worklogId}}"
+              ]
+            },
+            "description": "Only the person who logged it."
+          }
+        },
+        {
+          "name": "[NEW] Remove / release assignee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/assignees/{{blockerAgentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "assignees",
+                "{{blockerAgentId}}"
+              ]
+            },
+            "description": "Ends one person's assignment. Allowed for the assignee themselves, whoever assigned them, Admin/Manager, or a lead of the ticket's team or of the assignee's team."
+          }
         }
       ]
     },
     {
-      "name": "Gmail Integration",
-      "description": "OAuth setup + ingestion engine for the mailbox configured as GMAIL_MAILBOX in server/.env. Full walkthrough: docs/development/gmail-console-setup.md.",
+      "name": "6. Reply after close (reopen / new issue / no action)",
+      "description": "When a customer mails on a Closed ticket, the mail is held (`Post_Close_Decision = PENDING`) and a lead with tickets.reopen decides. Find them with List tickets `?closeReplies=true` and put that id in `{{ticketId}}`. On an open ticket these answer 400 (reopen needs a Closed ticket; split / dismiss need a pending reply).",
       "item": [
         {
-          "name": "1. Get Auth URL",
+          "name": "[NEW] Reopen info",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/gmail/auth-url", "host": ["{{baseUrl}}"], "path": ["api", "v1", "gmail", "auth-url"] },
-            "description": "Step 1 of the one-time Gmail OAuth setup. Returns a Google consent URL built from GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI. Open the returned `url` in a browser and sign in as the GMAIL_MAILBOX address.\n\n**Response 200** → `{ \"data\": { \"url\": \"https://accounts.google.com/o/oauth2/v2/auth?...\" } }`\n\n**Errors:** `GMAIL_NOT_CONFIGURED` (500) if GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI are missing from `.env`."
-          },
-          "response": []
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/reopens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "reopens"
+              ]
+            },
+            "description": "Pending replies after close, reopen rounds (number, reason, who, previous close/due date, SLA met) and split links."
+          }
         },
         {
-          "name": "2. OAuth Callback",
+          "name": "[NEW] Reopen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/reopen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "reopen"
+              ]
+            },
+            "description": "Needs a `reason` (3-500 chars). The SLA starts fresh from now, all assignees are released, status goes back to Unassigned, reopen count +1. Works without a pending mail too (manual reopen).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer says the error is back\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Create as new issue",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/split",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "split"
+              ]
+            },
+            "description": "No body. Creates a new linked ticket from the pending mail (properties copied - edit with Update ticket afterwards). Later replies to the old mail follow the new ticket. The old ticket stays Closed."
+          }
+        },
+        {
+          "name": "[NEW] No action needed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/close-replies/dismiss",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "close-replies",
+                "dismiss"
+              ]
+            },
+            "description": "Marks the pending mails as no action (e.g. a thank-you). Ticket stays Closed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Recycle bin",
+      "description": "Admin, Manager, Team Lead (tickets.delete). Deleted tickets can be restored for RECYCLE_BIN_DAYS (server .env, default 30); after that an hourly job deletes them permanently.",
+      "item": [
+        {
+          "name": "[NEW] Delete ticket (to recycle bin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "Admin, Manager, Team Lead (tickets.delete). The ticket leaves every list and goes to the Recycle Bin, restorable for RECYCLE_BIN_DAYS."
+          }
+        },
+        {
+          "name": "[NEW] List recycle bin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/recycle-bin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "recycle-bin"
+              ]
+            },
+            "description": "`{ retentionDays, tickets: [...] }` - each with Deleted_Time, Deleted_By_Name, Purge_Time, Days_Left. Saves the first ticket to `{{deletedTicketId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.tickets?.[0]?.Ticket_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"deletedTicketId\", String(value)); console.log(\"Saved deletedTicketId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Restore ticket",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{deletedTicketId}}/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{deletedTicketId}}",
+                "restore"
+              ]
+            },
+            "description": "Back on every list as it was. 404 if it is not in the bin; 409 RESTORE_PERIOD_EXPIRED after the window."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Holidays & holiday timer",
+      "description": "Company holidays are skipped by the SLA, escalations and resolution time. Calendar endpoints need holidays.manage (Admin, Manager, Team Lead).",
+      "item": [
+        {
+          "name": "[NEW] List holidays",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Optional `year`. Also returns the `applyTo24x7` setting."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (body.data?.holidays || body.data)?.[0]?.Holiday_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"holidayId\", String(value)); console.log(\"Saved holidayId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Preview impact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays/impact?date=2026-12-24&remove=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays",
+                "impact"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-12-24",
+                  "disabled": false
+                },
+                {
+                  "key": "remove",
+                  "value": "false",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Which open tickets would be re-dated if `date` became a holiday (or `remove=true` stopped being one)."
+          }
+        },
+        {
+          "name": "[NEW] Add holiday",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays"
+              ]
+            },
+            "description": "Re-dates open tickets and recomputes closed resolution times.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"holidayDate\": \"2026-12-24\",\n  \"holidayName\": \"Christmas Eve\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Holiday_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"holidayId\", String(value)); console.log(\"Saved holidayId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Edit holiday",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays/{{holidayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays",
+                "{{holidayId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"holidayName\": \"Christmas Eve (half day)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Remove holiday",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays/{{holidayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays",
+                "{{holidayId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Holidays for 24x7 banks",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/holidays/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "holidays",
+                "settings"
+              ]
+            },
+            "description": "`applyTo24x7`: do 24x7 banks also skip holidays? Default false.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applyTo24x7\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Start holiday timer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/holiday-timer/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "holiday-timer",
+                "start"
+              ]
+            },
+            "description": "Work done on a company holiday - counts in resolution time only, never the SLA. Assignee only, and only ON a holiday (other days answer 400); stops automatically at midnight IST."
+          }
+        },
+        {
+          "name": "[NEW] Stop holiday timer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/holiday-timer/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets",
+                "{{ticketId}}",
+                "holiday-timer",
+                "stop"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Customers",
+      "description": "Gmail senders. Admin, Manager, Team Lead, Assistant Team Lead (customers.manage).",
+      "item": [
+        {
+          "name": "[NEW] List customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers?page=1&limit=24",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "24",
+                  "disabled": false
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "bankId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`search` (name/email), `letter` (A-Z or #), `bankId` (or `none`), paging. Each with All / Open / Closed / Overdue counts. Saves the first to `{{contactId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (Array.isArray(body.data) ? body.data[0] : body.data)?.Contact_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"contactId\", String(value)); console.log(\"Saved contactId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Get customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/{{contactId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{contactId}}"
+              ]
+            },
+            "description": "Name, email, bank and ticket counts. Their tickets: List tickets with `contactId` (+ `state`)."
+          }
+        },
+        {
+          "name": "Customer's tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets?contactId={{contactId}}&state=open",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "contactId",
+                  "value": "{{contactId}}"
+                },
+                {
+                  "key": "state",
+                  "value": "open"
+                }
+              ]
+            },
+            "description": "Same `state` buckets as the counts: open | closed | overdue (leave out for all)."
+          }
+        },
+        {
+          "name": "[NEW] Update customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/{{contactId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{contactId}}"
+              ]
+            },
+            "description": "Name and bank only (email is how Gmail matches them).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ravi Kumar\",\n  \"bankId\": \"{{bankId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Configuration",
+      "description": "Reads are open to every signed-in agent. Writes: config.manage (priorities, escalation levels, picklists, products) or teams.manage (banks, teams). **These change real settings.** Each write here works on a record the folder creates first (priority {{newPriority}}, a test status, product, bank and team), then deletes it - nothing seeded is renamed or removed.",
+      "item": [
+        {
+          "name": "[NEW] Set SLA hours for a priority",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/priority-sla/{{priority}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "priority-sla",
+                "{{priority}}"
+              ]
+            },
+            "description": "Re-saves `{{priority}}` (P2) with its default 72 hours. Change the number only on purpose - it is the live SLA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slaHours\": 72\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add priority",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/priority-sla",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "priority-sla"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"{{newPriority}}\",\n  \"slaHours\": 480\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add escalation level",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/escalation-levels",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "escalation-levels"
+              ]
+            },
+            "description": "Offsets must increase with the level. Rebuilds open tickets' triggers. Saves `{{escalationLevelId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"{{newPriority}}\",\n  \"levelNo\": 1,\n  \"offsetHours\": -24\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Escalation_Level_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"escalationLevelId\", String(value)); console.log(\"Saved escalationLevelId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Edit escalation level",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/escalation-levels/{{escalationLevelId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "escalation-levels",
+                "{{escalationLevelId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offsetHours\": -12\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Delete escalation level",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/escalation-levels/{{escalationLevelId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "escalation-levels",
+                "{{escalationLevelId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Delete priority",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/priority-sla/{{newPriority}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "priority-sla",
+                "{{newPriority}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add picklist value",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/picklists",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "picklists"
+              ]
+            },
+            "description": "STATUS takes `clockBehaviour` (NOT_STARTED | RUNNING | PAUSED | STOPPED); CATEGORY needs `parentValue` (its classification). Saves `{{picklistValueId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"STATUS\",\n  \"value\": \"Postman Test Status\",\n  \"clockBehaviour\": \"PAUSED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Picklist_Value_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"picklistValueId\", String(value)); console.log(\"Saved picklistValueId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Edit picklist value",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/picklists/{{picklistValueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "picklists",
+                "{{picklistValueId}}"
+              ]
+            },
+            "description": "Renaming a status moves its tickets to the new name; changing its clock behaviour applies to tickets in it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": \"Postman Test Status 2\",\n  \"clockBehaviour\": \"RUNNING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Delete picklist value",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/picklists/{{picklistValueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "picklists",
+                "{{picklistValueId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            },
+            "description": "Saves `{{productId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Postman Test Product\",\n  \"description\": \"\",\n  \"departmentId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Product_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"productId\", String(value)); console.log(\"Saved productId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Get product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Edit product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Postman Test Product 2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Delete product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments"
+              ]
+            },
+            "description": "Saves `{{newDepartmentId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentName\": \"Postman Test Team\",\n  \"teamType\": \"Support\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Department_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"newDepartmentId\", String(value)); console.log(\"Saved newDepartmentId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Edit team",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments/{{newDepartmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments",
+                "{{newDepartmentId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentName\": \"Postman Test Team 2\",\n  \"teamType\": \"Support\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Add bank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks"
+              ]
+            },
+            "description": "Support hours are IST HH:mm. Working days MON..SUN. Saves `{{newBankId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankName\": \"Postman Test Bank\",\n  \"departmentId\": \"{{newDepartmentId}}\",\n  \"country\": \"India\",\n  \"supportLevel\": \"Gold\",\n  \"workingDays\": [\n    \"MON\",\n    \"TUE\",\n    \"WED\",\n    \"THU\",\n    \"FRI\"\n  ],\n  \"timeZone\": \"Asia/Kolkata\",\n  \"supportStartIst\": \"10:30\",\n  \"supportEndIst\": \"19:30\",\n  \"is24x7\": false,\n  \"primaryResourceIds\": [],\n  \"secondaryResourceIds\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Bank_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"newBankId\", String(value)); console.log(\"Saved newBankId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Edit bank",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks/{{newBankId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks",
+                "{{newBankId}}"
+              ]
+            },
+            "description": "Changing the calendar re-dates its open tickets.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workingDays\": [\n    \"MON\",\n    \"TUE\",\n    \"WED\",\n    \"THU\",\n    \"FRI\",\n    \"SAT\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Delete bank",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks/{{newBankId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks",
+                "{{newBankId}}"
+              ]
+            },
+            "description": "Soft delete."
+          }
+        },
+        {
+          "name": "[NEW] Delete team",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/departments/{{newDepartmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "departments",
+                "{{newDepartmentId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Agents & sign-in access",
+      "description": "Reads: any signed-in agent. Writes: agents.manage; role changes and passwords also need admin.access. The folder creates a test agent (`{{newAgentId}}`), works on it and deletes it - no real agent is touched.",
+      "item": [
+        {
+          "name": "[NEW] Create agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agents"
+              ]
+            },
+            "description": "Optional `roleId` (from Admin > List roles). No sign-in is created - set a temporary password next. Saves `{{newAgentId}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Test Agent\",\n  \"email\": \"postman.test.agent@example.com\",\n  \"departmentId\": \"{{departmentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.data?.Agent_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"newAgentId\", String(value)); console.log(\"Saved newAgentId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Update agent",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/{{newAgentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agents",
+                "{{newAgentId}}"
+              ]
+            },
+            "description": "`status: Inactive` blocks sign-in and closes their sessions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lastName\": \"Test Agent (edited)\",\n  \"status\": \"Active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Set temporary password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{newAgentId}}/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{newAgentId}}",
+                "password"
+              ]
+            },
+            "description": "admin.access. The agent must change it at first sign-in. Also clears a lockout. Put the value in `{{tempPassword}}`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{tempPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] Revoke sign-in",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{newAgentId}}/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{newAgentId}}",
+                "password"
+              ]
+            },
+            "description": "admin.access. Removes the agent's sign-in; existing tokens stop working."
+          }
+        },
+        {
+          "name": "[NEW] Delete agent",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/{{newAgentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agents",
+                "{{newAgentId}}"
+              ]
+            },
+            "description": "Soft delete; sign-in revoked."
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Admin",
+      "description": "admin.access (Admin, Manager by default).",
+      "item": [
+        {
+          "name": "[NEW] List roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "roles"
+              ]
+            },
+            "description": "With their permission keys. Saves the Team Member role's id to `{{roleId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "    const body = pm.response.json();",
+                  "    const value = (body.data || []).find((role) => role.Role_Key === \"TEAM_MEMBER\")?.Role_Id;",
+                  "    if (value) { pm.collectionVariables.set(\"roleId\", String(value)); console.log(\"Saved roleId =\", value); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[NEW] Permission catalogue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "permissions"
+              ]
+            },
+            "description": "Every permission key with label and description."
+          }
+        },
+        {
+          "name": "[NEW] Set role permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/roles/{{roleId}}/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "roles",
+                "{{roleId}}",
+                "permissions"
+              ]
+            },
+            "description": "Replaces the role's whole permission list (takes effect on the next request; the Admin role is locked). The body is the Team Member default - change it only on purpose.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"tickets.view\",\n    \"tickets.reply\",\n    \"tickets.edit_status\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[NEW] User access list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Agents with sign-in state: has password, must change, locked, last login."
+          }
+        },
+        {
+          "name": "[NEW] Login activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/login-events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "login-events"
+              ]
+            },
+            "description": "Latest sign-ins, failures (with reason) and logouts."
+          }
+        },
+        {
+          "name": "[NEW] Mail integration status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/mail-integration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "mail-integration"
+              ]
+            },
+            "description": "Mailbox, connected, sync interval. Never returns secrets."
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Gmail integration",
+      "description": "Admin only (admin.access) except the OAuth callback, which Google calls.",
+      "item": [
+        {
+          "name": "1. Get auth URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gmail/auth-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "auth-url"
+              ]
+            },
+            "description": "Open the returned URL in a browser and sign in as GMAIL_MAILBOX."
+          }
+        },
+        {
+          "name": "2. OAuth callback",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/gmail/oauth2callback?code=",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "gmail", "oauth2callback"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "oauth2callback"
+              ],
               "query": [
-                { "key": "code", "value": "", "description": "Authorization code Google appends when it redirects here - you normally reach this via the browser, not by calling it manually from Postman" }
+                {
+                  "key": "code",
+                  "value": ""
+                }
               ]
             },
-            "description": "Step 2 - Google redirects your browser here automatically after consent (GOOGLE_REDIRECT_URI must exactly match what's registered in Google Cloud Console). Exchanges `code` for tokens and returns the refresh token **once**.\n\n**Response 200**\n```json\n{ \"data\": { \"message\": \"Save refresh_token to GOOGLE_REFRESH_TOKEN in server/.env, then restart the server.\", \"refresh_token\": \"1//...\", \"access_token_expiry\": 1234567890, \"scope\": \"https://www.googleapis.com/auth/gmail.readonly\" } }\n```\nCopy `refresh_token` into `server/.env` as `GOOGLE_REFRESH_TOKEN`, then restart the server. This is a one-time step."
-          },
-          "response": []
+            "description": "Google redirects here. Shows the refresh_token to put in server/.env as GOOGLE_REFRESH_TOKEN.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
         },
         {
-          "name": "3. Run Sync",
+          "name": "3. Run sync now",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{}"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gmail/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "sync"
+              ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/gmail/sync", "host": ["{{baseUrl}}"], "path": ["api", "v1", "gmail", "sync"] },
-            "description": "Manually triggers one ingestion pass (fetch → normalize → idempotency check → contact match/create → ticket match/create → conversation + thread) for GMAIL_MAILBOX. No scheduler is wired up yet - this is a manual trigger until a cron job exists.\n\nOptional body: `{ \"mailbox\": \"other@sunoida.com\" }` to override GMAIL_MAILBOX for one call.\n\n**Response 200**\n```json\n{ \"data\": { \"fetched\": 3, \"ingested\": 3, \"skipped\": 0, \"ticketsCreated\": 2, \"errors\": [] } }\n```\n\n**Errors:** `GMAIL_NOT_CONFIGURED` (500) if GOOGLE_REFRESH_TOKEN isn't set yet (complete steps 1-2 first); `MAIL_REPLY_ADDRESS_NOT_FOUND` (500) if `npm run seed` hasn't been run for the current GMAIL_MAILBOX."
-          },
-          "response": []
+            "description": "Imports new mail now (the background job does this every GMAIL_SYNC_INTERVAL_MS)."
+          }
+        },
+        {
+          "name": "[NEW] 4. Run deletion sync now",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gmail/sync-deletions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "gmail",
+                "sync-deletions"
+              ]
+            },
+            "description": "Hides mail deleted in Gmail and restores mail taken back out of Trash."
+          }
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3456",
+      "type": "string",
+      "description": "Server origin"
+    },
+    {
+      "key": "email",
+      "value": "",
+      "type": "string",
+      "description": "Your sign-in email (fill in)"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "string",
+      "description": "Your password - keep it in your Postman environment/current value, never commit it"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Set by Login"
+    },
+    {
+      "key": "myAgentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Login"
+    },
+    {
+      "key": "departmentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List teams"
+    },
+    {
+      "key": "bankId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List banks / Add bank"
+    },
+    {
+      "key": "agentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List agents - the assignee in Assignment / Work requests"
+    },
+    {
+      "key": "blockerAgentId",
+      "value": "",
+      "type": "string",
+      "description": "Second assignee for 'waits on' (copy an Agent_Id)"
+    },
+    {
+      "key": "contactId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List contacts / Create contact / List customers"
+    },
+    {
+      "key": "ticketId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List tickets / Create ticket"
+    },
+    {
+      "key": "deletedTicketId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List recycle bin"
+    },
+    {
+      "key": "attachmentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List attachments"
+    },
+    {
+      "key": "worklogId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Log work"
+    },
+    {
+      "key": "holidayId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List holidays / Add holiday"
+    },
+    {
+      "key": "picklistValueId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List picklist values"
+    },
+    {
+      "key": "escalationLevelId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List escalation levels"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List products / Add product"
+    },
+    {
+      "key": "roleId",
+      "value": "",
+      "type": "string",
+      "description": "Set by List roles (Team Member role)"
+    },
+    {
+      "key": "priority",
+      "value": "P2",
+      "type": "string",
+      "description": "Existing priority re-saved by 'Set SLA hours'"
+    },
+    {
+      "key": "newPriority",
+      "value": "P4",
+      "type": "string",
+      "description": "Test priority created and deleted by the Configuration folder"
+    },
+    {
+      "key": "newDepartmentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Add team"
+    },
+    {
+      "key": "newBankId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Add bank"
+    },
+    {
+      "key": "newAgentId",
+      "value": "",
+      "type": "string",
+      "description": "Set by Create agent"
+    },
+    {
+      "key": "tempPassword",
+      "value": "",
+      "type": "string",
+      "description": "Temporary password for 'Set temporary password' (fill in, keep out of git)"
     }
   ]
 }

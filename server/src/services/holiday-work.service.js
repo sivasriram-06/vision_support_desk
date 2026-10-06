@@ -14,13 +14,7 @@ const { PERMISSIONS } = require("../constants/permissions");
 const { CLOCK_BEHAVIOUR } = require("../constants/ticket.constants");
 const { nowIst, toIst } = require("../utils/time");
 
-/**
- * Holiday timer: a company holiday pauses resolution time, so an agent who
- * works a ticket that day starts a timer; the stretch is added back to the
- * ticket's resolution time (resolution-clock.service holidayWorkMinutes) -
- * never to the SLA. One running timer per agent per ticket; a timer still
- * running at midnight IST is closed then (closeOverdueTimers).
- */
+// Holiday timer: adds to resolution time only, never the SLA; one per agent per ticket, closed at midnight IST.
 
 const badRequest = (message) => new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, message);
 const todayIst = () => nowIst().slice(0, 10);

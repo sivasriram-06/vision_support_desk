@@ -37,10 +37,7 @@ const createContact = (payload, actorAgentId) => {
     return getContactById(contactId);
 };
 
-/**
- * Used by the Gmail ingestion engine: reuses the existing contact for a
- * sender email when one exists, otherwise creates one from the From header.
- */
+// Gmail ingestion: reuses the contact for a sender email, otherwise creates one from the From header.
 const findOrCreateBySender = ({ email, name }, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     const existing = contactRepository.findByEmail(org.Organization_Id, email);

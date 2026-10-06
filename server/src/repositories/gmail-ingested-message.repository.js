@@ -28,10 +28,7 @@ const deleteByGmailMessageId = (gmailMessageId) => {
     db.prepare(`DELETE FROM ${TABLE} WHERE Gmail_Message_Id = ?`).run(gmailMessageId);
 };
 
-/**
- * Already handled - ingested, or its ticket was permanently deleted from
- * the recycle bin (_GMAIL_PURGED_MESSAGE). Either way the sync skips it.
- */
+// Ingested, or its ticket was purged from the recycle bin - either way the sync skips it.
 const isProcessed = (gmailMessageId) => {
     const db = getDB();
     return Boolean(
@@ -40,11 +37,7 @@ const isProcessed = (gmailMessageId) => {
     );
 };
 
-/**
- * Moves a purged ticket's message ids from the ingested list to the purged
- * list, so the mails (still in Gmail) are never imported again. Run inside
- * the purge transaction, before the ticket's rows are removed.
- */
+// Moves a purged ticket's mail ids to the purged list so they're never re-imported; run inside the purge txn.
 const markTicketPurged = (ticketId, ticketNumber) => {
     const db = getDB();
     db.prepare(

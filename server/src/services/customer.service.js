@@ -8,13 +8,7 @@ const HTTP_STATUS = require("../constants/http-status");
 const { buildPaging } = require("../utils/pagination");
 const { publish, REALTIME_EVENT } = require("../realtime/bus");
 
-/**
- * Customers page (customers.manage). Customers are never created here -
- * the Gmail sync adds one per sender address. Leads may fix the name and
- * set the bank; the email stays read-only because it's how the sync
- * matches the next mail to this customer (editing it would spawn a
- * duplicate on the sender's next mail).
- */
+// Customers come from the Gmail sync; email stays read-only since the sync matches mail by it (no duplicates).
 
 const listCustomers = (query) => {
     const org = organizationService.getDefaultOrganization();
@@ -39,8 +33,7 @@ const updateCustomer = (contactId, payload, actorAgentId) => {
 
     const changes = { Modified_By: actorAgentId };
     if (payload.name !== undefined) {
-        // Split the way ingestion splits a From name: first word is the
-        // first name, the rest the last name; one word = last name only.
+        // Split like ingestion: first word = first name, rest = last name; one word = last name only.
         const [first, ...rest] = payload.name.trim().split(/\s+/);
         changes.First_Name = rest.length > 0 ? first : null;
         changes.Last_Name = rest.length > 0 ? rest.join(" ") : first;

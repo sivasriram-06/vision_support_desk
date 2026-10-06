@@ -3,8 +3,7 @@ const createRepository = require("./base.repository");
 const DB_TABLES = require("../constants/db-tables");
 const { TICKET_ASSIGNMENT_COLUMNS } = require("../models/ticket.model");
 
-// HD_TICKET_ASSIGNMENT has no Is_Deleted/Modified_* columns (rows are
-// released, never deleted), so it doesn't use the base soft-delete helpers.
+// Assignment rows are released, never deleted (no Is_Deleted/Modified_*), so no base soft-delete helpers.
 const base = createRepository({
     table: DB_TABLES.TICKET_ASSIGNMENT,
     primaryKey: "Assignment_Id",

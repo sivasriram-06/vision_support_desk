@@ -16,10 +16,7 @@ const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
 
 const customerName = (c) => c.Full_Name || c.Email || 'Unknown'
 
-/**
- * Customers: everyone who has mailed the support inbox (the Gmail sync adds
- * them automatically). Card grid with search, bank filter and an A-Z bar.
- */
+// Everyone who has mailed the support inbox (added by the Gmail sync), with search, bank filter and A-Z bar.
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')

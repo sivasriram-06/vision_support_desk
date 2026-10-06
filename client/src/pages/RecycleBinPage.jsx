@@ -19,11 +19,7 @@ const COLUMNS = [
   { label: '', width: '11%' },
 ]
 
-/**
- * Recycle bin (tickets.delete: Admin, Manager, Team Lead): tickets a person
- * deleted. Each can be restored until its time runs out (RECYCLE_BIN_DAYS on
- * the server); then the purge job deletes it for good.
- */
+// Deleted tickets, restorable until RECYCLE_BIN_DAYS (server) run out; then the purge job deletes them for good.
 export default function RecycleBinPage() {
   const [state, setState] = useState({ loading: true, error: null, tickets: [], retentionDays: null })
   const [reloadKey, setReloadKey] = useState(0)

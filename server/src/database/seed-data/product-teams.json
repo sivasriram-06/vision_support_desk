@@ -5,8 +5,11 @@
     { "name": "Angular Team", "sanitizedName": "angular-team", "teamType": "Product" }
   ],
   "agents": [
-    { "firstName": "Java", "lastName": "Member 1", "email": "java.member1@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
-    { "firstName": "Java", "lastName": "Member 2", "email": "java.member2@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Vishwakkanna", "lastName": "Radhakrishnan", "email": "vishwakkanna.radhakrishnan@sunoida.com", "team": "Java Team", "role": "TEAM_LEAD", "shift": "General" },
+    { "firstName": "Ragulraja", "lastName": "Ravichandhiran", "email": "ragulraja.ravichandhiran@sunoida.com", "team": "Java Team", "role": "ASSISTANT_TEAM_LEAD", "shift": "General" },
+    { "firstName": "Dillipkumar", "lastName": "Natarajan", "email": "dillipkumar.natarajan@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Gokulkumar", "lastName": "Palanisamy", "email": "gokulkumar.palanisamy@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
+    { "firstName": "Kowshigan", "lastName": "Rajendiren", "email": "kowshigan.rajendiren@sunoida.com", "team": "Java Team", "role": "TEAM_MEMBER", "shift": "General" },
     { "firstName": "Angular", "lastName": "Member 1", "email": "angular.member1@sunoida.com", "team": "Angular Team", "role": "TEAM_MEMBER", "shift": "General" },
     { "firstName": "Angular", "lastName": "Member 2", "email": "angular.member2@sunoida.com", "team": "Angular Team", "role": "TEAM_MEMBER", "shift": "General" }
   ]

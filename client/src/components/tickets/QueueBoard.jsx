@@ -25,8 +25,7 @@ const readStoredMode = () => {
   }
 }
 
-// The list endpoint pages at 100; a queue board needs every ticket in the
-// queue, so walk the pages.
+// The list endpoint pages at 100; a queue board needs every ticket, so walk the pages.
 const fetchAllTickets = async (params) => {
   const all = []
   for (let page = 1; page <= 50; page += 1) {
@@ -37,11 +36,7 @@ const fetchAllTickets = async (params) => {
   return all
 }
 
-/**
- * Team Queue / Bank Queue: every ticket for one support team or one bank,
- * as columns grouped by priority or by status (the admin-managed lists
- * from the Config page, in their configured order).
- */
+// Team / Bank queue: every ticket of one team or bank in columns by priority or status (Config order).
 export default function QueueBoard({ view, selectedId, onSelect }) {
   const [mode, setMode] = useState(readStoredMode)
   const [scopes, setScopes] = useState({ teams: [], banks: [] })
@@ -84,8 +79,7 @@ export default function QueueBoard({ view, selectedId, onSelect }) {
     if (!quiet) setState((prev) => ({ ...prev, loading: true, error: null }))
     const scope = selectedId ? (isTeam ? { departmentId: selectedId } : { bankId: selectedId }) : {}
     fetchAllTickets(scope)
-      // "All banks" means tickets that have a bank; not-yet-routed intake mail
-      // only shows under "All support teams".
+      // "All banks" means tickets with a bank; unrouted intake mail only shows under "All support teams".
       .then((tickets) => !cancelled && setState({ loading: false, error: null, tickets: !selectedId && !isTeam ? tickets.filter((t) => t.Bank_Id) : tickets }))
       .catch((err) => !cancelled && setState({ loading: false, error: err instanceof ApiError ? err.message : 'Failed to load queue.', tickets: [] }))
     return () => {
@@ -117,8 +111,7 @@ export default function QueueBoard({ view, selectedId, onSelect }) {
   }, [mode, columnsConfig, state.tickets])
 
   const scopeName = options.find((o) => o.value === selectedId)?.label
-  // Breached = open past due, or resolved/closed after due (getSlaState
-  // judges a stopped ticket at its Resolved_Time).
+  // Breached = open past due, or resolved/closed after due (judged at Resolved_Time).
   const breached = state.tickets.filter((t) => getSlaState(t)?.overdue).length
 
   return (

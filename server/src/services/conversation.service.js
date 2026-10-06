@@ -17,11 +17,7 @@ const listByTicket = (ticketId) => {
     return conversationRepository.findByTicketId(ticketId);
 };
 
-/**
- * Agent reply on a ticket (POST /api/v1/tickets/{id}/conversations).
- * Increments the ticket's Thread_Count and writes a history row in the same
- * transaction as the conversation insert.
- */
+// Agent reply: bumps Thread_Count and writes history in the same transaction as the conversation insert.
 const addReply = (ticketId, payload, actorAgentId) => {
     ticketService.getTicketById(ticketId);
     const org = organizationService.getDefaultOrganization();

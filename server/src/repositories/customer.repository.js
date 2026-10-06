@@ -3,12 +3,7 @@ const DB_TABLES = require("../constants/db-tables");
 const { parsePagination } = require("../utils/pagination");
 const { nowIst } = require("../utils/time");
 
-/**
- * Customers = HD_CONTACT_MASTER rows (every Gmail From address) with
- * their bank and ticket counts. Closed = a stopped clock (the Closed
- * status); overdue = not closed and past its SLA due date
- * (IST ISO +05:30, so text comparison orders correctly).
- */
+// Customers = contacts with bank and ticket counts; closed = stopped clock, overdue = open and past SLA due date.
 
 const NAME_SQL = "TRIM(COALESCE(c.First_Name || ' ', '') || COALESCE(c.Last_Name, ''))";
 

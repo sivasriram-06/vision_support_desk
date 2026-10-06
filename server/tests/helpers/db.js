@@ -5,11 +5,7 @@ const { seed } = require("../../src/database/seed");
 
 let ready = false;
 
-/**
- * Fresh database for this test file: every migration, then the normal seed
- * (organization, roles, teams, agents, banks, statuses, priorities,
- * escalation levels, holidays). Safe to call more than once.
- */
+// Fresh database for this test file: every migration, then the normal seed; safe to call more than once.
 const setupDatabase = () => {
     if (!ready) {
         connectDB();

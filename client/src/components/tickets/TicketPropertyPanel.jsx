@@ -120,10 +120,7 @@ const fullNameOf = (a) => [a.First_Name, a.Last_Name].filter(Boolean).join(' ')
 const formatInZone = (date, timeZone) =>
   new Date(date).toLocaleString(undefined, { timeZone, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
-/**
- * SLA due date: priority SLA hours from when the ticket came in, on the
- * bank's working days. Fixed - status changes never move it.
- */
+// Current escalation level and when the next one falls due.
 function EscalationLine({ escalation }) {
   if (!escalation || (escalation.level === 0 && !escalation.nextTriggerTime)) return null
   const minutesToNext = escalation.nextTriggerTime ? (new Date(escalation.nextTriggerTime) - new Date()) / 60000 : null
@@ -148,6 +145,7 @@ function EscalationLine({ escalation }) {
   )
 }
 
+// SLA due: priority SLA hours from arrival on the bank's working days; fixed, status changes never move it.
 function SlaSection({ ticket, bank, escalation, holidays = [] }) {
   const sla = getSlaState(ticket)
   return (
@@ -197,17 +195,7 @@ function SlaSection({ ticket, bank, escalation, holidays = [] }) {
   )
 }
 
-/**
- * Live metrics for the SLA/Resolution blocks (resolution total, escalation
- * level). Refreshed every minute while the ticket is open, so a running
- * clock ticks and a new escalation level shows up.
- */
-/**
- * Metrics (resolution clock, SLA, escalation) for the panel. No polling:
- * refetched when the server says this ticket changed (WebSocket), and once
- * when the support clock flips (liveClock.until - end of today's support
- * window or the next one's start).
- */
+// Panel metrics, no polling: refetched on WebSocket ticket events and once when the support clock flips (until).
 function useTicketMetrics(ticket) {
   const [metrics, setMetrics] = useState(null)
   const load = useCallback(
@@ -236,10 +224,7 @@ function useTicketMetrics(ticket) {
   return metrics
 }
 
-/**
- * Re-renders every minute on the clock while `active`, so "due in 3h" /
- * the live resolution clock stay current. Display only - no request.
- */
+// Re-renders on each clock minute while `active` so relative times stay current; display only, no request.
 function useMinuteTick(active) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -250,10 +235,7 @@ function useMinuteTick(active) {
   return now
 }
 
-/**
- * Resolution minutes shown live: the server's value plus the minutes since
- * it was computed while the support clock is counting (capped at `until`).
- */
+// Server's resolution minutes plus time since computed while the clock counts (capped at `until`).
 const liveResolutionMinutes = (metrics, now) => {
   if (!metrics) return 0
   const live = metrics.liveClock
@@ -263,11 +245,7 @@ const liveResolutionMinutes = (metrics, now) => {
   return (metrics.resolutionMinutes ?? 0) + Math.max(0, Math.floor((to - from) / 60000))
 }
 
-/**
- * Resolution time: how long our side actually worked the ticket - runs
- * in "In Progress", pauses while waiting on the bank, stops when resolved.
- * Only the bank's support hours count (full day on 24x7 banks).
- */
+// Resolution time: runs In Progress, pauses waiting on the bank, stops when resolved; support hours only.
 function ResolutionSection({ ticket, bank, metrics, now }) {
   const clock = getClockStyle(ticket.Clock_State)
   const liveMinutes = liveResolutionMinutes(metrics, now)
@@ -301,11 +279,7 @@ function ResolutionSection({ ticket, bank, metrics, now }) {
   )
 }
 
-/**
- * On a company holiday the resolution clock is paused. An agent who works
- * the ticket starts this timer; the time counts toward resolution time
- * (never the SLA). On stop it offers to log the minutes as work.
- */
+// Holiday work timer: counts toward resolution time (never the SLA); on stop offers to log the minutes as work.
 function HolidayTimer({ ticket, timer, now }) {
   const { agent: me } = useAuth()
   const [busy, setBusy] = useState(false)
@@ -387,8 +361,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
   const [options, setOptions] = useState({ departments: [], banks: [], products: [], classifications: [], priorities: [], statuses: [] })
   const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState(null)
-  // Modified_Time the edit form was filled from: a live update from someone
-  // else must not overwrite what's being typed - it shows a Reload bar instead.
+  // Modified_Time the form was filled from; a remote update shows a Reload bar instead of overwriting typing.
   const [editBase, setEditBase] = useState(null)
   const ticketRef = useRef(ticket)
   useEffect(() => {
@@ -460,8 +433,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
 
-  // A bank is worked by one support team, so choosing it also routes the
-  // ticket to that team's department (the server applies the same rule).
+  // A bank has one support team, so choosing it also routes to that team (server applies the same rule).
   const updateBank = (bankId) =>
     setForm((prev) => {
       const picked = options.banks.find((b) => b.Bank_Id === bankId)
@@ -471,9 +443,7 @@ export default function TicketPropertyPanel({ ticket, contact, department, bank,
   const updateClassification = (value) =>
     setForm((prev) => ({ ...prev, classification: value, category: '' }))
 
-  // Only fields the agent actually changed are sent: the server authorizes
-  // per field (a Team Member may change Status but not Priority), so
-  // re-sending untouched values would be refused for no reason.
+  // Send only changed fields: the server authorizes per field, so untouched values could be refused.
   const buildChanges = () => {
     const next = {
       status: form.status || null,

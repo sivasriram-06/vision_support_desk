@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
-/**
- * Text input matching the reference's `.input` treatment: soft inset shadow, orange focus ring.
- * type="password" adds our own show/hide eye (same in every browser; Edge's built-in one is hidden in index.css).
- */
+// type="password" adds our own show/hide eye (Edge's built-in one is hidden in index.css).
 export default function Input({ icon: Icon, className = '', type, ...props }) {
   const isPassword = type === 'password'
   const [visible, setVisible] = useState(false)

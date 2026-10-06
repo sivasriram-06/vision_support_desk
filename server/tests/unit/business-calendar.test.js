@@ -142,8 +142,7 @@ test("holiday: 24x7 bank keeps counting unless the setting applies holidays to 2
 
 test("holiday: an IST holiday cuts a bank-local day by its IST hours (Kenya bank)", () => {
     withHolidays(["2026-12-25"], false, () => {
-        // Nairobi is 2.5h behind IST: 25 Dec IST = 24 Dec 21:30 -> 25 Dec 21:30 Nairobi.
-        // Thu 12:00-21:30 (9.5h) + Fri 21:30-24:00 (2.5h) = 12h -> Sat 00:00 Nairobi.
+        // Holiday = 24 Dec 21:30-25 Dec 21:30 Nairobi; Thu 9.5h + Fri 2.5h after it = 12h -> Sat 00:00 Nairobi.
         const kenya = getCalendar({ Working_Days: "MON,TUE,WED,THU,FRI", Time_Zone: "Africa/Nairobi", Is_24x7: "N" });
         const due = addWorkingHours(local("2026-12-24T12:00", "Africa/Nairobi"), 12, kenya);
         assert.equal(asLocal(due, "Africa/Nairobi"), "Sat 2026-12-26 00:00");

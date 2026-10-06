@@ -15,8 +15,7 @@ const SORT_OPTIONS = [
 /** Search + status + priority + sort toolbar for the All Cases list. Naked row, no card wrapper - matches the reference's filter-bar convention. */
 export default function TicketFilters({ filters, onChange }) {
   const set = (patch) => onChange({ ...filters, ...patch })
-  // Status and Priority options are the admin-managed lists from the Config
-  // page, so the filter always matches what agents can set on a ticket.
+  // Status and Priority options come from the Config lists, so filters match what agents can set.
   const [options, setOptions] = useState({ statuses: [], priorities: [] })
 
   useEffect(() => {

@@ -51,11 +51,7 @@ const formatArgsForFile = (args) => args.map((arg) => {
     return String(arg);
 }).join(" ");
 
-/**
- * Appends one line to logs/<date>.log (every level) and, for errors, also
- * to logs/error-<date>.log - so an ops person can `tail` just the errors.
- * One file per calendar day (in TIMEZONE) doubles as simple log rotation.
- */
+// Daily logs/<date>.log plus logs/error-<date>.log for errors only; one file per day doubles as rotation.
 const writeToFile = (level, date, line) => {
     if (!env.logging.toFile) {
         return;

@@ -4,13 +4,7 @@ const { publish, REALTIME_EVENT } = require("../realtime/bus");
 const logger = require("../utils/logger");
 const { nowIst } = require("../utils/time");
 
-/**
- * Escalation levels are reached by time passing, not by anyone's action,
- * so no service publishes them. Once a minute this finds open tickets
- * whose next escalation trigger fell in (lastRun, now] and publishes one
- * escalation.changed event - one server check instead of every browser
- * polling the Escalations board.
- */
+// Levels are reached by time, not actions, so each minute publish escalation.changed for triggers in (lastRun, now].
 const WATCH_INTERVAL_MS = 60 * 1000;
 let handle = null;
 let lastRunIso = nowIst();

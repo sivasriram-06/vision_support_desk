@@ -59,11 +59,7 @@ const childCounts = (ticketId) => Object.fromEntries(CHILD_TABLES.map((table) =>
 ]));
 
 let rowSeq = 0;
-/**
- * Gives a ticket a row in every child table (straight SQL - the service
- * paths for mail, assignment and work tracking are heavy) plus a file on
- * disk for its attachment. Returns the Gmail message id and file path.
- */
+// A row in every child table (straight SQL, the service paths are heavy) plus an attachment file on disk.
 const addChildRows = (ticketId) => {
     const db = getDB();
     const org = orgId();

@@ -76,8 +76,7 @@ const detailChanges = (payload) => {
         if (payload[key] !== undefined) changes[column] = blankToNull(payload[key]);
     }
     if (payload.is24x7 !== undefined) changes.Is_24x7 = payload.is24x7 ? "Y" : "N";
-    // 24x7 cover means every day counts for SLA; otherwise store the picked
-    // days in week order.
+    // 24x7 cover means every day counts for SLA; otherwise store the picked days in week order.
     if (payload.is24x7 === true) {
         changes.Working_Days = WEEKDAYS.join(",");
     } else if (payload.workingDays !== undefined) {
@@ -99,12 +98,7 @@ const assertSupportWindow = (start, end) => {
     }
 };
 
-/**
- * A bank's calendar feeds every SLA due date on its tickets, so when it
- * changes, open tickets (not resolved/closed) are re-dated on the new
- * calendar, along with their escalation triggers. Resolved tickets keep
- * the SLA they were measured against.
- */
+// Calendar change re-dates open tickets' SLA and escalation triggers; resolved tickets keep their measured SLA.
 const recomputeOpenTicketSlas = (bankId, orgId, actorAgentId) => {
     for (const ticket of ticketRepository.findOpenWithPriorityByBankId(bankId)) {
         // From Sla_Start_Time: a reopened ticket's SLA restarts at the reopen.

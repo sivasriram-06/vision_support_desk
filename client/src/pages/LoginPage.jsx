@@ -4,8 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../utils/api.js'
 import { PasswordToggle } from '../components/ui/Input.jsx'
 
-// Layout follows the Vision AI Ops sign-in screen (AI_SunoidaProjectManagement):
-// navy brand panel on the left, white form panel with the Sunoida lockup on the right.
+// Layout follows the Vision AI Ops sign-in screen (AI_SunoidaProjectManagement).
 const STATS = [
   { n: '8', l: 'Support teams' },
   { n: '36+', l: 'Banks' },

@@ -1,10 +1,7 @@
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 
-/**
- * Normalizes page/limit query params into a safe offset + limit pair, per
- * the project's API standard (default 50, max 100).
- */
+// Safe offset + limit from page/limit query params (default 50, max 100).
 const parsePagination = (query = {}) => {
     let limit = Number.parseInt(query.limit, 10);
     if (!Number.isFinite(limit) || limit <= 0) {
@@ -21,10 +18,7 @@ const parsePagination = (query = {}) => {
     return { page, limit, offset };
 };
 
-/**
- * Builds the {limit,nextCursor,hasMore} paging block from a page/limit
- * request and the total row count.
- */
+// Builds the {limit,nextCursor,hasMore} paging block.
 const buildPaging = ({ page, limit }, total) => {
     const hasMore = page * limit < total;
     return {

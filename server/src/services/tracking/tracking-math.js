@@ -1,11 +1,4 @@
-/**
- * Pure maths for the ticket Tracking tab - no DB access. Times are epoch
- * milliseconds; open intervals are closed at `now` (or the ticket's
- * resolved time) by the caller.
- *
- * `measure(startMs, endMs)` returns the minutes to report for a stretch
- * (callers pass elapsed minutes and bank support-hours minutes).
- */
+// Pure Tracking maths over epoch ms; callers close open intervals and pass `measure` (elapsed/support mins).
 
 const WAIT_STATES = new Set(["PENDING", "WAITING", "READY", "ON_HOLD"]);
 
@@ -31,11 +24,7 @@ const unionMinutes = (intervals) => {
     return Math.floor(total / MINUTE);
 };
 
-/**
- * Time in each ticket status, from the status-change events.
- * `changes` = [{ time, from, to }] sorted by time; the ticket starts in
- * `initialStatus` at `startMs` and the last stretch runs to `endMs`.
- */
+// Status stretches from time-sorted changes, starting in `initialStatus` at `startMs`, last running to `endMs`.
 const statusStretches = ({ startMs, endMs, initialStatus, changes }) => {
     const stretches = [];
     let status = initialStatus;
@@ -57,12 +46,7 @@ const sumBy = (stretches, keyOf, measure) =>
         return acc;
     }, {});
 
-/**
- * Critical path through the dependency graph: the chain of assignments
- * (blocker -> dependent) with the largest total span. `lanes` =
- * [{ id, spanMinutes }], `edges` = [{ from: blockerId, to: dependentId }].
- * Returns { ids: [...] in order, slowestId } - empty when no lanes.
- */
+// Critical path: the blocker -> dependent chain of assignments with the largest total span.
 const criticalPath = (lanes, edges) => {
     const span = new Map(lanes.map((l) => [l.id, l.spanMinutes]));
     const preds = new Map(lanes.map((l) => [l.id, []]));
@@ -86,8 +70,7 @@ const criticalPath = (lanes, edges) => {
 
     let endId = null;
     for (const l of lanes) {
-        // solve() first: short-circuiting it on the first lane left a
-        // single-assignee ticket with no path entry.
+        // solve() first: short-circuiting it left a single-assignee ticket with no path entry.
         const total = solve(l.id).total;
         if (endId === null || total > best.get(endId).total) endId = l.id;
     }
@@ -97,12 +80,7 @@ const criticalPath = (lanes, edges) => {
     return { ids, slowestId, totalMinutes: endId ? best.get(endId).total : 0 };
 };
 
-/**
- * The single longest wait on the ticket - the answer to "where did it get
- * stuck". Candidates: an assignee's PENDING / WAITING / READY / ON_HOLD
- * stretch, and ticket status stretches whose clock is NOT_STARTED
- * (waiting to be picked up) or PAUSED (waiting on the bank).
- */
+// "Where did it get stuck": longest assignee wait-state or NOT_STARTED/PAUSED status stretch.
 const longestWait = ({ laneStretches, statusStretchList, clockOf }) => {
     let best = null;
     const consider = (candidate) => {

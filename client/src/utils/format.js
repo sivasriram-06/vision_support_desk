@@ -1,6 +1,4 @@
-// The server stores and returns every time as IST ISO with its offset
-// (2026-09-30T17:53:00.123+05:30); times are also shown in IST, whatever the
-// browser's own zone.
+// Server times are IST ISO with offset (+05:30) and are shown in IST whatever the browser's zone.
 export const IST_ZONE = 'Asia/Kolkata'
 
 /** A stored timestamp -> Date (or null). Old 'YYYY-MM-DD HH:MM:SS' values are UTC. */

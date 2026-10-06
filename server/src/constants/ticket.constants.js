@@ -1,22 +1,14 @@
-/**
- * Enum values captured from docs/Zoho_Desk_Table_Config.xlsx (HD_TICKET_MASTER
- * and related sheets). Status itself is tenant-configurable free text;
- * Status_Type is the fixed system bucket every Status maps into.
- */
+// Status is configurable free text; Status_Type is the fixed system bucket every Status maps into.
 const STATUS_TYPE = {
     OPEN: "Open",
     ON_HOLD: "On Hold",
     CLOSED: "Closed"
 };
 
-// Status every ticket created from an incoming email starts in, until a
-// team lead picks it up. Must exist in the STATUS picklist
-// (seed-data/config.json).
+// Starting status of email-created tickets until a team lead picks them up; must exist in the STATUS picklist.
 const NEW_EMAIL_TICKET_STATUS = "Unassigned";
 
-// What a ticket's resolution clock does while in a given Status (set per
-// status on the Config page, HD_PICKLIST_VALUE.Clock_Behaviour). The SLA
-// due date is not affected - it never pauses.
+// Resolution clock behaviour per Status (Config page); the SLA due date never pauses.
 const CLOCK_BEHAVIOUR = {
     NOT_STARTED: "NOT_STARTED", // e.g. Unassigned, Open - work not begun
     RUNNING: "RUNNING",         // e.g. In Progress - our side working
@@ -58,24 +50,19 @@ const TICKET_HISTORY_EVENT = {
     // HD_TICKET_ASSIGNMENT changes; New_Value / Old_Value hold the agent id.
     ASSIGNEE_ADDED: "ASSIGNEE_ADDED",
     ASSIGNEE_REMOVED: "ASSIGNEE_REMOVED",
-    // Assignment work tracking (Tracking tab). New_Value = work state /
-    // blocker assignment id / minutes; Field_Name = the assignee's agent id.
+    // Tracking tab: New_Value = work state / blocker assignment id / minutes; Field_Name = assignee agent id.
     WORK_STATE_CHANGE: "WORK_STATE_CHANGE",
     WORK_UNBLOCKED: "WORK_UNBLOCKED",
     DEPENDENCY_ADDED: "DEPENDENCY_ADDED",
     DEPENDENCY_REMOVED: "DEPENDENCY_REMOVED",
     WORKLOG_ADDED: "WORKLOG_ADDED",
     CONVERSATION_ADDED: "CONVERSATION_ADDED",
-    // Replies on a Closed ticket (ticket-reopen.service.js). REOPENED:
-    // New_Value = reopen no. SPLIT_TO / SPLIT_FROM: New_Value = the other
-    // ticket id. CLOSE_REPLY_DISMISSED: New_Value = replies cleared.
+    // Closed-ticket replies: New_Value = reopen no. / other ticket id (SPLIT_*) / replies cleared (DISMISSED).
     REOPENED: "REOPENED",
     SPLIT_TO: "SPLIT_TO",
-    // A person deleted the ticket (tickets.delete) - never written by the
-    // Gmail deletion sync, so ingestion can tell the two apart.
+    // Deleted by a person, never by the Gmail deletion sync, so ingestion can tell the two apart.
     TICKET_DELETED: "TICKET_DELETED",
-    // Brought back from the recycle bin. Whichever of TICKET_DELETED /
-    // TICKET_RESTORED is latest says whether a person has it deleted now.
+    // Restored from the recycle bin; the latest of DELETED/RESTORED says whether it is deleted now.
     TICKET_RESTORED: "TICKET_RESTORED",
     SPLIT_FROM: "SPLIT_FROM",
     CLOSE_REPLY_DISMISSED: "CLOSE_REPLY_DISMISSED",

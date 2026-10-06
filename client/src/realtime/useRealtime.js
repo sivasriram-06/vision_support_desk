@@ -17,14 +17,7 @@ export const RT = {
 /** Every event that can change what a ticket list / queue shows. */
 export const TICKET_LIST_EVENTS = [RT.TICKET_CREATED, RT.TICKET_CHANGED, RT.TICKET_DELETED, RT.TICKET_ASSIGNMENT, RT.TICKET_REOPEN, RT.TICKET_CONVERSATION]
 
-/**
- * Runs `handler(events)` when any of `types` arrives - bursts are grouped
- * (e.g. the Gmail sync importing 50 mails) into one call per `debounceMs`
- * with every event of the burst. Also called after a reconnect (events may
- * have been missed), with `[]`.
- *
- * `ticketId`: only events about that ticket (ticketId / ticketIds).
- */
+// Calls handler(events) once per debounced burst of `types`, and with [] after a reconnect; `ticketId` filters.
 export default function useRealtime(types, handler, { ticketId = null, debounceMs = 500 } = {}) {
   const realtime = useContext(RealtimeContext)
   const handlerRef = useRef(handler)

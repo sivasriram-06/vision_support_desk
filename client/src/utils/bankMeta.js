@@ -9,8 +9,7 @@ const LEVEL_STYLE = {
 
 export const getSupportLevelStyle = (level) => LEVEL_STYLE[level] || LEVEL_STYLE.Silver
 
-// SLA calendar (server/src/services/sla/business-calendar.js): which days
-// count, in the bank's own time zone.
+// SLA calendar working days, counted in the bank's own time zone (server: sla/business-calendar.js).
 export const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 export const DEFAULT_WORKING_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI']
 
@@ -31,9 +30,7 @@ export const TIME_ZONES = [
   { value: 'Asia/Kolkata', label: 'India (Asia/Kolkata)' },
 ]
 
-// Support window (server: Support_Start_Ist / Support_End_Ist) - IST, the
-// support team's clock. Resolution time only counts inside it on working
-// days; a 24x7 bank counts the full day.
+// Support window in IST: resolution time counts only inside it on working days (24x7 banks: full day).
 export const DEFAULT_SUPPORT_START_IST = '10:30'
 export const DEFAULT_SUPPORT_END_IST = '19:30'
 const IST_OFFSET_MINUTES = 330 // Asia/Kolkata, no DST

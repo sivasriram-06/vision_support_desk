@@ -19,12 +19,7 @@ import {
 const errorText = (err, fallback) => (err instanceof ApiError ? err.message : fallback)
 const shortDate = (iso) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString(undefined, { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' })
 
-/**
- * Company holiday calendar (Admin / Manager / Team Lead - holidays.manage).
- * Days our support team is off: the SLA due date and resolution time skip
- * them like a weekend. Each year is entered on its own. The 24x7 setting
- * decides whether Premium banks skip them too. Saving re-dates open tickets.
- */
+// SLA and resolution time skip holidays like a weekend (24x7 per setting); saving re-dates open tickets.
 export default function HolidayManager({ className = '' }) {
   const thisYear = new Date().getFullYear()
   const [year, setYear] = useState(thisYear)

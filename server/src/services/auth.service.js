@@ -25,11 +25,7 @@ const invalidCredentials = () =>
 // Stored like every other timestamp: IST ISO (utils/time.js).
 const sqliteNow = nowIst;
 
-/**
- * Loads everything a request needs to authorize the acting agent. Read
- * fresh from the database on every request (not from the JWT) so a role
- * change, permission edit or deactivation takes effect immediately.
- */
+// Read fresh from the DB on every request (not the JWT) so role/permission/deactivation changes apply at once.
 const buildPrincipal = (agentId) => {
     const agent = agentRepository.findDirectoryById(agentId);
     if (!agent) return null;
@@ -138,8 +134,7 @@ const setPassword = (agentId, password, { mustChange, actorAgentId }) => {
             Org_Id: org.Organization_Id
         });
     }
-    // A temporary password (admin reset) blocks everything until it's
-    // changed - close their live-update sockets too.
+    // A temporary password blocks everything until changed - close their live-update sockets too.
     if (mustChange) publish({ type: REALTIME_EVENT.SESSION_REVOKED }, { toAgents: [agentId] });
 };
 

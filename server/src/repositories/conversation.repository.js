@@ -13,12 +13,7 @@ const conversationBase = createRepository({
     columns: TICKET_CONVERSATION_COLUMNS
 });
 
-/**
- * Joins in the ACTUAL author of each message (contact for inbound, agent
- * for outbound) rather than leaving callers to assume every inbound message
- * in a thread came from the ticket's single primary Contact_Id - a thread
- * can (and often does) have multiple different people replying.
- */
+// Joins each message's ACTUAL author: a thread often has several people replying, not just the ticket's contact.
 const findByTicketId = (ticketId) => {
     const db = getDB();
     return db.prepare(`
@@ -89,12 +84,7 @@ const decidePendingCloseReplies = (ticketId, decision, actorAgentId) => {
     ).run(decision, actorAgentId, ticketId).changes;
 };
 
-/**
- * "Create as new issue": moves the mails from `fromTime` on (the first
- * pending reply and everything after it) with their threads and
- * attachments to `toTicketId`. Returns { conversations, threads, attachments }
- * moved, for the tickets' counters.
- */
+// "Create as new issue": moves mails from `fromTime` on, with threads and attachments; returns counts moved.
 const moveFromTime = (fromTicketId, toTicketId, fromTime, actorAgentId) => {
     const db = getDB();
     const ids = db.prepare(

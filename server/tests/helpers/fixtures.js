@@ -13,11 +13,7 @@ const TEST_PASSWORD = "VsdTest@2026";
 const systemAgentId = () => organizationService.getSystemAgent().Agent_Id;
 const orgId = () => organizationService.getDefaultOrganization().Organization_Id;
 
-/**
- * An active seeded agent with the given role (ADMIN, MANAGER, TEAM_LEAD,
- * ASSISTANT_TEAM_LEAD, TEAM_MEMBER). `departmentId` picks one in that team;
- * `exclude` skips agent ids already used.
- */
+// An active seeded agent with the given role key, optionally in/not in a team and excluding used ids.
 const agentWithRole = (roleKey, { departmentId = null, notDepartmentId = null, exclude = [] } = {}) => {
     const rows = getDB().prepare(
         `SELECT a.*, r.Role_Key FROM HD_AGENT_MASTER a

@@ -81,10 +81,7 @@ const getTicketDetail = (ticketId) => {
     return ticketRepository.findDetailById(ticketId);
 };
 
-/**
- * Creates a ticket + its initial history row + an empty metrics row in one
- * transaction, per "use transactions for multi-table business operations".
- */
+// Ticket, initial history row and empty metrics row are written in one transaction.
 const createTicket = (payload, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
 
@@ -102,9 +99,7 @@ const createTicket = (payload, actorAgentId) => {
     const createTxn = db.transaction(() => {
         const ticketId = generateId(DB_TABLES.TICKET);
         const ticketNumber = ticketRepository.findNextTicketNumber(org.Organization_Id);
-        // Email tickets are born when Gmail received the mail, not when the
-        // sync ran (internal callers only - the API schema doesn't accept
-        // it). Clamped to now so clock skew can't put it in the future.
+        // Email tickets date from Gmail receipt (internal callers only), clamped to now against clock skew.
         const sourceMs = payload.createdTime ? new Date(payload.createdTime).getTime() : NaN;
         const createdTime = Number.isNaN(sourceMs) ? nowIso() : toIst(Math.min(sourceMs, Date.now()));
         const statusType = payload.statusType || STATUS_TYPE.OPEN;
@@ -123,8 +118,7 @@ const createTicket = (payload, actorAgentId) => {
             Department_Id: departmentForBank(payload.bankId) || payload.departmentId,
             Bank_Id: payload.bankId || null,
             Contact_Id: payload.contactId,
-            // Copied from the old ticket on "Create as new issue"
-            // (internal callers only - not in the API schema).
+            // Copied from the old ticket on "Create as new issue" (internal callers only - not in the API schema).
             Classification: payload.classification || null,
             Category: payload.category || null,
             Sub_Category: payload.subCategory || null,
@@ -132,8 +126,7 @@ const createTicket = (payload, actorAgentId) => {
             Split_From_Ticket_Id: payload.splitFromTicketId || null,
             Sla_Start_Time: createdTime,
             Response_Due_Date: dueDate,
-            // Stored explicitly as IST ISO (same instant the SLA was computed
-            // from) - see utils/time.js; one format keeps text sorting right.
+            // Explicit IST ISO (same instant the SLA used); one format keeps text sorting right.
             Created_Time: createdTime,
             Created_By: actorAgentId,
             Org_Id: org.Organization_Id
@@ -155,8 +148,7 @@ const createTicket = (payload, actorAgentId) => {
             Org_Id: org.Organization_Id
         });
 
-        // Start the resolution clock if the ticket is created straight into
-        // a running status (email tickets start "Unassigned" = not started).
+        // Start the resolution clock if created straight into a running status (email tickets aren't).
         const clockChanges = resolutionClock.applyStatusChange({
             ticket: { Ticket_Id: ticketId, Clock_State: "NOT_STARTED" },
             newStatus: status,
@@ -179,10 +171,7 @@ const createTicket = (payload, actorAgentId) => {
     return getTicketDetail(ticketId);
 };
 
-/**
- * Updates a ticket and writes one HD_TICKET_HISTORY row per changed field,
- * per "all ticket mutations create history records".
- */
+// Writes one HD_TICKET_HISTORY row per changed field.
 const updateTicket = (ticketId, payload, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     const existing = getTicketById(ticketId);
@@ -200,9 +189,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         classification: "Classification"
     };
 
-    // A bank is worked by exactly one support team, so picking the bank
-    // routes the ticket to that team's department unless the caller set a
-    // department explicitly in the same request.
+    // One support team per bank: picking a bank routes to its team unless a department is set in the same request.
     if (payload.bankId && payload.bankId !== existing.Bank_Id && payload.departmentId === undefined) {
         const bankDepartmentId = departmentForBank(payload.bankId);
         if (bankDepartmentId) payload = { ...payload, departmentId: bankDepartmentId };
@@ -229,11 +216,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         historyEntries.push({ eventName, fieldName: column, oldValue, newValue });
     }
 
-    // SLA due date (Response_Due_Date) is derived, never sent: priority SLA
-    // hours from Sla_Start_Time (Created_Time, or the last reopen) on the
-    // bank's working-day calendar. Recomputed when priority or bank changes
-    // (clearing priority clears the SLA); status changes never move it -
-    // the SLA does not pause.
+    // Due date is derived from Sla_Start_Time; recomputed on priority/bank change, never on status (no pause).
     const effectiveBankId = changes.Bank_Id !== undefined ? changes.Bank_Id : existing.Bank_Id;
     if (changes.Priority !== undefined || changes.Bank_Id !== undefined) {
         changes.Response_Due_Date = computeSlaDueDate({
@@ -248,16 +231,13 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
         return getTicketDetail(ticketId);
     }
 
-    // A Closed ticket comes back only through Reopen (ticket-reopen.service.js),
-    // which records the reason and counts it - never via the status list.
+    // A Closed ticket comes back only through Reopen (records and counts it), never via the status list.
     const closingNow = changes.Status !== undefined && resolutionClock.clockBehaviourForStatus(org.Organization_Id, changes.Status) === CLOCK_BEHAVIOUR.STOPPED;
     if (changes.Status !== undefined && existing.Clock_State === CLOCK_BEHAVIOUR.STOPPED && !closingNow) {
         throw new ApiError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR, "This ticket is Closed - use Reopen to open it again");
     }
 
-    // Resolving/closing needs every current assignee's work Done (or the
-    // assignee released), so tracking never shows open work on a closed
-    // ticket.
+    // Closing needs every current assignee's work Done, so tracking never shows open work on a closed ticket.
     if (closingNow) {
         const unfinished = assignmentRepository.findOpenUnfinished(ticketId);
         if (unfinished.length > 0) {
@@ -268,8 +248,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
 
     const db = getDB();
     const updateTxn = db.transaction(() => {
-        // Status drives the resolution clock (Clock_State, segments,
-        // Resolved_Time) - see services/sla/resolution-clock.service.js.
+        // Status drives the resolution clock - see services/sla/resolution-clock.service.js.
         if (changes.Status !== undefined) {
             Object.assign(changes, resolutionClock.applyStatusChange({
                 ticket: existing,
@@ -307,14 +286,7 @@ const updateTicket = (ticketId, payload, actorAgentId) => {
     return getTicketDetail(ticketId);
 };
 
-/**
- * Deletes a ticket (tickets.delete: Admin, Manager, Team Lead). Soft
- * delete - the row and its mails stay in the database with who deleted it
- * (a TICKET_DELETED history row), but it leaves every list, queue, My
- * Tickets, escalation and customer count. A later mail in its thread opens
- * a new ticket instead of reviving this one. It sits in the recycle bin for
- * RECYCLE_BIN_DAYS (restorable), then is purged - see recycle-bin.service.js.
- */
+// Soft delete into the recycle bin; later mail in its thread opens a new ticket instead of reviving it.
 const deleteTicket = (ticketId, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     getTicketById(ticketId);
@@ -347,10 +319,7 @@ const getTicketMetrics = (ticketId) => {
     };
 };
 
-/**
- * Company holidays inside this ticket's SLA window (Sla_Start_Time ->
- * due date) that its calendar skips - "Skips Christmas (25 Dec)".
- */
+// Company holidays inside the SLA window that its calendar skips - "Skips Christmas (25 Dec)".
 const holidaysInSla = (ticket) => {
     if (!ticket.Response_Due_Date) return [];
     const from = (ticket.Sla_Start_Time || ticket.Created_Time).slice(0, 10);

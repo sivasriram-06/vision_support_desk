@@ -1,16 +1,6 @@
 const sanitizeHtml = require("sanitize-html");
 
-/**
- * Sanitizes sender-supplied HTML email bodies before they're persisted.
- * This is defense-in-depth, not a substitute for the frontend also treating
- * this as untrusted content (React's dangerouslySetInnerHTML, or any other
- * renderer, must still be paired with its own sanitization/CSP - never trust
- * a single layer). Allows the formatting/structure/images real signatures
- * need (including remote <img src>, which is exactly how most signature
- * logos - e.g. Gmail's own signature feature - are delivered) while
- * stripping anything that can execute: <script>, event handler attributes,
- * javascript: URLs, <iframe>/<object>/<embed>, forms.
- */
+// Defense-in-depth before persisting: keeps signature formatting/images, strips anything executable.
 const sanitizeEmailHtml = (html) => {
     if (!html) {
         return null;
@@ -32,24 +22,13 @@ const sanitizeEmailHtml = (html) => {
             "*": ["style", "align", "dir", "bgcolor"]
         },
         allowedSchemes: ["http", "https", "mailto", "cid"],
-        // "data" is img-only (never allowed on <a href>, where a data:
-        // URI is navigable/clickable and a real risk) - inline images are
-        // embedded as data:image/...;base64 after this sanitizer runs (see
-        // ingestion.engine.js), so a defensive re-sanitize of already-
-        // stored HTML needs to keep that scheme rather than strip it.
+        // "data" is img-only (inline images are stored as data: URIs); never on <a href>, where it is clickable.
         allowedSchemesByTag: { img: ["http", "https", "cid", "data"] },
         allowProtocolRelative: false,
         transformTags: {
             a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" })
         },
-        // Broad enough to preserve how a real HTML email (table-based
-        // layouts, branded colors/spacing, signature boxes) actually looks
-        // in Gmail - narrowly matching sanitize-html's original 4-property
-        // list flattened almost everything to browser defaults. Still a
-        // strict per-property allowlist, not "pass the style attribute
-        // through": nothing here admits expression()/behavior/url(), and
-        // position/z-index (the classic fixed-overlay phishing vector)
-        // stay excluded.
+        // Strict per-property allowlist broad enough for real email layouts; no url()/expression() or position/z-index.
         allowedStyles: {
             "*": {
                 color: [/^#[0-9a-fA-F]{3,8}$/, /^rgb\(/, /^rgba\(/, /^[a-zA-Z]+$/],

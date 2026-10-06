@@ -11,9 +11,7 @@ import useRealtime, { TICKET_LIST_EVENTS } from '../realtime/useRealtime.js'
 
 const DEFAULT_FILTERS = { search: '', status: '', priority: '', slaBreached: false, closeReplies: false, sortBy: 'Created_Time', sortOrder: 'desc' }
 
-// All Cases has three views: the flat list, a support team's queue and a
-// bank's queue. View + selected queue live in the URL (?view=team&id=...)
-// so a refresh or a shared link opens the same queue.
+// View and selected queue live in the URL (?view=team&id=...) so a refresh or shared link opens the same queue.
 const VIEWS = [
   { value: 'list', label: 'All Cases', icon: List },
   { value: 'team', label: 'Team Queue', icon: UsersRound },

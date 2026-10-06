@@ -21,12 +21,7 @@ const formatHours = (hours) => {
   return `${hours} hrs`
 }
 
-/**
- * Admin-managed list of priorities and their SLA target (in hours).
- * Setting/changing hours here doesn't touch existing tickets retroactively
- * - it only affects the Response Due date calculated the next time a
- * ticket's priority is set (see server/src/services/ticket.service.js).
- */
+// Priority SLA hours; changes aren't retroactive, they apply the next time a ticket's priority is set.
 export default function PrioritySlaManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [] })
   const [dialog, setDialog] = useState(null) // { mode: 'add' | 'edit', priority?, priorityInput, hoursInput }

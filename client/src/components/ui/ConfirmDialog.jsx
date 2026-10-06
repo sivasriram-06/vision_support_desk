@@ -2,11 +2,7 @@ import { AlertTriangle } from 'lucide-react'
 import Modal from './Modal.jsx'
 import Button from './Button.jsx'
 
-/**
- * Generic "are you sure?" gate for destructive actions (delete, in
- * particular). Renders nothing when `open` is false, so callers can keep a
- * single instance mounted and just toggle the target being confirmed.
- */
+// "Are you sure?" gate for destructive actions; renders nothing when closed, so one instance can stay mounted.
 export default function ConfirmDialog({
   open,
   title = 'Delete this?',

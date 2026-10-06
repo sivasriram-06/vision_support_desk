@@ -26,13 +26,7 @@ const TIMINGS = [
 
 const toTiming = (offsetHours) => (offsetHours < 0 ? 'before' : offsetHours === 0 ? 'at' : 'after')
 
-/**
- * Escalation matrix: per priority, any number of levels. Level N is
- * reached a set number of hours before/at/after the ticket's SLA due date
- * (counted on the bank's working-day calendar); later levels must trigger
- * later. Escalated tickets are worked from the Escalations page. Changes
- * apply to open tickets straight away.
- */
+// Levels per priority, hours before/after SLA due on bank working days; changes apply to open tickets.
 export default function EscalationManager({ className = '' }) {
   const [state, setState] = useState({ loading: true, error: null, priorities: [], levels: [] })
   const [dialog, setDialog] = useState(null) // { mode, priority, levelId?, levelNo, timing, hours }

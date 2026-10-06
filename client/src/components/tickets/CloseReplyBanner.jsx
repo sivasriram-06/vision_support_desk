@@ -7,14 +7,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { PERMISSIONS } from '../../auth/permissions.js'
 import { ApiError, getReopenInfo, reopenTicket, splitTicket, dismissCloseReplies } from '../../utils/api.js'
 
-/**
- * Top of the ticket page for Closed tickets and their links:
- *   - a customer mailed after close -> a lead picks Reopen / Create as new
- *     issue / No action (Team Members only see that a lead decides);
- *   - a Closed ticket with no pending mail can still be reopened by a lead
- *     (e.g. the customer phoned);
- *   - "Split from #x" / "Follow-up issue #y" links and the reopen count.
- */
+// Closed tickets: a lead decides on post-close mail or reopens; also split/follow-up links and reopen count.
 export default function CloseReplyBanner({ ticket, onChanged }) {
   const navigate = useNavigate()
   const { can } = useAuth()

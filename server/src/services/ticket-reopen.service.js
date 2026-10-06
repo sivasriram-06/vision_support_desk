@@ -24,19 +24,7 @@ const {
     TICKET_HISTORY_EVENT
 } = require("../constants/ticket.constants");
 
-/**
- * A customer mail on a Closed ticket (Post_Close_Decision = PENDING) waits
- * for a lead (tickets.reopen: Admin, Manager, Team Lead, Assistant TL):
- *
- *   Reopen       same ticket, Reopen #n (HD_TICKET_REOPEN, Reopen_Count).
- *                Back to Unassigned with nobody assigned; the SLA starts
- *                fresh from the reopen time. Also usable with no pending
- *                mail (e.g. the customer phoned).
- *   New issue    a new ticket from the first pending mail (all properties
- *                copied, editable); that mail and everything after it move
- *                there, and later mails in the thread follow it.
- *   No action    e.g. a thank-you: the ticket stays Closed, nothing counted.
- */
+// Mail on a Closed ticket waits for a lead: Reopen (fresh SLA), New issue (split from that mail) or No action.
 
 const { publish, REALTIME_EVENT } = require("../realtime/bus");
 const { nowIst } = require("../utils/time");
@@ -215,11 +203,7 @@ const getReopenInfo = (ticketId) => {
     };
 };
 
-/**
- * Reopen / split / no-action refresh the ticket page and lists; a reopen
- * also releases people, so their My Tickets refresh (everyone ever on the
- * ticket). A split's new ticket is announced by createTicket itself.
- */
+// Decisions refresh ticket and lists; a reopen releases people so their My Tickets refresh too.
 const publishingDecision = (fn, reason) => (ticketId, ...args) => {
     const result = fn(ticketId, ...args);
     const actor = args[args.length - 1];

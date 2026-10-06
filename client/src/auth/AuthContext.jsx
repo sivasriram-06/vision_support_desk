@@ -11,11 +11,7 @@ import {
 
 const AuthContext = createContext(null)
 
-/**
- * Holds the signed-in agent (from GET /auth/me: role, team, permissions).
- * `status` is 'loading' until a stored token has been checked, then
- * 'signedOut' or 'signedIn'.
- */
+// Signed-in agent from GET /auth/me; `status` stays 'loading' until a stored token has been checked.
 export function AuthProvider({ children }) {
   const [agent, setAgent] = useState(null)
   const [status, setStatus] = useState(() => (getStoredToken() ? 'loading' : 'signedOut'))
@@ -31,10 +27,6 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null)
   }, [clearSession])
 
-  // All tabs share one stored login. If another tab signs in as someone
-  // else (or signs out), this tab would otherwise keep showing the old
-  // person while its requests go out as the new one - so follow the
-  // change: reload as the new account, or drop to the sign-in page.
   useEffect(() => {
     const onStorage = (event) => {
       if (event.key !== 'vsd:token' || event.newValue === event.oldValue) return

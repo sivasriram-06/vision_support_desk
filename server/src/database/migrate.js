@@ -38,10 +38,7 @@ const runMigrations = () => {
 
         const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
 
-        // Migrations are plain CREATE TABLE / CREATE INDEX files - one per
-        // table, never ALTER. To change a table in this (test) environment,
-        // edit its CREATE file, delete the SQLite database and re-run
-        // `npm run migrate && npm run seed`.
+        // One CREATE file per table, never ALTER; to change a table, edit its file and rebuild the test DB.
         const applyMigration = db.transaction(() => {
             db.exec(sql);
             db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(file);

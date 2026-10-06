@@ -40,8 +40,7 @@ router.get("/queues/escalated", validate(escalatedTicketsQuerySchema, "query"), 
 router.get("/my", validate(myTicketsQuerySchema, "query"), assignmentController.myTickets);
 router.get("/my/counts", validate(myTicketCountsQuerySchema, "query"), assignmentController.myTicketCounts);
 
-// Recycle bin: tickets a person deleted, restorable for RECYCLE_BIN_DAYS
-// (same people who may delete - tickets.delete). See recycle-bin.service.js.
+// Recycle bin: deleted tickets restorable for RECYCLE_BIN_DAYS by the same people who may delete.
 router.get("/recycle-bin", requirePermission(PERMISSIONS.TICKETS_DELETE), recycleBinController.listRecycleBin);
 router.post("/:ticketId/restore", requirePermission(PERMISSIONS.TICKETS_DELETE), validate(ticketIdParamSchema, "params"), recycleBinController.restoreTicket);
 
@@ -53,15 +52,13 @@ router.patch("/:ticketId", validate(ticketIdParamSchema, "params"), validate(upd
 // Admin, Manager, Team Lead only (tickets.delete). Moves it to the recycle bin - see ticket.service.deleteTicket.
 router.delete("/:ticketId", requirePermission(PERMISSIONS.TICKETS_DELETE), validate(ticketIdParamSchema, "params"), ticketController.deleteTicket);
 
-// Assignees: permission rules live in ticket-assignment.service.js (same
-// team = team lead, cross team = anyone working tickets).
+// Assignee permission rules live in ticket-assignment.service.js.
 router.get("/:ticketId/assignees", validate(ticketIdParamSchema, "params"), assignmentController.listAssignments);
 router.post("/:ticketId/assignees", validate(ticketIdParamSchema, "params"), validate(addAssigneesSchema), assignmentController.addAssignees);
 router.delete("/:ticketId/assignees/:agentId", validate(assigneeParamSchema, "params"), assignmentController.removeAssignee);
 router.post("/:ticketId/assignees/seen", validate(ticketIdParamSchema, "params"), assignmentController.markSeen);
 
-// Work tracking (Tracking tab): each assignee's work state, what it waits
-// on, and effort. Rules in ticket-work.service.js.
+// Tracking tab: per-assignee work state, dependencies and effort; rules in ticket-work.service.js.
 router.get("/:ticketId/tracking", validate(ticketIdParamSchema, "params"), workController.getTracking);
 router.patch("/:ticketId/assignees/:agentId/state", validate(assigneeParamSchema, "params"), validate(workStateSchema), workController.changeState);
 router.post("/:ticketId/assignees/:agentId/dependencies", validate(assigneeParamSchema, "params"), validate(dependencySchema), workController.addDependency);

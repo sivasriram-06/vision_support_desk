@@ -16,9 +16,7 @@ const findByEmail = (orgId, email) => {
     ).get(orgId, email);
 };
 
-// Agent row joined with its team (Primary_Department_Id -> department) and
-// built-in role, plus whether a sign-in credential exists. Never selects
-// the password hash itself.
+// Agent with team, role and whether a sign-in credential exists; never selects the password hash.
 const DIRECTORY_SELECT = `
     SELECT a.*,
            d.Department_Name AS Team_Name, d.Team_Type,

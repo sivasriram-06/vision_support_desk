@@ -67,8 +67,7 @@ export default function TicketDetailPage() {
 
   const [state, setState] = useState({ loading: true, error: null, data: null })
   const [refreshKey, setRefreshKey] = useState(0)
-  // Live updates: anything about this ticket from anyone refetches it; a new
-  // customer mail also shows a short notice; a delete elsewhere is flagged.
+  // Live: any change to this ticket refetches it; new customer mail shows a notice; a remote delete is flagged.
   const [liveNotice, setLiveNotice] = useState(null) // 'mail' | 'deleted' | null
   useRealtime(
     [RT.TICKET_CHANGED, RT.TICKET_CONVERSATION, RT.TICKET_ASSIGNMENT, RT.TICKET_REOPEN, RT.TICKET_DELETED, RT.ESCALATION_CHANGED],
@@ -157,7 +156,7 @@ export default function TicketDetailPage() {
       <div className="flex flex-col gap-5">
         {BackLink}
         <div className="h-40 animate-pulse rounded-2xl bg-white/60" />
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="h-64 animate-pulse rounded-2xl bg-white/60" />
           <div className="h-64 animate-pulse rounded-2xl bg-white/60" />
         </div>
@@ -241,7 +240,8 @@ export default function TicketDetailPage() {
 
       <CloseReplyBanner ticket={ticket} onChanged={() => setRefreshKey((k) => k + 1)} />
 
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_400px]">
+      {/* Properties sit beside the conversation from 1024px (laptops at 100% zoom, Edge with its side bar open); narrower panel until xl. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex w-fit gap-1 rounded-xl border border-slate-200/90 bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {TABS.map(({ value, label, icon: Icon }) => (

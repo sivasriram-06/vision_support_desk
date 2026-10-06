@@ -30,16 +30,13 @@ export const setStoredToken = (token) => {
   }
 }
 
-// AuthProvider registers this so any 401 (expired/revoked session) drops
-// the user back to the login screen, wherever the request came from.
+// Set by AuthProvider so any 401 (expired/revoked session) drops the user back to the login screen.
 let onUnauthorized = null
 export const setUnauthorizedHandler = (handler) => {
   onUnauthorized = handler
 }
 
-// withCredentials so the server's httpOnly session cookie is stored/sent -
-// it's what authenticates plain <a href> attachment downloads. API calls
-// themselves authenticate with the Bearer header below.
+// withCredentials: the httpOnly cookie authenticates <a href> downloads; API calls use the Bearer header.
 const axiosClient = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL, withCredentials: true })
 
 axiosClient.interceptors.request.use((config) => {

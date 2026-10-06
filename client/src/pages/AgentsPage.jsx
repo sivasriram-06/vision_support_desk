@@ -30,8 +30,7 @@ const teamLabelOf = (agent) => {
   return NO_TEAM_LABEL
 }
 
-// Heads first, then teams alphabetically, then agents with no team; inside
-// a team, by role rank (lead first) and name - the same shape as the KB sheet.
+// Heads, then teams A-Z, then no team; within a team by role rank and name (same shape as the KB sheet).
 const groupRank = (label) => (label === ALL_TEAMS_LABEL ? 0 : label === NO_TEAM_LABEL ? 2 : 1)
 const sortAgents = (agents) =>
   [...agents].sort((a, b) => {
@@ -161,8 +160,7 @@ export default function AgentsPage() {
   const [departments, setDepartments] = useState([])
   const [roles, setRoles] = useState([])
   const [filters, setFilters] = useState({ search: '', team: '', role: '' })
-  // Agents with no built-in role are leftovers from the Zoho import / Gmail
-  // senders rather than the support roster, so they're hidden by default.
+  // Agents with no built-in role are Zoho import / Gmail leftovers, not the roster, so hidden by default.
   const [showUnroled, setShowUnroled] = useState(false)
   const [editing, setEditing] = useState(null) // { agentId?, initial }
   const [pendingDelete, setPendingDelete] = useState(null)

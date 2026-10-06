@@ -12,17 +12,7 @@ const holidayRepository = require("../../repositories/holiday.repository");
 require("./holiday-calendar");
 const { toIst } = require("../../utils/time");
 
-/**
- * Resolution time = how long our side actually worked a ticket - distinct
- * from the SLA due date. The clock RUNS while the ticket is in a RUNNING
- * status (e.g. "In Progress"), PAUSES while we wait on the bank (e.g. "On
- * Hold - Client"), and STOPS at Resolved/Closed. Each running stretch is a
- * row in HD_TICKET_CLOCK_SEGMENT; the total is the support-hours minutes of
- * all segments: only time inside the bank's support window (IST) on its
- * working days counts, or every minute on a 24x7 bank.
- *
- * Everything here that writes must run inside the caller's transaction.
- */
+// Resolution time (not SLA): support-hours minutes of RUNNING-status segments; writes run in caller's txn.
 
 const toDate = (value) => (value ? new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`) : null);
 
@@ -35,13 +25,7 @@ const clockBehaviourForStatus = (orgId, status) => {
 
 const calendarForBankId = (bankId) => getCalendar(bankId ? bankRepository.findById(bankId) : null);
 
-/**
- * Minutes agents logged with the holiday timer on this ticket. Holidays are
- * skipped by the support window, so this adds the holiday time actually
- * worked back - only for days still a holiday on this calendar (a holiday
- * removed later already counts through the normal window). Resolution time
- * only; never the SLA.
- */
+// Holiday-timer minutes, only for days still a holiday (removed ones count via the window); never the SLA.
 const holidayWorkMinutes = (ticketId, calendar, now = new Date()) =>
     holidayRepository.work.findWorkByTicketId(ticketId)
         .filter((w) => isHolidayDate(w.Holiday_Date, calendar))
@@ -54,10 +38,7 @@ const computeResolutionMinutes = (ticketId, calendar, now = new Date()) =>
         0
     ) + holidayWorkMinutes(ticketId, calendar, now);
 
-/**
- * Live clock for the browser: counting while inside the support window -
- * or, on a holiday, while someone's holiday timer runs (until midnight IST).
- */
+// Live clock counts inside the support window, or on a holiday while a holiday timer runs (to midnight IST).
 const liveClockFor = (ticketId, calendar, now) => {
     const todayIst = toIst(now).slice(0, 10);
     const timerRunning = isHolidayDate(todayIst, calendar) &&
@@ -68,12 +49,7 @@ const liveClockFor = (ticketId, calendar, now) => {
     return supportClockNow(calendar, now);
 };
 
-/**
- * Moves the resolution clock for a status change and returns the
- * HD_TICKET_MASTER column changes that go with it (Clock_State,
- * Resolution_Started_Time, Resolved_Time, Closed_Time).
- * `ticket` is the row before the change; `bankId` the bank after it.
- */
+// Moves the clock for a status change, returns ticket column changes; `ticket` pre-change, `bankId` after.
 const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now = new Date() }) => {
     const nowIso = toIst(now);
     const oldState = ticket.Clock_State || CLOCK_BEHAVIOUR.NOT_STARTED;
@@ -113,8 +89,7 @@ const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now
     const metrics = metricsRepository.findMetricsByTicketId(ticket.Ticket_Id);
     if (metrics) {
         metricsRepository.updateById(metrics.Metric_Id, {
-            // Reopen_Count is not bumped here: only an explicit Reopen
-            // (ticket-reopen.service.js) counts.
+            // Reopen_Count is not bumped here: only an explicit Reopen (ticket-reopen.service.js) counts.
             Resolution_Time_Mins: computeResolutionMinutes(ticket.Ticket_Id, calendarForBankId(bankId), now),
             Modified_By: actorAgentId
         });
@@ -122,13 +97,7 @@ const applyStatusChange = ({ ticket, newStatus, bankId, actorAgentId, orgId, now
     return changes;
 };
 
-/**
- * An admin changed what a status does to the clock on the Config page:
- * tickets sitting in that status right now move to the new behaviour at
- * once (e.g. making "Open" RUNNING starts the clock on every Open ticket
- * from this moment - nothing is back-dated). Runs in the caller's
- * transaction.
- */
+// A status's clock behaviour changed: tickets in it move to the new behaviour from now (nothing back-dated).
 const resyncTicketsInStatus = ({ orgId, status, actorAgentId, now = new Date() }) => {
     const newState = clockBehaviourForStatus(orgId, status);
     let moved = 0;
@@ -141,12 +110,7 @@ const resyncTicketsInStatus = ({ orgId, status, actorAgentId, now = new Date() }
     return moved;
 };
 
-/**
- * A bank's calendar or support hours changed: re-total the stored
- * Resolution_Time_Mins of its resolved tickets on the new calendar. Open
- * tickets are always totalled live, so they need nothing. Runs in the
- * caller's transaction.
- */
+// Bank calendar changed: re-total stored resolution time of its resolved tickets (open ones are always live).
 const recomputeStoppedResolutionForBank = (bankId, actorAgentId) => {
     const calendar = calendarForBankId(bankId);
     for (const ticket of ticketRepository.findStoppedByBankId(bankId)) {
@@ -163,8 +127,7 @@ const recomputeStoppedResolutionForBank = (bankId, actorAgentId) => {
 const getResolutionSummary = (ticket, now = new Date()) => ({
     clockState: ticket.Clock_State,
     resolutionMinutes: computeResolutionMinutes(ticket.Ticket_Id, calendarForBankId(ticket.Bank_Id), now),
-    // For a live display in the browser: while RUNNING, add the minutes since
-    // computedAt when `counting`, up to `until` (then refetch once).
+    // Browser adds minutes since computedAt while `counting`, up to `until` (then refetches once).
     liveClock: ticket.Clock_State === CLOCK_BEHAVIOUR.RUNNING
         ? (({ counting, until }) => ({ counting, until: until ? toIst(until) : null, computedAt: toIst(now) }))(liveClockFor(ticket.Ticket_Id, calendarForBankId(ticket.Bank_Id), now))
         : null,

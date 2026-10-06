@@ -9,8 +9,7 @@ const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
 const { ROLE_KEYS } = require("../constants/permissions");
 
-// Only a real Admin may touch another Admin's sign-in, so a Manager with
-// admin access can't reset the Admin's password and take the account over.
+// Only an Admin may touch another Admin's sign-in, so a Manager can't reset it and take the account over.
 const assertCanManageLogin = (targetAgentId, actor) => {
     const target = agentService.getAgentById(targetAgentId);
     const targetDirectory = agentRepository.findDirectoryById(targetAgentId);

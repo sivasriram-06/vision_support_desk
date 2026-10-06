@@ -38,14 +38,6 @@ function MessageCard({ message, authorName }) {
             After close · {POST_CLOSE_LABEL[message.Post_Close_Decision]}
           </span>
         )}
-        {/* <span
-          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${
-            isInbound ? 'bg-sky/10 text-sky-dark' : 'bg-primary/10 text-primary-dark'
-          }`}
-        >
-          {isInbound ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
-          {isInbound ? 'Customer' : 'Agent reply'}
-        </span> */}
       </div>
 
       {message.Content_Html ? (

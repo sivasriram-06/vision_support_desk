@@ -1,11 +1,6 @@
 const logger = require("../utils/logger");
 
-/**
- * Permanently deletes tickets that have been in the recycle bin longer than
- * RECYCLE_BIN_DAYS (recycle-bin.service.purgeExpired). Runs once at start-up
- * and then hourly - a ticket is purged within an hour of its time running
- * out, and restore is refused from the exact moment it runs out.
- */
+// Purges expired recycle-bin tickets at start-up then hourly; restore is refused from the exact expiry moment.
 const PURGE_INTERVAL_MS = 60 * 60 * 1000;
 let handle = null;
 

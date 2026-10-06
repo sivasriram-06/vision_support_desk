@@ -10,8 +10,7 @@ const base = createRepository({
     columns: BANK_COLUMNS
 });
 
-// Bank row + its support team's name. Resources are attached separately
-// (attachResources) so one query serves both list and detail.
+// Bank + support team name; resources attached separately so one query serves list and detail.
 const DETAIL_SELECT = `
     SELECT b.*, d.Department_Name AS Support_Team_Name
     FROM ${DB_TABLES.BANK} b
@@ -74,10 +73,7 @@ const hasResources = (bankId) => {
     ).get(bankId);
 };
 
-/**
- * Replaces one resource type's agent list for a bank: rows no longer
- * listed are soft-deleted, new ones inserted, unchanged ones kept.
- */
+// Replaces a bank's agent list for one resource type: dropped rows soft-deleted, unchanged ones kept.
 const replaceResources = (bankId, resourceType, agentIds, { actorAgentId, orgId }) => {
     const db = getDB();
     const current = db.prepare(

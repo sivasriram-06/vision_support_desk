@@ -31,12 +31,7 @@ const directoryOrThrow = (agentId) => {
 
 const getAgentDirectoryById = (agentId) => directoryOrThrow(agentId);
 
-/**
- * Role changes are permission-sensitive: they need the Admin-page
- * permission (not just agents.manage), only an Admin can grant or remove
- * the Admin role, and nobody can change their own role (no self-promotion,
- * no accidental self-lockout).
- */
+// Role changes need Admin-page access; only an Admin grants/removes Admin; nobody changes their own role.
 const assertCanSetRole = (targetAgentId, currentRoleKey, newRoleId, actor) => {
     if (!actor.permissions.includes(PERMISSIONS.ADMIN_ACCESS)) {
         throw new ApiError(HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN, "Changing roles requires Admin controller access");
@@ -56,11 +51,7 @@ const assertTeam = (departmentId) => {
     if (departmentId) departmentService.getDepartmentById(departmentId);
 };
 
-/**
- * Creates an agent (Resource) with team + role. No sign-in credential is
- * provisioned here - an admin issues a temporary password from the Admin
- * page when the person should be able to log in.
- */
+// No sign-in credential here - an admin issues a temporary password from the Admin page when needed.
 const createAgent = (payload, actor) => {
     const org = organizationService.getDefaultOrganization();
     const email = payload.email.trim().toLowerCase();
@@ -141,15 +132,7 @@ const deleteAgent = (agentId, actor) => {
     authService.revokeLogin(agentId, actor.agentId);
 };
 
-/**
- * Used by the Gmail ingestion engine to attribute an outbound (agent-sent)
- * message: reuses the existing agent for that From address when one
- * exists, otherwise creates one from the real name/email Gmail itself
- * reports on the message - never a hardcoded placeholder. Whatever mailbox
- * the .env credentials point to (test today, production later), whoever's
- * name appears in that mailbox's own "From" header is who shows up here,
- * with no code change needed when the credentials change.
- */
+// Gmail ingestion: agent for a sent mail's From address, created from Gmail's own header if missing.
 const findOrCreateBySender = ({ email, name }, actorAgentId) => {
     const org = organizationService.getDefaultOrganization();
     const normalizedEmail = email.trim().toLowerCase();

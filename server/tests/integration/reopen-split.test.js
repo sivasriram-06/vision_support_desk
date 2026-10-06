@@ -74,11 +74,7 @@ const closeTicket = (ticketId) => ticketService.updateTicket(ticketId, { status:
 
 let customerSeq = 0;
 
-/**
- * An email ticket on the support team's bank with priority P2 (so it has an
- * SLA), `withAssignee` puts the team member on it with work Done, then it is
- * Closed. Returns the original mail and the ticket id.
- */
+// A Closed P2 email ticket (so it has an SLA); `withAssignee` adds the team member with work Done.
 const closedEmailTicket = async ({ withAssignee = false, properties = {} } = {}) => {
     customerSeq += 1;
     const from = { name: "Bank Customer", email: `rs.customer${customerSeq}@bank.test` };

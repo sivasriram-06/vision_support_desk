@@ -15,31 +15,12 @@ const { PERMISSIONS } = require("../constants/permissions");
 const { PICKLIST_FIELD } = require("../constants/picklist.constants");
 const { TICKET_HISTORY_EVENT, NEW_EMAIL_TICKET_STATUS } = require("../constants/ticket.constants");
 
-/**
- * Who works a ticket. A ticket has any number of equal assignees
- * (HD_TICKET_ASSIGNMENT). Rules:
- *
- *   Assign   - the first assignment is made by Admin / Manager / Team Lead /
- *              Assistant TL (tickets.assign_any or tickets.assign_team).
- *              After that, anyone assigned to the ticket may bring in any
- *              active agent of any team, so people work in parallel.
- *   Release  - the assignee themselves, whoever assigned them,
- *              tickets.assign_any, or a team lead of the ticket's team
- *              (anyone on it, cross-team included) or of the assignee's team.
- *   Is_Cross_Team marks an assignee outside the ticket's own team.
- *
- * Every add/release writes a history row, so ticket tracking can show who
- * assigned whom and when.
- */
+// Equal assignees per ticket; leads make the first assignment, then assignees may bring anyone in. All logged.
 
 const { publish, REALTIME_EVENT } = require("../realtime/bus");
 const { nowIst } = require("../utils/time");
 
-/**
- * After an assignment change: the ticket page / queues refresh for everyone,
- * and My Tickets (badge + lists) for the people it touches - everyone ever
- * assigned to the ticket, whoever assigned them, and the actor.
- */
+// Ticket/queues refresh for all; My Tickets for everyone ever assigned, their assigners and the actor.
 const publishAssignmentChange = (ticketId, actorAgentId, extraAgentIds = []) => {
     const rows = assignmentRepository.findByTicketId(ticketId);
     const agents = [actorAgentId, ...extraAgentIds, ...rows.map((a) => a.Agent_Id), ...rows.map((a) => a.Assigned_By)];
@@ -61,13 +42,7 @@ const getAgent = (agentId) => {
 
 const isCrossTeam = (ticket, agent) => !agent.Primary_Department_Id || agent.Primary_Department_Id !== ticket.Department_Id;
 
-/**
- * Can `actor` assign people to `ticketId`? Throws with the reason if not.
- *   - Admin / Manager (tickets.assign_any) and Team Lead / Assistant TL
- *     (tickets.assign_team) always can - they make the first assignment.
- *   - Once assigned, anyone currently assigned to the ticket can bring in
- *     any other agent, own team or cross-team, to work in parallel.
- */
+// Leads (assign_any / assign_team) always can; otherwise only someone already assigned can bring others in.
 const assertCanAssign = (actor, ticketId) => {
     const has = (key) => actor.permissions.includes(key);
     if (has(PERMISSIONS.TICKETS_ASSIGN_ANY) || has(PERMISSIONS.TICKETS_ASSIGN_TEAM)) return;
@@ -81,13 +56,7 @@ const assertCanAssign = (actor, ticketId) => {
     throw forbidden("Only people assigned to this ticket can bring others in");
 };
 
-/**
- * Can `actor` take `agent` off `ticket`? The assignee themselves and
- * whoever assigned them always can; otherwise tickets.assign_any, or a
- * team lead (tickets.assign_team) of the ticket's team - they answer for
- * the ticket, so they can remove anyone on it, cross-team people included -
- * or of the assignee's own team.
- */
+// Release: the assignee, their assigner, assign_any, or a team lead of the ticket's or the assignee's team.
 const assertCanRelease = (actor, ticket, agent, assignment) => {
     if (agent.Agent_Id === actor.agentId || assignment.Assigned_By === actor.agentId) return;
     const has = (key) => actor.permissions.includes(key);
@@ -97,11 +66,7 @@ const assertCanRelease = (actor, ticket, agent, assignment) => {
     throw forbidden("Only the assignee, whoever assigned them, or a team lead of this ticket's team can remove them");
 };
 
-/**
- * First assignee on a ticket still sitting in the intake status moves it
- * to "Open" (when that status exists), so an assigned ticket never reads
- * "Unassigned".
- */
+// First assignee moves an intake ticket to "Open" so an assigned ticket never reads "Unassigned".
 const promoteFromIntake = (ticket, actorAgentId, orgId) => {
     if (ticket.Status !== NEW_EMAIL_TICKET_STATUS) return;
     if (!picklistRepository.findByValue(orgId, PICKLIST_FIELD.STATUS, "Open")) return;
@@ -125,8 +90,7 @@ const addAssignees = (ticketId, agentIds, actor, { note = null } = {}) => {
         const time = nowIso();
         for (const agent of agents) {
             if (assignmentRepository.findOpen(ticketId, agent.Agent_Id)) continue;
-            // A team already on the ticket keeps its round; a team coming
-            // back after leaving starts the next round.
+            // A team already on the ticket keeps its round; a team coming back starts the next round.
             const teamId = agent.Primary_Department_Id || null;
             const roundNo = assignmentRepository.findOpenTeamRound(ticketId, teamId) || assignmentRepository.countTeamRounds(ticketId, teamId) + 1;
             const assignmentId = generateId(DB_TABLES.TICKET_ASSIGNMENT);

@@ -57,11 +57,7 @@ function Breakdown({ rows }) {
   )
 }
 
-/**
- * Tracking tab (internal): the ticket's whole journey - who held it, who
- * waited on whom, how long each person / team / status took, and every
- * event with the time it sat until the next one.
- */
+// Internal tracking tab: who held the ticket, who waited on whom, time per person/team/status, every event.
 export default function TrackingTab({ ticket, onChanged }) {
   const { can, agent: me } = useAuth()
   const [state, setState] = useState({ loading: true, error: null, data: null })

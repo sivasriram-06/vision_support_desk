@@ -4,18 +4,9 @@ const { connectDB, closeDB } = require("../config/db");
 const env = require("../config/env");
 const logger = require("../utils/logger");
 
-/**
- * One-off maintenance script: wipes everything Gmail ingestion has ever
- * created (tickets and all their child rows, contacts, the ingestion
- * cursor, and attachment files on disk) while leaving the seeded
- * infrastructure (org/department/system agent/channel/mail reply address)
- * intact, so `npm run sync` (or the background job) can rebuild from a
- * clean slate with the corrected oldest-first threading order.
- * Usage: node src/database/reset-ingested-data.js
- */
-// Order matters: children (tables with a foreign key pointing elsewhere)
-// must be cleared before the tables they reference. _GMAIL_INGESTED_MESSAGE
-// references both HD_TICKET_MASTER and HD_TICKET_THREAD, so it goes first.
+// One-off: wipes all Gmail-ingested data (keeps seeded setup) so the sync can rebuild from a clean slate.
+
+// Children before the tables they reference; _GMAIL_INGESTED_MESSAGE references both ticket tables, so first.
 const TABLES_TO_CLEAR = [
     "_GMAIL_INGESTED_MESSAGE",
     "HD_TICKET_TAG_MAP",

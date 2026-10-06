@@ -35,10 +35,7 @@ const EVENT_STYLE = {
   HOLIDAY: { icon: CalendarOff, className: 'bg-primary/10 text-primary-dark' },
 }
 
-/**
- * Every event on the ticket in time order, each with how long the ticket
- * sat until the next thing happened. Filter chips narrow it down.
- */
+// Ticket events in time order, each with how long the ticket sat until the next one; filter chips narrow it.
 export default function TrackingTimeline({ events }) {
   const [filter, setFilter] = useState('ALL')
   const [newestFirst, setNewestFirst] = useState(true)

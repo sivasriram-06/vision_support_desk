@@ -24,16 +24,7 @@ const isChanged = (key, payload, existing, column) => {
     return normalize(payload[key]) !== normalize(existing[column]);
 };
 
-/**
- * Field-level authorization for PATCH /tickets/:id. Only fields that
- * actually change are checked, so a Team Member re-saving the panel with
- * an unchanged priority isn't refused for "editing properties".
- *
- *   Status                -> tickets.edit_status
- *   Everything else       -> tickets.edit_properties (incl. Bank)
- *
- * Assignees are not a PATCH field - see ticket-assignment.service.js.
- */
+// Only changed fields are checked (Status: edit_status, rest: edit_properties), so re-saving isn't refused.
 const assertCanUpdateTicket = (actor, existing, payload) => {
     const has = (key) => actor.permissions.includes(key);
 

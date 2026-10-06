@@ -112,8 +112,7 @@ describe("first assignment of an unassigned ticket", () => {
         assert.equal(detail.body.data.Status, "Open");
     });
 
-    // tickets.assign_team is labelled "Assign within own team"; assertCanAssign
-    // returns early for either assign permission without looking at the team.
+    // tickets.assign_team means "within own team", but assertCanAssign returns early without checking the team.
     test("a Team Lead cannot make the first assignment to an agent of another team",
         { todo: "BUG: assertCanAssign (ticket-assignment.service.js:73) lets tickets.assign_team assign anyone in any team" },
         async () => {

@@ -1,7 +1,4 @@
-/**
- * Shapes success responses per the project's global API response contract
- * (docs/Zoho_Desk_UI_Module_API_Reference.docx, section 11).
- */
+// Success response shapes per the API contract (docs/Zoho_Desk_UI_Module_API_Reference.docx, section 11).
 
 const ok = (res, status, data, meta = null) => {
     const body = { data };

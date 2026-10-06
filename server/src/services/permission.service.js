@@ -15,11 +15,7 @@ const parsePermissions = (json) => {
     }
 };
 
-/**
- * Effective permission keys for a role row. Admin always has everything -
- * that role is not editable, so an admin can never lock themselves out of
- * the Admin page. A missing/legacy role grants nothing.
- */
+// Admin always has everything (so it can't lock itself out of the Admin page); a missing role grants nothing.
 const getRolePermissions = (role) => {
     if (!role || !role.Role_Key) return [];
     if (role.Role_Key === ROLE_KEYS.ADMIN) return [...ALL_PERMISSION_KEYS];

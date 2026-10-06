@@ -12,13 +12,7 @@ import { ApiError, getAgents, addTicketAssignees, removeTicketAssignee } from '.
 
 const fullNameOf = (a) => [a.First_Name, a.Last_Name].filter(Boolean).join(' ')
 
-/**
- * A ticket's assignees - several, all equal - with add/remove in place.
- * Mirrors the server rules (ticket-assignment.service.js):
- *   - same team as the ticket: team lead (own team) or assign_any
- *   - any other team (Java, Angular...): anyone who works tickets
- *   - remove: yourself, someone you assigned, or anyone you could assign
- */
+// A ticket's assignees (several, all equal) with add/remove; mirrors ticket-assignment.service.js rules.
 export default function AssigneesSection({ ticket, bank, onChanged }) {
   const { can, agent: me } = useAuth()
   const canAssignAny = can(PERMISSIONS.TICKETS_ASSIGN_ANY)
@@ -32,9 +26,7 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
   const [error, setError] = useState(null)
   const assignees = ticket.Assignees || []
 
-  // Leads and above make the first assignment; after that anyone assigned
-  // to the ticket can bring in any agent, own team or cross-team. Mirrors
-  // ticket-assignment.service.js on the server.
+  // Leads make the first assignment; after that any assignee can bring in any agent (mirrors the server).
   const isAssignee = assignees.some((a) => a.agentId === me?.agentId)
   const canAssign = canAssignAny || canAssignTeam || (canWork && isAssignee)
 
@@ -45,8 +37,7 @@ export default function AssigneesSection({ ticket, bank, onChanged }) {
       .catch(() => setError('Could not load people.'))
   }, [picking, agents.length])
 
-  // Pickable people grouped by team: the ticket's own team first, then
-  // every other team as cross-team.
+  // Pickable people grouped by team: the ticket's own team first, then the rest as cross-team.
   const groups = useMemo(() => {
     const current = new Set(assignees.map((a) => a.agentId))
     const byTeam = new Map()

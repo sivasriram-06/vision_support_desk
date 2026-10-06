@@ -45,11 +45,7 @@ function Bars({ items, start, end }) {
   )
 }
 
-/**
- * Gantt-style view: a row for the ticket's status, then one row per
- * assignee's work coloured by work state. Overlapping bars = parallel
- * work; amber = waiting on someone else. The critical path is marked.
- */
+// Gantt view: status row plus a row per assignee; overlap = parallel work, amber = waiting on someone.
 export default function TrackingSwimlane({ tracking }) {
   const start = ms(tracking.startTime)
   const end = ms(tracking.endTime)

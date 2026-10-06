@@ -2,15 +2,9 @@ const { getDB } = require("../config/db");
 const { nowIst, NOW_IST_SQL } = require("../utils/time");
 
 
-/**
- * Factory that gives every HD_* table repository the same CRUD primitives
- * over raw parameterized SQL (better-sqlite3), so individual repositories
- * only need to declare their table, primary key and columns, plus any
- * table-specific queries.
- */
+// Shared CRUD over parameterized SQL; each repository just declares its table, primary key and columns.
 const createRepository = ({ table, primaryKey, columns }) => {
-    // Whether the table has a Created_Time column - looked up once. The DB
-    // default (datetime('now'), UTC) is never relied on: times are IST.
+    // Looked up once; the DB default (datetime('now'), UTC) is never relied on - times are IST.
     let hasCreatedTime = null;
     const tableHasCreatedTime = () => {
         if (hasCreatedTime === null) {
@@ -19,10 +13,7 @@ const createRepository = ({ table, primaryKey, columns }) => {
         return hasCreatedTime;
     };
 
-    /**
-     * A new row counts as last modified when and by whom it was created, so
-     * Modified_By / Modified_Time are never empty.
-     */
+    // A new row is last modified by its creator at creation, so Modified_By / Modified_Time are never empty.
     const insert = (input) => {
         const db = getDB();
         const data = { ...input };

@@ -29,9 +29,7 @@ const env = {
     nodeEnv: requireEnv("NODE_ENV"),
     port: Number(requireEnv("PORT")),
     databasePath: requireEnv("DATABASE_PATH"),
-    // IANA zone name, e.g. "Asia/Kolkata" (IST). Used for log timestamps and
-    // as the default bank time zone at seed time. Stored timestamps are always
-    // IST ISO with the +05:30 offset (utils/time.js), whatever this is set to.
+    // IANA zone for logs and the seed's default bank zone; stored timestamps are always IST +05:30 regardless.
     timezone: requireEnv("TIMEZONE"),
 
     logging: {
@@ -39,22 +37,16 @@ const env = {
         dir: requireEnv("LOG_DIR")
     },
 
-    // Where attachment bytes (from Gmail ingestion, and future direct
-    // uploads) are stored on disk. HD_TICKET_ATTACHMENT.Storage_Path is
-    // relative to this root.
+    // Attachment files root on disk; HD_TICKET_ATTACHMENT.Storage_Path is relative to it.
     attachmentsDir: requireEnv("ATTACHMENTS_DIR"),
 
-    // Days a deleted ticket stays in the recycle bin (restorable) before it
-    // is permanently deleted with its mails, notes and attachment files.
+    // Days a deleted ticket stays restorable in the recycle bin before it is permanently purged.
     recycleBinDays: requireEnvInt("RECYCLE_BIN_DAYS"),
 
     jwtSecret: requireEnv("JWT_SECRET"),
     jwtExpiresIn: requireEnv("JWT_EXPIRES_IN"),
 
-    // Seed-only and optional: the temporary password `npm run seed` gives
-    // each seeded agent that has no sign-in yet (they must change it on
-    // first login). Left unset, the seed issues no credentials and an admin
-    // sets passwords from the Admin page instead.
+    // Optional seed-only temp password for agents without a sign-in; unset means admins set passwords instead.
     seedDefaultPassword: process.env.SEED_DEFAULT_PASSWORD ? process.env.SEED_DEFAULT_PASSWORD : null,
 
     google: {
