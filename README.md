@@ -209,6 +209,7 @@ npm run dev
 | `RECYCLE_BIN_DAYS` | ✓ | `30` | Days a deleted ticket can be restored from the Recycle Bin before it is permanently deleted. |
 | `JWT_SECRET` | ✓ | *(long random string)* | Signs sign-in tokens. Changing it signs everyone out. |
 | `JWT_EXPIRES_IN` | ✓ | `1d` | Token lifetime (`8h`, `1d`, …). |
+| `SYSTEM_AGENT_EMAIL` | ✓ | `system@sunoida.com` | Email of the hidden system agent the seed creates. It owns records made by Gmail ingestion and never appears on screen. If you change it later, re-run the seed. |
 | `SEED_DEFAULT_PASSWORD` | | *(empty)* | Seed only. The temporary password given to each seeded agent without a sign-in; they must change it on first login. Leave empty to issue passwords from the Admin page instead. |
 | `GOOGLE_CLIENT_ID` | ✓ | | OAuth client ID (setup step 4). |
 | `GOOGLE_CLIENT_SECRET` | ✓ | | OAuth client secret (setup step 4). |

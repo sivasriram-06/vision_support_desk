@@ -17,6 +17,7 @@ Object.assign(process.env, {
     RECYCLE_BIN_DAYS: "30",
     JWT_SECRET: "vsd-test-secret-not-for-production",
     JWT_EXPIRES_IN: "1h",
+    SYSTEM_AGENT_EMAIL: "system@vsd-test.local",
     // No seeded passwords: tests give sign-ins only to the agents they use (fixtures.js).
     SEED_DEFAULT_PASSWORD: "",
     GOOGLE_CLIENT_ID: "test-client-id",

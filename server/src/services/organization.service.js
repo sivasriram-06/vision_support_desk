@@ -3,8 +3,8 @@ const agentRepository = require("../repositories/agent.repository");
 const ApiError = require("../utils/api-error");
 const ERROR_CODES = require("../constants/error-codes");
 const HTTP_STATUS = require("../constants/http-status");
-
-const SYSTEM_AGENT_EMAIL = "system@sunoida.com";
+const env=require("../config/env")
+const SYSTEM_AGENT_EMAIL = env.systemAgentEmail;
 
 let cachedOrg = null;
 let cachedSystemAgent = null;

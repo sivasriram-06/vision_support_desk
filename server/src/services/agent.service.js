@@ -13,7 +13,8 @@ const { publish, REALTIME_EVENT } = require("../realtime/bus");
 
 const listAgents = (query) => {
     const org = organizationService.getDefaultOrganization();
-    return agentRepository.findAll(org.Organization_Id, query);
+    // The system agent (SYSTEM_AGENT_EMAIL) is internal - never listed or assignable.
+    return agentRepository.findAll(org.Organization_Id, query).filter((agent) => agent.Email !== organizationService.SYSTEM_AGENT_EMAIL);
 };
 
 const getAgentById = (agentId) => {

@@ -46,6 +46,9 @@ const env = {
     jwtSecret: requireEnv("JWT_SECRET"),
     jwtExpiresIn: requireEnv("JWT_EXPIRES_IN"),
 
+    // Hidden system actor (seeded) that owns rows Gmail ingestion creates; never shown on screen.
+    systemAgentEmail: requireEnv("SYSTEM_AGENT_EMAIL").toLowerCase(),
+
     // Optional seed-only temp password for agents without a sign-in; unset means admins set passwords instead.
     seedDefaultPassword: process.env.SEED_DEFAULT_PASSWORD ? process.env.SEED_DEFAULT_PASSWORD : null,
 

@@ -15,7 +15,6 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { PERMISSIONS, ROLE_KEYS, ROLE_STYLE } from '../auth/permissions.js'
 import { ApiError, getAgents, createAgent, updateAgent, deleteAgent, getDepartments, getRoles } from '../utils/api.js'
 
-const SYSTEM_AGENT_EMAIL = 'system@sunoida.com'
 const ALL_TEAMS_LABEL = 'All Teams'
 const NO_TEAM_LABEL = 'Unassigned'
 
@@ -170,9 +169,7 @@ export default function AgentsPage() {
   const load = () => {
     setState((prev) => ({ loading: true, error: null, agents: prev.agents }))
     getAgents()
-      .then((res) =>
-        setState({ loading: false, error: null, agents: sortAgents(res.data.filter((a) => a.Email !== SYSTEM_AGENT_EMAIL)) }),
-      )
+      .then((res) => setState({ loading: false, error: null, agents: sortAgents(res.data) }))
       .catch((err) => setState({ loading: false, error: err instanceof ApiError ? err.message : 'Failed to load agents.', agents: [] }))
   }
 
